@@ -1,3 +1,65 @@
+#' Link Spatial Data with Copernicus Earth observation data
+#'
+#' Downloads and processes Copernicus Earth observation data based on spatial and temporal parameters,
+#' and extracts the relevant indicators for the provided spatial dataset.
+#'
+#' @param indicator Character string specifying the indicator to download (e.g., "2m_temperature").
+#' @param data An `sf` object containing the spatial data (polygons or points).
+#' @param date_var Character string specifying the name of the date variable in `data`.
+#' @param time_span Integer specifying the time span in months for averaging (default is `0`).
+#' @param time_lag Integer specifying the time lag in months to adjust the date variable (default is `0`).
+#' @param baseline Logical indicating whether to calculate a baseline (default is `FALSE`).
+#' @param min_year Character string specifying the minimum year for the baseline period (required if `baseline = TRUE`).
+#' @param max_year Character string specifying the maximum year for the baseline period (required if `baseline = TRUE`).
+#' @param order Character string specifying the date format for parsing (default is `"my"`).
+#' @param path Character string specifying the path where data will be stored (default is `"./data/raw"`).
+#'
+#' @details
+#' This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 climate data
+#' for a specified indicator and time period. It processes the spatial data to create a bounding box,
+#' constructs the necessary time sequences, and extracts the climate data corresponding to each spatial
+#' observation. If a baseline is requested, it calculates the deviation from the baseline period.
+#'
+#' **Note:** Users must have an account with the CDS and have their API key configured for `ecmwfr`.
+#'
+#' @return An `sf` object with the original spatial data and appended climate indicator values.
+#' If `baseline = TRUE`, additional columns for the baseline values and deviations are included.
+#'
+#' @importFrom sf st_transform st_bbox st_crs
+#' @importFrom dplyr mutate %>%
+#' @importFrom lubridate parse_date_time months ymd year month
+#' @importFrom terra rast extract app time crs
+#' @importFrom rlang sym
+#' @importFrom ecmwfr wf_set_key wf_request
+#'
+#' @examples
+#' \dontrun{
+#' # Example usage:
+#' library(sf)
+#' library(dplyr)
+#'
+#' # Load spatial data
+#' my_data <- st_read("path/to/your/spatial_data.shp")
+#'
+#' # Use the function to link climate data
+#' result_dataset <- poly_link(
+#'   indicator = "2m_temperature",
+#'   data = my_data,
+#'   date_var = "date_column",
+#'   time_span = 0,
+#'   time_lag = 0,
+#'   baseline = FALSE,
+#'   min_year = NULL,
+#'   max_year = NULL,
+#'   order = "ymd",
+#'   path = "./data/raw"
+#' )
+#'
+#' # View the results
+#' head(result_dataset)
+#' }
+#' @export
+
 poly_link <- function(
     indicator,
     data,
