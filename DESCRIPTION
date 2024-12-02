@@ -1,11 +1,12 @@
 Package: gxc
 Title: Easy Access to Earth Observation Data
 Version: 0.0.0.9000
-Authors@R: 
+Authors@R: c(
     person("Dennis", "Abel", , "dennis.abel@gesis.org", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-6220-2511")),
     person("Stefan", "Jünger", , "stefan.juenger@gesis.org", role = c("aut"),
-           comment = c(ORCID = "YOUR-ORCID-NO"))       
+           comment = c(ORCID = "YOUR-ORCID-NO"))
+           )
 Description: This package is part of the project "GESIS meets Copernicus". It supports users of Earth observation data by offering easy access and processing of data from Copernicus services.
 License: `use_mit_license()`
 Encoding: UTF-8
