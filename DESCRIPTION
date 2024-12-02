@@ -1,12 +1,22 @@
 Package: gxc
-Title: What the Package Does (One Line, Title Case)
+Title: Easy Access to Earth Observation Data
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+    person("Dennis", "Abel", , "dennis.abel@gesis.org", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-6220-2511")),
+    person("Stefan", "Jünger", , "stefan.juenger@gesis.org", role = c("aut"),
+           comment = c(ORCID = "YOUR-ORCID-NO"))       
+Description: This package is part of the project "GESIS meets Copernicus". It supports users of Earth observation data by offering easy access and processing of data from Copernicus services.
+License: `use_mit_license()`
 Encoding: UTF-8
+LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
+Imports: 
+  ecmwfr,
+  lubridate,
+  tidyverse,
+  sf,
+  terra
+  
+
