@@ -100,7 +100,7 @@ quality and pollutants, extreme weather events, or land use changes. The
 main data providers will be the Copernicus Monitoring Services on
 Climate Change, Atmosphere, and Land.
 
-<img src="man/figures/attribute_tree.png" align="center" height="400"/>
+<img src="man/figures/attribute_tree.PNG" align="center" height="400"/>
 
 Major attributes for indicator specification. Source: Abel and Jünger
 2024
@@ -215,26 +215,66 @@ plot(world[1])
 
 ### Store your API-key
 
-# `{r key} # api_key <- Sys.getenv("WF_API_KEY") #  # keyring::key_set_with_value(service = "wf_api_key", password = api_key) #  #`
+``` r
+api_key <- Sys.getenv("WF_API_KEY")
 
-# 
+keyring::key_set_with_value(service = "wf_api_key", password = api_key)
+```
 
-# 
+### Run poly_link-function
 
-# \### Run poly_link-function
+``` r
+dataset_out <- poly_link(
+  indicator = "2m_temperature",
+  data = world,
+  date_var = "date_raw",
+  time_span = 0,
+  time_lag = 0,
+  baseline = FALSE,
+  min_year = "1989",
+  max_year = "1990",
+  order = "my",
+  path = "./data/raw")
+```
 
-# 
+    ## User ecmwfr for ecmwfr service added successfully in keychain
 
-# `{r poly_link} # dataset_out <- poly_link( #   indicator = "2m_temperature", #   data = world, #   date_var = "date_raw", #   time_span = 0, #   time_lag = 0, #   baseline = FALSE, #   min_year = "1989", #   max_year = "1990", #   order = "my", #   path = "./data/raw") #  #`
+### Explore the extended dataset
 
-# 
+``` r
+head(dataset_out)
+```
 
-# \### Explore the extended dataset
+    ## Simple feature collection with 6 features and 8 fields
+    ## Geometry type: MULTIPOLYGON
+    ## Dimension:     XY
+    ## Bounding box:  xmin: -73.36621 ymin: -22.40205 xmax: 109.4449 ymax: 41.9062
+    ## Geodetic CRS:  WGS 84
+    ##       admin iso_a3 postal                       geometry date_raw  link_date
+    ## 1  Zimbabwe    ZWE     ZW MULTIPOLYGON (((31.28789 -2...  08-2014 2014-08-01
+    ## 2    Zambia    ZMB     ZM MULTIPOLYGON (((30.39609 -1...  08-2014 2014-08-01
+    ## 3     Yemen    YEM     YE MULTIPOLYGON (((53.08564 16...  08-2014 2014-08-01
+    ## 4   Vietnam    VNM     VN MULTIPOLYGON (((104.064 10....  08-2014 2014-08-01
+    ## 5 Venezuela    VEN     VE MULTIPOLYGON (((-60.82119 9...  08-2014 2014-08-01
+    ## 6   Vatican    VAT      V MULTIPOLYGON (((12.43916 41...  08-2014 2014-08-01
+    ##   link_date_end time_span_seq focal_value
+    ## 1    2014-08-01    2014-08-01    292.1692
+    ## 2    2014-08-01    2014-08-01    294.7293
+    ## 3    2014-08-01    2014-08-01    303.9748
+    ## 4    2014-08-01    2014-08-01    299.5058
+    ## 5    2014-08-01    2014-08-01    298.4276
+    ## 6    2014-08-01    2014-08-01    297.7539
 
-# 
+``` r
+ggplot(data = dataset_out) +
+  geom_sf(aes(fill = focal_value)) +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  labs(
+    title = "Mean temperature (K) in August 2014",
+    subtitle = "Averaged across countries",
+    fill = "Temperature (K)"
+  )
+```
 
-# `{r dataset} # head(dataset_out) #  #`
-
-# 
-
-# `{r visualize} # ggplot(data = dataset_out) + #   geom_sf(aes(fill = focal_value)) + #   scale_fill_viridis_c() + #   theme_minimal() + #   labs( #     title = "Mean temperature (K) in August 2014", #     subtitle = "Averaged across countries", #     fill = "Temperature (K)" #   ) #  #`
+![](README_files/figure-gfm/visualize-1.png)<!-- -->
