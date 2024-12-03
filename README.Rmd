@@ -51,7 +51,8 @@ separated its services for public usage along several thematic areas:
 - **Climate change**: [Copernicus Climate Change Service](https://climate.copernicus.eu/) (C3S)
 - **Emergency**: [Copernicus Emergency Management Service](https://emergency.copernicus.eu/) (CEMS).
 
-![Copernicus infrastructure and data services. Source: https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs](man/figures/copernicus_services.png){ width=30% align=center }
+<img src="man/figures/copernicus_services.png" align="center" height="200"/>
+Source: [Copernicus infrastructure and data services](https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs)
 
 This project focuses on the data provided by the Copernicus programme. However,
 this is not the only relevant source of EO data which you can consider for your

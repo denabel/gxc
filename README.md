@@ -60,15 +60,9 @@ usage along several thematic areas:
 - **Emergency**: [Copernicus Emergency Management
   Service](https://emergency.copernicus.eu/) (CEMS).
 
-<figure>
-<img src="man/figures/copernicus_services.png" style="width:30.0%"
-data-align="center"
-alt="Copernicus infrastructure and data services. Source: https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs" />
-<figcaption aria-hidden="true">Copernicus infrastructure and data
-services. Source: <a
-href="https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs"
-class="uri">https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs</a></figcaption>
-</figure>
+<img src="man/figures/copernicus_services.png" align="center" height="200"/>
+Source: [Copernicus infrastructure and data
+services](https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs)
 
 This project focuses on the data provided by the Copernicus programme.
 However, this is not the only relevant source of EO data which you can
