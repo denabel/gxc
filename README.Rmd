@@ -29,6 +29,39 @@ research data management (RDM) workflows based on FAIR and Open Data principles.
 All code is written in the open-source software R and is made available on this
 website.
 
+
+## Package features
+
+The unique feature of the tool should be the possibility of carrying out both 
+geographically and temporally high-resolution queries of data from Copernicus 
+and other Earth observation data sources, which at the same time function 
+efficiently on simple workstations albeit large amounts of data. Our tested 
+workflow development has identified five major levers: indicator type, indicator 
+intensity, focal time period, baseline time period, and spatial buffer. 
+Flexibility on these five attributes should be maximized for users. The tool 
+also offers the functionality to automatically derive spatio-temporal links with 
+other georeferenced data (e.g., surveys, digital behavioral data).
+
+Users should benefit from the core variables integrated into the interface for 
+social research. Preparatory work is currently being carried out to select 
+appropriate indicators from the corpus of indicators offered by data providers 
+and conceptualize the data integration logic. Furthermore, in exchange with users 
+and other stakeholders, we compile data products from EOD that are particularly 
+relevant for social scientists. Examples include data on local air quality and 
+pollutants, extreme weather events, or land use changes. The main data providers 
+will be the Copernicus Monitoring Services on Climate Change, Atmosphere, and Land.
+
+<img src="man/figures/attribute_tree.PNG" align="center" height="400"/>
+
+Major attributes for indicator specification. Source: Abel and Jünger 2024
+
+GESIS strongly supports the FAIR data principles and Open Data. The selection of 
+R as the programming language for the tool supports open-source infrastructure 
+development and shareability, as well as quality control via online repositories. 
+Publishing the R scripts for data management and analysis ensures the 
+reproducibility of all research steps. 
+
+
 ## Sources of Earth observation data
 
 Europe's Earth Observation programme is called [Copernicus](https://www.copernicus.eu/en).
@@ -62,42 +95,33 @@ which is jointly operated by [NASA](https://www.nasa.gov/) and the
 [US Geological Survey](https://www.usgs.gov/landsat-missions) (USGS). [Google's Earth Engine Cloud Computing Platform](https://developers.google.com/earth-engine/datasets/catalog)
 catalogs an extensive selection of additional data sets from various sources.
 
-## Package features
 
-The unique feature of the tool should be the possibility of carrying out both 
-geographically and temporally high-resolution queries of data from Copernicus 
-and other Earth observation data sources, which at the same time function 
-efficiently on simple workstations albeit large amounts of data. Our tested 
-workflow development has identified five major levers: indicator type, indicator 
-intensity, focal time period, baseline time period, and spatial buffer. 
-Flexibility on these five attributes should be maximized for users. The tool 
-also offers the functionality to automatically derive spatio-temporal links with 
-other georeferenced data (e.g., surveys, digital behavioral data).
+## API Access
 
-Users should benefit from the core variables integrated into the interface for 
-social research. Preparatory work is currently being carried out to select 
-appropriate indicators from the corpus of indicators offered by data providers 
-and conceptualize the data integration logic. Furthermore, in exchange with users 
-and other stakeholders, we compile data products from EOD that are particularly 
-relevant for social scientists. Examples include data on local air quality and 
-pollutants, extreme weather events, or land use changes. The main data providers 
-will be the Copernicus Monitoring Services on Climate Change, Atmosphere, and Land.
+The new system of data stores of the Copernicus services have simplified access.
+With an [ECMWF](https://www.ecmwf.int/)-account, most indicators from the Copernicus
+services are retrievable. In particular, this account grants access to the 
+[Climate](https://cds.climate.copernicus.eu/), [Atmosphere](https://ads.atmosphere.copernicus.eu/),
+[Early Warning](https://ewds.climate.copernicus.eu/) data Stores.
 
-<img src="man/figures/attribute_tree.PNG" align="center" height="400"/>
+To use most `gxc` functions, you need an ECMWF-account.  
 
-Major attributes for indicator specification. Source: Abel and Jünger 2024
+In order to access the Copernicus data services, we integrate the 
+[ecmwfr](https://github.com/bluegreen-labs/ecmwfr)-package into `gxc`.
 
-GESIS strongly supports the FAIR data principles and Open Data. The selection of 
-R as the programming language for the tool supports open-source infrastructure 
-development and shareability, as well as quality control via online repositories. 
-Publishing the R scripts for data management and analysis ensures the 
-reproducibility of all research steps. 
 
 ## Example: Global temperature
 
-For ERA5 and polygons
+In this example, we show how to utilize the `poly_link()`-function from the 
+`gxc`-package to integrate temperature data from the ERA5 reanalysis across 
+countries and for a specific point in time.
+
 
 ### Package setup
+
+We need some packages to load and prepare the world map (`rnaturalearth`, `sf`,
+and `tidyverse`). We also need the `keyring`-package to safely store our API key.
+Finally, we need `devtools` to load the `gxc`-package.
 
 ```{r setup}
 # Install and load required packages
@@ -112,6 +136,10 @@ devtools::load_all()
 
 
 ### Load a world map
+
+Let's assume we require global temperature data for October 2014. We load the
+shapefile containing country-level polygons, subset it to the most relevant
+variables, and add a time variable.
 
 ```{r map}
 # Download world map data
@@ -131,6 +159,9 @@ plot(world[1])
 
 
 ### Store your API-key
+
+A final setting before we can access the `poly_link`-function is to store our
+API key. By setting it to "wf_api_key", the function automatically retrieves the key.
 
 ```{r key}
 api_key <- Sys.getenv("WF_API_KEY")
@@ -158,6 +189,9 @@ dataset_out <- poly_link(
 ```
 
 ### Explore the extended dataset
+
+We can see that the function has added additional columns on the linking dates,
+and the actual values, averaged across countries.
 
 ```{r dataset}
 head(dataset_out)
