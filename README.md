@@ -3,7 +3,7 @@
 
 <img src="man/figures/gxclogo_v1_bright.png" align="right" height="200"/>
 
-Welcome to the project website of “GESIS meets Copernicus” (GxC).
+Welcome to the package website of “GESIS meets Copernicus” (gxc).
 
 For many researchers in the social sciences, Earth observation (EO) data
 represents a black box. Social science researchers face many obstacles
@@ -28,7 +28,62 @@ emphasizes research data management (RDM) workflows based on FAIR and
 Open Data principles. All code is written in the open-source software R
 and is made available on this website.
 
-## Example for ERA5 and polygons
+## Relevant sources of Earth observation data
+
+Europe’s Earth Observation programme is called
+[Copernicus](https://www.copernicus.eu/en). It is funded and managed by
+the European Commission and partners like the [European Space
+Agency](https://www.esa.int/) (ESA) and the [European Organisation for
+the Exploitation of Meteorological
+Satellites](https://www.eumetsat.int/) (EUMETSAT). It has been
+operational since 2014 and provides free access to a wealth of satellite
+data from ESA’s “Sentinel” fleet. Copernicus combines data from
+satellites, ground-based as well as air- and sea-borne sensors to track
+the Earth system and provide this information largely free for all
+customers.
+
+The ESA describes Copernicus as the world’s most ambitious Earth
+observation program, which will be further expanded in the coming years.
+On the [Copernicus homepage](https://www.copernicus.eu/en/access-data.),
+the daily data collection is estimated at 12 terabytes. Given the
+complexity of issues, Copernicus has separated its services for public
+usage along several thematic areas:
+
+- **Atmosphere**: [Copernicus Atmosphere Monitoring
+  Service](https://atmosphere.copernicus.eu/) (CAMS)
+- **Marine**: [Copernicus Marine Service](https://marine.copernicus.eu/)
+  (CMEMS)
+- **Land**: [Copernicus Land Monitoring
+  Service](https://land.copernicus.eu/en) (CLMS)
+- **Climate change**: [Copernicus Climate Change
+  Service](https://climate.copernicus.eu/) (C3S)
+- **Emergency**: [Copernicus Emergency Management
+  Service](https://emergency.copernicus.eu/) (CEMS).
+
+<figure>
+<img src="man/figures/copernicus_services.png" style="width:60.0%"
+data-align="center"
+alt="Copernicus infrastructure and data services. Source: https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs" />
+<figcaption aria-hidden="true">Copernicus infrastructure and data
+services. Source: <a
+href="https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs"
+class="uri">https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs</a></figcaption>
+</figure>
+
+This project focuses on the data provided by the Copernicus programme.
+However, this is not the only relevant source of EO data which you can
+consider for your projects. The US equivalent, for example, is based on
+the [Landsat satellite programme](https://landsat.gsfc.nasa.gov/), which
+is jointly operated by [NASA](https://www.nasa.gov/) and the [US
+Geological Survey](https://www.usgs.gov/landsat-missions) (USGS).
+[Google’s Earth Engine Cloud Computing
+Platform](https://developers.google.com/earth-engine/datasets/catalog)
+catalogs an extensive selection of additional data sets from various
+sources.
+
+## Example: Global temperature
+
+For ERA5 and polygons
 
 ### Package setup
 
