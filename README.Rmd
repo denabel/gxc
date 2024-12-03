@@ -8,7 +8,7 @@ output: github_document
 
 ```{r setup}
 # Install and load required packages
-required_packages <- c("devtools", "rnaturalearth", "sf", "tidyverse")
+required_packages <- c("devtools", "keyring", "rnaturalearth", "sf", "tidyverse")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 lapply(required_packages, library, character.only = TRUE)
@@ -16,6 +16,7 @@ lapply(required_packages, library, character.only = TRUE)
 # Load gxc package (locally for now)
 devtools::load_all()
 ```
+
 
 ## Load a world map
 
@@ -34,6 +35,17 @@ world$date_raw <- "08-2014"
 # Plot world map
 plot(world[1])
 ```
+
+
+## Store your API-key
+
+```{r key}
+api_key <- Sys.getenv("WF_API_KEY")
+
+keyring::key_set_with_value(service = "wf_api_key", password = api_key)
+
+```
+
 
 ## Run poly_link-function
 
