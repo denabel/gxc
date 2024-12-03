@@ -61,7 +61,7 @@ usage along several thematic areas:
   Service](https://emergency.copernicus.eu/) (CEMS).
 
 <figure>
-<img src="man/figures/copernicus_services.png" style="width:60.0%"
+<img src="man/figures/copernicus_services.png" style="width:30.0%"
 data-align="center"
 alt="Copernicus infrastructure and data services. Source: https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs" />
 <figcaption aria-hidden="true">Copernicus infrastructure and data
