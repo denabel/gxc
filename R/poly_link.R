@@ -30,6 +30,7 @@
 #' @importFrom lubridate parse_date_time months ymd year month
 #' @importFrom terra rast extract app time crs
 #' @importFrom rlang sym
+#' @importFrom keyring key_get
 #' @importFrom ecmwfr wf_set_key wf_request
 #'
 #' @examples
@@ -102,7 +103,8 @@ poly_link <- function(
   months <- as.character(sort(unique(month(unlist(data_sf$time_span_seq)))))
 
   # Access to API
-  wf_set_key()
+  api_key <- key_get("wf_api_key")
+  wf_set_key(key = api_key)
 
   # Specify API request
   focal_request <- list(

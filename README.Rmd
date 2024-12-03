@@ -2,11 +2,11 @@
 output: github_document
 ---
 
-### Example for ERA5 and polygons
+# Example for ERA5 and polygons
 
 ## Package setup
 
-```{r setup, include=FALSE}
+```{r setup}
 # Install and load required packages
 required_packages <- c("devtools", "rnaturalearth", "sf", "tidyverse")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
@@ -33,4 +33,41 @@ world$date_raw <- "08-2014"
 
 # Plot world map
 plot(world[1])
+```
+
+## Run poly_link-function
+
+```{r poly_link}
+dataset_out <- poly_link(
+  indicator = "2m_temperature",
+  data = world,
+  date_var = "date_raw",
+  time_span = 0,
+  time_lag = 0,
+  baseline = FALSE,
+  min_year = "1989",
+  max_year = "1990",
+  order = "my",
+  path = "./data/raw")
+
+```
+
+## Explore the extended dataset
+
+```{r dataset}
+head(dataset_out)
+
+```
+
+```{r visualize}
+ggplot(data = dataset_out) +
+  geom_sf(aes(fill = focal_value)) +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  labs(
+    title = "Mean temperature (K) in August 2014",
+    subtitle = "Averaged across countries",
+    fill = "Temperature (K)"
+  )
+
 ```
