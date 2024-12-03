@@ -60,7 +60,8 @@ usage along several thematic areas:
 - **Emergency**: [Copernicus Emergency Management
   Service](https://emergency.copernicus.eu/) (CEMS).
 
-<img src="man/figures/copernicus_services.png" align="center" height="200"/>
+<img src="man/figures/copernicus_services.png" align="center" height="400"/>
+
 Source: [Copernicus infrastructure and data
 services](https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs)
 
