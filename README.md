@@ -1,4 +1,8 @@
 
+<img src="man/figures/gxclogo_v1_bright.png" align="right" height="200"/>
+
+# gxc
+
 # Example for ERA5 and polygons
 
 ## Package setup

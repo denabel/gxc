@@ -2,9 +2,13 @@
 output: github_document
 ---
 
-# Example for ERA5 and polygons
+<img src="man/figures/gxclogo_v1_bright.png" align="right" height="200"/>
 
-## Package setup
+# gxc
+
+## Example for ERA5 and polygons
+
+### Package setup
 
 ```{r setup}
 # Install and load required packages
@@ -18,7 +22,7 @@ devtools::load_all()
 ```
 
 
-## Load a world map
+### Load a world map
 
 ```{r map}
 # Download world map data
@@ -37,7 +41,7 @@ plot(world[1])
 ```
 
 
-## Store your API-key
+### Store your API-key
 
 ```{r key}
 api_key <- Sys.getenv("WF_API_KEY")
@@ -47,7 +51,7 @@ keyring::key_set_with_value(service = "wf_api_key", password = api_key)
 ```
 
 
-## Run poly_link-function
+### Run poly_link-function
 
 ```{r poly_link}
 dataset_out <- poly_link(
@@ -64,7 +68,7 @@ dataset_out <- poly_link(
 
 ```
 
-## Explore the extended dataset
+### Explore the extended dataset
 
 ```{r dataset}
 head(dataset_out)
