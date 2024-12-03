@@ -3,9 +3,46 @@
 
 # gxc
 
-# Example for ERA5 and polygons
+<table style="width:100%;">
+<tr>
+<td style="width:70%; vertical-align:top;">
+<p>
+Welcome to the project website of “GESIS meets Copernicus” (GxC).
+</p>
+<p>
+For many researchers in the social sciences, Earth observation (EO) data
+represents a black box. Social science researchers face many obstacles
+in applying and using these data, resulting from 1) a lack of technical
+expertise, 2) a lack of knowledge of data sources and how to access
+them, 3) unfamiliarity with complex data formats, such as
+high-resolution, longitudinal raster datacubes, and 4) lack of expertise
+in integrating the data into existing social science datasets. GxC aims
+to close the gap by creating an automated interface to EO data and
+complementary resources for social science research.
+</p>
+</td>
+<td style="width:30%; vertical-align:top;">
+<img src="man/figures/gxclogo_v1_bright.png" alt="GxC Hex-Sticker" style="width:200px; display:block; margin:auto;">
+</td>
+</tr>
+</table>
 
-## Package setup
+The project’s core is creating an open-source tool to link time- and
+space-sensitive social science datasets with data from Earth observation
+programs. Detailed documentation and beginner-friendly tutorials
+complement the tool to showcase the capability of our project. The
+social science community is the main target group of our tool. At the
+same time, Earth system science researchers may similarly profit from
+integrated social science data. This project supports inter- and
+transdisciplinary research which is often made difficult because of
+technical, disciplinary, and organizational barriers. The project
+emphasizes research data management (RDM) workflows based on FAIR and
+Open Data principles. All code is written in the open-source software R
+and is made available on this website.
+
+## Example for ERA5 and polygons
+
+### Package setup
 
 ``` r
 # Install and load required packages
@@ -63,7 +100,7 @@ devtools::load_all()
 
     ## ℹ Loading gxc
 
-## Load a world map
+### Load a world map
 
 ``` r
 # Download world map data
@@ -102,7 +139,7 @@ plot(world[1])
 
 ![](README_files/figure-gfm/map-1.png)<!-- -->
 
-## Store your API-key
+### Store your API-key
 
 ``` r
 api_key <- Sys.getenv("WF_API_KEY")
@@ -110,7 +147,7 @@ api_key <- Sys.getenv("WF_API_KEY")
 keyring::key_set_with_value(service = "wf_api_key", password = api_key)
 ```
 
-## Run poly_link-function
+### Run poly_link-function
 
 ``` r
 dataset_out <- poly_link(
@@ -128,7 +165,7 @@ dataset_out <- poly_link(
 
     ## User ecmwfr for ecmwfr service added successfully in keychain
 
-## Explore the extended dataset
+### Explore the extended dataset
 
 ``` r
 head(dataset_out)
