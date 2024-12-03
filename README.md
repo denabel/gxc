@@ -76,6 +76,42 @@ Platform](https://developers.google.com/earth-engine/datasets/catalog)
 catalogs an extensive selection of additional data sets from various
 sources.
 
+## Package features
+
+The unique feature of the tool should be the possibility of carrying out
+both geographically and temporally high-resolution queries of data from
+Copernicus and other Earth observation data sources, which at the same
+time function efficiently on simple workstations albeit large amounts of
+data. Our tested workflow development has identified five major levers:
+indicator type, indicator intensity, focal time period, baseline time
+period, and spatial buffer. Flexibility on these five attributes should
+be maximized for users. The tool also offers the functionality to
+automatically derive spatio-temporal links with other georeferenced data
+(e.g., surveys, digital behavioral data).
+
+Users should benefit from the core variables integrated into the
+interface for social research. Preparatory work is currently being
+carried out to select appropriate indicators from the corpus of
+indicators offered by data providers and conceptualize the data
+integration logic. Furthermore, in exchange with users and other
+stakeholders, we compile data products from EOD that are particularly
+relevant for social scientists. Examples include data on local air
+quality and pollutants, extreme weather events, or land use changes. The
+main data providers will be the Copernicus Monitoring Services on
+Climate Change, Atmosphere, and Land.
+
+<img src="man/figures/attribution_tree.png" align="center" height="400"/>
+
+Major attributes for indicator specification. Source: Abel and Jünger
+2024
+
+GESIS strongly supports the FAIR data principles and Open Data. The
+selection of R as the programming language for the tool supports
+open-source infrastructure development and shareability, as well as
+quality control via online repositories. Publishing the R scripts for
+data management and analysis ensures the reproducibility of all research
+steps.
+
 ## Example: Global temperature
 
 For ERA5 and polygons
