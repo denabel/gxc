@@ -4,7 +4,7 @@ output: github_document
 
 <img src="man/figures/gxclogo_v1_bright.png" align="right" height="200"/>
 
-# gxc
+<h1>gxc</h1>
 
 Welcome to the project website of "GESIS meets Copernicus" (GxC).
 
@@ -66,47 +66,47 @@ plot(world[1])
 
 ### Store your API-key
 
-```{r key}
-api_key <- Sys.getenv("WF_API_KEY")
-
-keyring::key_set_with_value(service = "wf_api_key", password = api_key)
-
-```
-
-
-### Run poly_link-function
-
-```{r poly_link}
-dataset_out <- poly_link(
-  indicator = "2m_temperature",
-  data = world,
-  date_var = "date_raw",
-  time_span = 0,
-  time_lag = 0,
-  baseline = FALSE,
-  min_year = "1989",
-  max_year = "1990",
-  order = "my",
-  path = "./data/raw")
-
-```
-
-### Explore the extended dataset
-
-```{r dataset}
-head(dataset_out)
-
-```
-
-```{r visualize}
-ggplot(data = dataset_out) +
-  geom_sf(aes(fill = focal_value)) +
-  scale_fill_viridis_c() +
-  theme_minimal() +
-  labs(
-    title = "Mean temperature (K) in August 2014",
-    subtitle = "Averaged across countries",
-    fill = "Temperature (K)"
-  )
-
-```
+# ```{r key}
+# api_key <- Sys.getenv("WF_API_KEY")
+# 
+# keyring::key_set_with_value(service = "wf_api_key", password = api_key)
+# 
+# ```
+# 
+# 
+# ### Run poly_link-function
+# 
+# ```{r poly_link}
+# dataset_out <- poly_link(
+#   indicator = "2m_temperature",
+#   data = world,
+#   date_var = "date_raw",
+#   time_span = 0,
+#   time_lag = 0,
+#   baseline = FALSE,
+#   min_year = "1989",
+#   max_year = "1990",
+#   order = "my",
+#   path = "./data/raw")
+# 
+# ```
+# 
+# ### Explore the extended dataset
+# 
+# ```{r dataset}
+# head(dataset_out)
+# 
+# ```
+# 
+# ```{r visualize}
+# ggplot(data = dataset_out) +
+#   geom_sf(aes(fill = focal_value)) +
+#   scale_fill_viridis_c() +
+#   theme_minimal() +
+#   labs(
+#     title = "Mean temperature (K) in August 2014",
+#     subtitle = "Averaged across countries",
+#     fill = "Temperature (K)"
+#   )
+# 
+# ```
