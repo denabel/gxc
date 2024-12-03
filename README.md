@@ -3,13 +3,8 @@
 
 # gxc
 
-<table style="width:100%;">
-<tr>
-<td style="width:70%; vertical-align:top;">
-<p>
 Welcome to the project website of “GESIS meets Copernicus” (GxC).
-</p>
-<p>
+
 For many researchers in the social sciences, Earth observation (EO) data
 represents a black box. Social science researchers face many obstacles
 in applying and using these data, resulting from 1) a lack of technical
@@ -19,13 +14,6 @@ high-resolution, longitudinal raster datacubes, and 4) lack of expertise
 in integrating the data into existing social science datasets. GxC aims
 to close the gap by creating an automated interface to EO data and
 complementary resources for social science research.
-</p>
-</td>
-<td style="width:30%; vertical-align:top;">
-<img src="man/figures/gxclogo_v1_bright.png" alt="GxC Hex-Sticker" style="width:200px; display:block; margin:auto;">
-</td>
-</tr>
-</table>
 
 The project’s core is creating an open-source tool to link time- and
 space-sensitive social science datasets with data from Earth observation
