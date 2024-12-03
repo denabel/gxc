@@ -1,9 +1,7 @@
 
-<img src="man/figures/gxclogo_v1_bright.png" align="right" height="200"/>
+# gxc
 
-<h1>
-gxc
-</h1>
+<img src="man/figures/gxclogo_v1_bright.png" align="right" height="200"/>
 
 Welcome to the project website of “GESIS meets Copernicus” (GxC).
 
