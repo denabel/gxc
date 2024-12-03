@@ -1,0 +1,36 @@
+---
+output: github_document
+---
+
+### Example for ERA5 and polygons
+
+## Package setup
+
+```{r setup, include=FALSE}
+# Install and load required packages
+required_packages <- c("devtools", "rnaturalearth", "sf", "tidyverse")
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+lapply(required_packages, library, character.only = TRUE)
+
+# Load gxc package (locally for now)
+devtools::load_all()
+```
+
+## Load a world map
+
+```{r map}
+# Download world map data
+world <- ne_countries(scale = "medium", returnclass = "sf")
+st_geometry(world)
+
+# Subset to relevant variables
+world <- world |> 
+  select(admin, iso_a3, postal, geometry)
+
+# Create fixed date-variable
+world$date_raw <- "08-2014"
+
+# Plot world map
+plot(world[1])
+```
