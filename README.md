@@ -28,7 +28,7 @@ emphasizes research data management (RDM) workflows based on FAIR and
 Open Data principles. All code is written in the open-source software R
 and is made available on this website.
 
-## Relevant sources of Earth observation data
+## Sources of Earth observation data
 
 Europe’s Earth Observation programme is called
 [Copernicus](https://www.copernicus.eu/en). It is funded and managed by
@@ -100,7 +100,7 @@ quality and pollutants, extreme weather events, or land use changes. The
 main data providers will be the Copernicus Monitoring Services on
 Climate Change, Atmosphere, and Land.
 
-<img src="man/figures/attribution_tree.png" align="center" height="400"/>
+<img src="man/figures/attribute_tree.png" align="center" height="400"/>
 
 Major attributes for indicator specification. Source: Abel and Jünger
 2024
