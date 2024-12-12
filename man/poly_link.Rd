@@ -2,7 +2,7 @@
 % Please edit documentation in R/poly_link.R
 \name{poly_link}
 \alias{poly_link}
-\title{Link Spatial Data with Copernicus Earth observation data}
+\title{Link Spatial Data with Copernicus Earth Observation Data}
 \usage{
 poly_link(
   indicator,
@@ -11,10 +11,9 @@ poly_link(
   time_span = 0,
   time_lag = 0,
   baseline = FALSE,
-  min_year,
-  max_year,
   order = "my",
-  path = "./data/raw"
+  path = "./data/raw",
+  keep_raw = FALSE
 )
 }
 \arguments{
@@ -24,46 +23,56 @@ poly_link(
 
 \item{date_var}{Character string specifying the name of the date variable in \code{data}.}
 
-\item{time_span}{Integer specifying the time span in months for averaging (default is \code{0}).}
+\item{time_span}{Integer specifying the time span in months for averaging the climate indicator
+values prior to linking with the spatial data (default is \code{0}).}
 
-\item{time_lag}{Integer specifying the time lag in months to adjust the date variable (default is \code{0}).}
+\item{time_lag}{Integer specifying the time lag in months to shift the \code{date_var} backward
+(default is \code{0}).}
 
-\item{baseline}{Logical indicating whether to calculate a baseline (default is \code{FALSE}).}
+\item{baseline}{Either \code{FALSE} (default) or a character vector of length 2 specifying the baseline
+period in years. For example, \code{baseline = c("1980", "2010")} uses the years 1980 to 2010 as the baseline.
+If \code{FALSE}, no baseline calculation is performed.}
 
-\item{min_year}{Character string specifying the minimum year for the baseline period (required if \code{baseline = TRUE}).}
+\item{order}{Character string specifying the date format for parsing \code{date_var}
+(default is \code{"my"} for month-year format).}
 
-\item{max_year}{Character string specifying the maximum year for the baseline period (required if \code{baseline = TRUE}).}
+\item{path}{Character string specifying the directory path where data will be downloaded and/or stored
+(default is \code{"./data/raw"}).}
 
-\item{order}{Character string specifying the date format for parsing (default is \code{"my"}).}
-
-\item{path}{Character string specifying the path where data will be stored (default is \code{"./data/raw"}).}
+\item{keep_raw}{Logical value indicating whether to keep the downloaded raw \code{.grib} files.
+If \code{FALSE}, the files are deleted after processing (default is \code{FALSE}).}
 }
 \value{
-An \code{sf} object with the original spatial data and appended climate indicator values.
-If \code{baseline = TRUE}, additional columns for the baseline values and deviations are included.
+An \code{sf} object with the original spatial data and appended climate indicator values. If a baseline
+period is specified, additional columns for baseline values and deviations are included.
 }
 \description{
-Downloads and processes Copernicus Earth observation data based on spatial and temporal parameters,
+Downloads and processes Copernicus Earth observation data (ERA5) based on spatial and temporal parameters,
 and extracts the relevant indicators for the provided spatial dataset.
 }
 \details{
-This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 climate data
-for a specified indicator and time period. It processes the spatial data to create a bounding box,
-constructs the necessary time sequences, and extracts the climate data corresponding to each spatial
-observation. If a baseline is requested, it calculates the deviation from the baseline period.
+This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 monthly-averaged
+reanalysis data for a specified climate indicator and time period. It processes the spatial data to determine
+the geographic extent and constructs time sequences based on the provided \code{date_var}, \code{time_span}, and \code{time_lag}.
 
-\strong{Note:} Users must have an account with the CDS and have their API key configured for \code{ecmwfr}.
+If a baseline period is provided (e.g. \code{baseline = c("1980", "2010")}), it calculates and appends baseline
+values for comparison, as well as the deviation from the baseline. Without a baseline, only the focal climate
+indicator values are appended.
+
+If \code{keep_raw = TRUE}, the original \code{.grib} files downloaded from the CDS are retained in the specified \code{path}.
+If \code{keep_raw = FALSE}, these files are removed after processing, saving storage space.
+
+\strong{Note:} Users must have a CDS account and have their API key configured for \code{ecmwfr}.
 }
 \examples{
 \dontrun{
-# Example usage:
 library(sf)
 library(dplyr)
 
 # Load spatial data
 my_data <- st_read("path/to/your/spatial_data.shp")
 
-# Use the function to link climate data
+# Use the function without a baseline and remove raw files after processing
 result_dataset <- poly_link(
   indicator = "2m_temperature",
   data = my_data,
@@ -71,13 +80,27 @@ result_dataset <- poly_link(
   time_span = 0,
   time_lag = 0,
   baseline = FALSE,
-  min_year = NULL,
-  max_year = NULL,
   order = "ymd",
-  path = "./data/raw"
+  path = "./data/raw",
+  keep_raw = FALSE
+)
+
+# Specify a baseline period and keep the raw files
+result_with_baseline <- poly_link(
+  indicator = "2m_temperature",
+  data = my_data,
+  date_var = "date_column",
+  time_span = 0,
+  time_lag = 0,
+  baseline = c("1980", "2010"),
+  order = "ymd",
+  path = "./data/raw",
+  keep_raw = TRUE
 )
 
 # View the results
 head(result_dataset)
+head(result_with_baseline)
 }
+
 }
