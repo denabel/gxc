@@ -71,7 +71,8 @@ poly_link <- function(
     min_year,
     max_year,
     order = "my",
-    path = "./data/raw"
+    path = "./data/raw",
+    keep_raw = FALSE
   ) {
 
   # Prep data and create extent
@@ -109,6 +110,8 @@ poly_link <- function(
   wf_set_key(key = api_key)
 
   # Specify API request
+  focal_file <- paste0(indicator, "_focal_", timestamp, ".grib")
+
   focal_request <- list(
     data_format = "grib",
     variable = indicator,
@@ -118,7 +121,7 @@ poly_link <- function(
     month = months,
     area = extent,
     dataset_short_name = "reanalysis-era5-single-levels-monthly-means",
-    target = paste0(indicator, "_", timestamp, ".grib")
+    target = focal_file
   )
 
   # Download data from C3S
@@ -130,7 +133,7 @@ poly_link <- function(
   )
 
   # Load raster file
-  raster <- terra::rast(paste0(path, "/", indicator, "_", timestamp, ".grib"))
+  raster <- terra::rast(file.path(path, focal_file))
 
   # Check CRS of both datasets and adjust if necessary
   if(!identical(crs(data_sf), terra::crs(raster))) {
@@ -183,9 +186,18 @@ poly_link <- function(
   # Create new variable in dataframe
   data_sf$focal_value <- unlist(raster_values)
 
-  if(baseline==FALSE){
-    # If no baseline requested, transform back to longitude and latitude and final output
+  # If no baseline requested, transform back to longitude and latitude and final output
+  if(!baseline){
     data_sf <- st_transform(data_sf, crs = 4326)
+
+    # Remove files if keep_raw = FALSE
+    if (!keep_raw) {
+      file.remove(file.path(path, focal_file))
+      message("Raw file has been removed.")
+    } else {
+      message("Raw file has been stored at: ", file.path(path, focal_file))
+    }
+
     return(data_sf)
 
   } else{
@@ -197,6 +209,8 @@ poly_link <- function(
     baseline_years <- format(baseline_years, "%Y")
 
     # Specify API request
+    baseline_file <- paste0(indicator, "_baseline_", timestamp, ".grib")
+
     baseline_request <- list(
       data_format = "grib",
       variable = indicator,
@@ -206,7 +220,7 @@ poly_link <- function(
       month = months,
       area = extent,
       dataset_short_name = "reanalysis-era5-single-levels-monthly-means",
-      target = paste0(indicator, "_", "_baseline_", timestamp, ".grib")
+      target = baseline_file
     )
 
     # Download data from C3S
@@ -218,8 +232,7 @@ poly_link <- function(
     )
 
     # Load data
-    baseline_raster <- terra::rast(paste0(path, "/", indicator, "_", "_baseline_",
-                                          timestamp, ".grib"))
+    baseline_raster <- terra::rast(file.path(path, baseline_file))
 
     # Extract values from raster for each observation and add to dataframe
     # Different approaches for different data structures to maximize performance(?)
@@ -260,8 +273,18 @@ poly_link <- function(
         deviation = focal_value - baseline_value
       )
 
-    # Transform back to longitude and latitude and final output
+    # Transform back to longitude and latitude
     data_sf <- st_transform(data_sf, crs = 4326)
+
+    # Remove files if keep_raw = FALSE
+    if (!keep_raw) {
+      file.remove(file.path(path, focal_file))
+      file.remove(file.path(path, baseline_file))
+      message("Raw files have been removed.")
+    } else {
+      message("Raw files have been stored in: ", path)
+    }
+
     return(data_sf)
 
   }
