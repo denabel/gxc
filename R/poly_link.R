@@ -74,11 +74,10 @@ poly_link <- function(
     path = "./data/raw"
   ) {
 
-  # Transform data to spatial object with WGS84
-  data_sf <- sf::st_transform(data, crs = 4326)
-
-  # Create bounding box
-  extent <- .make_bbox(data_sf)
+  # Prep data and create extent
+  prepared <- .prep_poly(data)
+  data_sf <- prepared$data_sf
+  extent <- prepared$extent
 
   # Transform date-variable and extract relevant time points
   data_sf <- data_sf |>
