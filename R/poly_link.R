@@ -101,6 +101,9 @@ poly_link <- function(
   years <- as.character(sort(unique(year(unlist(data_sf$time_span_seq)))))
   months <- as.character(sort(unique(month(unlist(data_sf$time_span_seq)))))
 
+  # Create timestamp
+  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
+
   # Access to API
   api_key <- key_get("wf_api_key")
   wf_set_key(key = api_key)
@@ -115,7 +118,7 @@ poly_link <- function(
     month = months,
     area = extent,
     dataset_short_name = "reanalysis-era5-single-levels-monthly-means",
-    target = paste0(indicator, "_", date_var, ".grib")
+    target = paste0(indicator, "_", timestamp, ".grib")
   )
 
   # Download data from C3S
@@ -127,7 +130,7 @@ poly_link <- function(
   )
 
   # Load raster file
-  raster <- terra::rast(paste0(path, "/", indicator, "_", date_var, ".grib"))
+  raster <- terra::rast(paste0(path, "/", indicator, "_", timestamp, ".grib"))
 
   # Check CRS of both datasets and adjust if necessary
   if(!identical(crs(data_sf), terra::crs(raster))) {
@@ -136,7 +139,7 @@ poly_link <- function(
   }
 
   # Extract values from raster for each observation and add to dataframe
-  # Different approaches for different data structures to maximize performance(?)
+  # Different approaches for different data structures to maximize performance
   if(length(unique(data_sf$link_date)) == 1 & time_span == 0){
     # All observations have the same link date and direct link to focal month
     raster_values <- terra::extract(
@@ -203,7 +206,7 @@ poly_link <- function(
       month = months,
       area = extent,
       dataset_short_name = "reanalysis-era5-single-levels-monthly-means",
-      target = paste0(indicator, "_", date_var, "_baseline_", ".grib")
+      target = paste0(indicator, "_", "_baseline_", timestamp, ".grib")
     )
 
     # Download data from C3S
@@ -215,8 +218,8 @@ poly_link <- function(
     )
 
     # Load data
-    baseline_raster <- terra::rast(paste0(path, "/", indicator, "_", date_var,
-                                          "_baseline_", ".grib"))
+    baseline_raster <- terra::rast(paste0(path, "/", indicator, "_", "_baseline_",
+                                          timestamp, ".grib"))
 
     # Extract values from raster for each observation and add to dataframe
     # Different approaches for different data structures to maximize performance(?)
