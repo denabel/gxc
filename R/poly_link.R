@@ -191,7 +191,6 @@ poly_link <- function(
   }
 
   # Extract values from raster for each observation and add to dataframe
-  # Different approaches for different data structures to maximize performance
   if(length(unique(data_sf$link_date)) == 1 & time_span == 0){
     # All observations have the same link date and direct link to focal month
     raster_values <- terra::extract(
@@ -255,7 +254,7 @@ poly_link <- function(
 
   } else if (is.vector(baseline) && length(baseline) == 2) {
 
-    # Baseline requested
+    # Extract minimum and maximum baseline years
     min_year <- baseline[1]
     max_year <- baseline[2]
 
@@ -292,7 +291,6 @@ poly_link <- function(
     baseline_raster <- terra::rast(file.path(path, baseline_file))
 
     # Extract values from raster for each observation and add to dataframe
-    # Different approaches for different data structures to maximize performance(?)
     if(length(unique(data_sf$link_date)) == 1){
       # All observations have the same link date
       baseline_raster <- app(baseline_raster, mean)
@@ -332,7 +330,7 @@ poly_link <- function(
         deviation = focal_value - baseline_value
       )
 
-    # Transform back to longitude and latitude
+    # Transform back to longitude and latitude WGS84
     data_sf <- st_transform(data_sf, crs = 4326)
 
     # Remove files if keep_raw = FALSE
