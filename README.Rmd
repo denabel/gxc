@@ -181,10 +181,11 @@ dataset_out <- poly_link(
   time_span = 0,
   time_lag = 0,
   baseline = FALSE,
-  min_year = "1989",
-  max_year = "1990",
   order = "my",
-  path = "./data/raw")
+  path = "./data/raw",
+  catalogue = "reanalysis-era5-land-monthly-means",
+  by_hour = FALSE,
+  keep_raw = FALSE)
 
 ```
 
@@ -210,3 +211,4 @@ ggplot(data = dataset_out) +
   )
 
 ```
+

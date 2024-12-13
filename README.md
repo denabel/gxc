@@ -152,12 +152,15 @@ lapply(required_packages, library, character.only = TRUE)
 
     ## Linking to GEOS 3.12.1, GDAL 3.8.4, PROJ 9.3.1; sf_use_s2() is TRUE
 
+    ## Warning: Paket 'lubridate' wurde unter R Version 4.4.2 erstellt
+
     ## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
     ## ✔ dplyr     1.1.4     ✔ readr     2.1.5
     ## ✔ forcats   1.0.0     ✔ stringr   1.5.1
     ## ✔ ggplot2   3.5.1     ✔ tibble    3.2.1
-    ## ✔ lubridate 1.9.3     ✔ tidyr     1.3.1
-    ## ✔ purrr     1.0.2     
+    ## ✔ lubridate 1.9.4     ✔ tidyr     1.3.1
+    ## ✔ purrr     1.0.2
+
     ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
     ## ✖ dplyr::filter() masks stats::filter()
     ## ✖ dplyr::lag()    masks stats::lag()
@@ -261,13 +264,16 @@ dataset_out <- poly_link(
   time_span = 0,
   time_lag = 0,
   baseline = FALSE,
-  min_year = "1989",
-  max_year = "1990",
   order = "my",
-  path = "./data/raw")
+  path = "./data/raw",
+  catalogue = "reanalysis-era5-land-monthly-means",
+  by_hour = FALSE,
+  keep_raw = TRUE)
 ```
 
     ## User ecmwfr for ecmwfr service added successfully in keychain
+
+    ## Raw file has been stored at: ./data/raw/2m_temperature_focal_241213_184142.grib
 
 ### Explore the extended dataset
 
@@ -291,12 +297,12 @@ head(dataset_out)
     ## 5 Venezuela    VEN     VE MULTIPOLYGON (((-60.82119 9...  08-2014 2014-08-01
     ## 6   Vatican    VAT      V MULTIPOLYGON (((12.43916 41...  08-2014 2014-08-01
     ##   link_date_end time_span_seq focal_value
-    ## 1    2014-08-01    2014-08-01    292.1692
-    ## 2    2014-08-01    2014-08-01    294.7293
-    ## 3    2014-08-01    2014-08-01    303.9748
-    ## 4    2014-08-01    2014-08-01    299.5058
-    ## 5    2014-08-01    2014-08-01    298.4276
-    ## 6    2014-08-01    2014-08-01    297.7539
+    ## 1    2014-08-01    2014-08-01    291.9876
+    ## 2    2014-08-01    2014-08-01    294.8992
+    ## 3    2014-08-01    2014-08-01    302.7773
+    ## 4    2014-08-01    2014-08-01    298.4403
+    ## 5    2014-08-01    2014-08-01    297.4988
+    ## 6    2014-08-01    2014-08-01    297.3257
 
 ``` r
 ggplot(data = dataset_out) +
