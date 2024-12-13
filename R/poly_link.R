@@ -17,6 +17,10 @@
 #'   (default is `"my"` for month-year format).
 #' @param path Character string specifying the directory path where data will be downloaded and/or stored
 #'   (default is `"./data/raw"`).
+#' @param catalogue Character string specifying which ERA5 catalogue to use.
+#'   Options are `"reanalysis-era5-land-monthly-means"` (default, higher resolution but lower temporal
+#'   coverage)
+#'   or `"reanalysis-era5-single-levels-monthly-means"` (lower resolution but larger temporal coverage).
 #' @param keep_raw Logical value indicating whether to keep the downloaded raw `.grib` files.
 #'   If `FALSE`, the files are deleted after processing (default is `FALSE`).
 #'
@@ -29,8 +33,14 @@
 #' values for comparison, as well as the deviation from the baseline. Without a baseline, only the focal climate
 #' indicator values are appended.
 #'
-#' If `keep_raw = TRUE`, the original `.grib` files downloaded from the CDS are retained in the specified `path`.
+#' If `keep_raw = TRUE`, the original `.grib` or `NetCDF`files downloaded from the CDS are retained in the specified `path`.
 #' If `keep_raw = FALSE`, these files are removed after processing, saving storage space.
+#'
+#' The default catalogue `"reanalysis-era5-land-monthly-means"` provides higher spatial resolution at 0.1x0.1 degrees
+#' but is only available from 1950 onwards. If you need data before 1950 or if you are working with large
+#' spatial extents where finer resolution is not required, you can switch to
+#' `"reanalysis-era5-single-levels-monthly-means"`. This dataset provides a spatial resolution of 0.25x0.25 degrees and
+#' a temporal coverage until 1940.
 #'
 #' **Note:** Users must have a CDS account and have their API key configured for `ecmwfr`.
 #'
@@ -63,6 +73,7 @@
 #'   baseline = FALSE,
 #'   order = "ymd",
 #'   path = "./data/raw",
+#'   catalogue = "reanalysis-era5-land-monthly-means",
 #'   keep_raw = FALSE
 #' )
 #'
@@ -76,12 +87,22 @@
 #'   baseline = c("1980", "2010"),
 #'   order = "ymd",
 #'   path = "./data/raw",
+#'   catalogue = "reanalysis-era5-land-monthly-means",
 #'   keep_raw = TRUE
+#' )
+#'
+#' # Use the single-level catalogue if you need data prior to 1981 or for large extents
+#' result_single <- poly_link(
+#'   indicator = "2m_temperature",
+#'   data = my_data,
+#'   date_var = "date_column",
+#'   catalogue = "reanalysis-era5-single-levels-monthly-means"
 #' )
 #'
 #' # View the results
 #' head(result_dataset)
 #' head(result_with_baseline)
+#' head(result_single)
 #' }
 #'
 #' @export
@@ -95,6 +116,7 @@ poly_link <- function(
     baseline = FALSE,
     order = "my",
     path = "./data/raw",
+    catalogue = "reanalysis-era5-land-monthly-means",
     keep_raw = FALSE
   ) {
 
@@ -143,7 +165,7 @@ poly_link <- function(
     year = years,
     month = months,
     area = extent,
-    dataset_short_name = "reanalysis-era5-single-levels-monthly-means",
+    dataset_short_name = catalogue,
     target = focal_file
   )
 
@@ -171,7 +193,8 @@ poly_link <- function(
     raster_values <- terra::extract(
       raster,
       data_sf,
-      fun = "mean", # for buffer
+      fun = mean,
+      na.rm = TRUE,
       ID = FALSE
     )
   } else if (length(unique(data_sf$link_date)) > 1 & time_span == 0){
@@ -181,7 +204,8 @@ poly_link <- function(
         raster_value <- terra::extract(
           raster[[as.Date(time(raster))==data_sf[i,]$link_date]],
           data_sf[i,],
-          fun = "mean", # for buffer
+          fun = mean,
+          na.rm = TRUE,
           ID = FALSE
         )
       } else {
@@ -197,7 +221,8 @@ poly_link <- function(
         raster_value <- terra::extract(
           raster_subset,
           data_sf[i,],
-          fun = "mean", # for buffer
+          fun = mean,
+          na.rm = TRUE,
           ID = FALSE
         )
       } else {
@@ -247,7 +272,7 @@ poly_link <- function(
       year = baseline_years,
       month = months,
       area = extent,
-      dataset_short_name = "reanalysis-era5-single-levels-monthly-means",
+      dataset_short_name = catalogue,
       target = baseline_file
     )
 
@@ -270,7 +295,8 @@ poly_link <- function(
       baseline_values <- terra::extract(
         baseline_raster,
         data_sf,
-        fun = "mean", # for buffer
+        fun = mean,
+        na.rm = TRUE,
         ID = FALSE
       )
     } else {
@@ -283,7 +309,8 @@ poly_link <- function(
           baseline_value <- terra::extract(
             raster_subset,
             data_sf[i,],
-            fun = "mean", # for buffer
+            fun = mean,
+            na.rm = TRUE,
             ID = FALSE
           )
         } else {

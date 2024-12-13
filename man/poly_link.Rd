@@ -13,6 +13,7 @@ poly_link(
   baseline = FALSE,
   order = "my",
   path = "./data/raw",
+  catalogue = "reanalysis-era5-land-monthly-means",
   keep_raw = FALSE
 )
 }
@@ -39,6 +40,11 @@ If \code{FALSE}, no baseline calculation is performed.}
 \item{path}{Character string specifying the directory path where data will be downloaded and/or stored
 (default is \code{"./data/raw"}).}
 
+\item{catalogue}{Character string specifying which ERA5 catalogue to use.
+Options are \code{"reanalysis-era5-land-monthly-means"} (default, higher resolution but lower temporal
+coverage)
+or \code{"reanalysis-era5-single-levels-monthly-means"} (lower resolution but larger temporal coverage).}
+
 \item{keep_raw}{Logical value indicating whether to keep the downloaded raw \code{.grib} files.
 If \code{FALSE}, the files are deleted after processing (default is \code{FALSE}).}
 }
@@ -59,8 +65,14 @@ If a baseline period is provided (e.g. \code{baseline = c("1980", "2010")}), it 
 values for comparison, as well as the deviation from the baseline. Without a baseline, only the focal climate
 indicator values are appended.
 
-If \code{keep_raw = TRUE}, the original \code{.grib} files downloaded from the CDS are retained in the specified \code{path}.
+If \code{keep_raw = TRUE}, the original \code{.grib} or \code{NetCDF}files downloaded from the CDS are retained in the specified \code{path}.
 If \code{keep_raw = FALSE}, these files are removed after processing, saving storage space.
+
+The default catalogue \code{"reanalysis-era5-land-monthly-means"} provides higher spatial resolution at 0.1x0.1 degrees
+but is only available from 1950 onwards. If you need data before 1950 or if you are working with large
+spatial extents where finer resolution is not required, you can switch to
+\code{"reanalysis-era5-single-levels-monthly-means"}. This dataset provides a spatial resolution of 0.25x0.25 degrees and
+a temporal coverage until 1940.
 
 \strong{Note:} Users must have a CDS account and have their API key configured for \code{ecmwfr}.
 }
@@ -82,6 +94,7 @@ result_dataset <- poly_link(
   baseline = FALSE,
   order = "ymd",
   path = "./data/raw",
+  catalogue = "reanalysis-era5-land-monthly-means",
   keep_raw = FALSE
 )
 
@@ -95,12 +108,22 @@ result_with_baseline <- poly_link(
   baseline = c("1980", "2010"),
   order = "ymd",
   path = "./data/raw",
+  catalogue = "reanalysis-era5-land-monthly-means",
   keep_raw = TRUE
+)
+
+# Use the single-level catalogue if you need data prior to 1981 or for large extents
+result_single <- poly_link(
+  indicator = "2m_temperature",
+  data = my_data,
+  date_var = "date_column",
+  catalogue = "reanalysis-era5-single-levels-monthly-means"
 )
 
 # View the results
 head(result_dataset)
 head(result_with_baseline)
+head(result_single)
 }
 
 }
