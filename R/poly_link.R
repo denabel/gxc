@@ -21,6 +21,10 @@
 #'   Options are `"reanalysis-era5-land-monthly-means"` (default, higher resolution but lower temporal
 #'   coverage)
 #'   or `"reanalysis-era5-single-levels-monthly-means"` (lower resolution but larger temporal coverage).
+#' @param by_hour Logical or character. If `FALSE` (default), the monthly averaged values are derived
+#'   from the entire day (`"monthly_averaged_reanalysis"`). If a character string specifying an hour (e.g., `"03:00"`),
+#'   then the dataset `"monthly_averaged_reanalysis_by_hour_of_day"` is used, and only values from that hour of the day
+#'   are included.
 #' @param keep_raw Logical value indicating whether to keep the downloaded raw `.grib` files.
 #'   If `FALSE`, the files are deleted after processing (default is `FALSE`).
 #'
@@ -33,7 +37,7 @@
 #' values for comparison, as well as the deviation from the baseline. Without a baseline, only the focal climate
 #' indicator values are appended.
 #'
-#' If `keep_raw = TRUE`, the original `.grib` or `NetCDF`files downloaded from the CDS are retained in the specified `path`.
+#' If `keep_raw = TRUE`, the original `.grib` files downloaded from the CDS are retained in the specified `path`.
 #' If `keep_raw = FALSE`, these files are removed after processing, saving storage space.
 #'
 #' The default catalogue `"reanalysis-era5-land-monthly-means"` provides higher spatial resolution at 0.1x0.1 degrees
@@ -42,6 +46,10 @@
 #' `"reanalysis-era5-single-levels-monthly-means"`. This dataset provides a spatial resolution of 0.25x0.25 degrees and
 #' a temporal coverage until 1940.
 #'
+#' If `by_hour` is specified as an hour (e.g. `"03:00"`), monthly averages for that specific hour of the day are accessed.
+#' This can be useful if you are interested in intra-day climate patterns over long periods such as heat or cold during
+#' day or nighttime. The time is specified as UTC.
+#'
 #' **Note:** Users must have a CDS account and have their API key configured for `ecmwfr`.
 #'
 #' @return An `sf` object with the original spatial data and appended climate indicator values. If a baseline
@@ -49,7 +57,7 @@
 #'
 #' @importFrom sf st_transform st_bbox st_crs
 #' @importFrom dplyr mutate %>%
-#' @importFrom lubridate parse_date_time months ymd year month
+#' @importFrom lubridate parse_date_time ymd year month
 #' @importFrom terra rast extract app time crs
 #' @importFrom rlang sym
 #' @importFrom keyring key_get
@@ -74,6 +82,7 @@
 #'   order = "ymd",
 #'   path = "./data/raw",
 #'   catalogue = "reanalysis-era5-land-monthly-means",
+#'   by_hour = FALSE,
 #'   keep_raw = FALSE
 #' )
 #'
@@ -88,10 +97,11 @@
 #'   order = "ymd",
 #'   path = "./data/raw",
 #'   catalogue = "reanalysis-era5-land-monthly-means",
+#'   by_hour = FALSE,
 #'   keep_raw = TRUE
 #' )
 #'
-#' # Use the single-level catalogue if you need data prior to 1981 or for large extents
+#' # Use the single-level catalogue if you need data prior to 1950 or for large extents
 #' result_single <- poly_link(
 #'   indicator = "2m_temperature",
 #'   data = my_data,
@@ -99,10 +109,19 @@
 #'   catalogue = "reanalysis-era5-single-levels-monthly-means"
 #' )
 #'
+#' # Request data by a specific hour of the day
+#' result_by_hour <- poly_link(
+#'   indicator = "2m_temperature",
+#'   data = my_data,
+#'   date_var = "date_column",
+#'   by_hour = "03:00"
+#' )
+#'
 #' # View the results
 #' head(result_dataset)
 #' head(result_with_baseline)
 #' head(result_single)
+#' head(result_by_hour)
 #' }
 #'
 #' @export
@@ -117,12 +136,14 @@ poly_link <- function(
     order = "my",
     path = "./data/raw",
     catalogue = "reanalysis-era5-land-monthly-means",
+    by_hour = FALSE,
     keep_raw = FALSE
   ) {
 
   # Validate catalogue and indicator choice
   .check_valid_catalogue(catalogue)
   .check_valid_indicator(indicator, catalogue)
+  .check_valid_by_hour(by_hour)
 
   # Access to API
   api_key <- key_get("wf_api_key")
@@ -155,8 +176,18 @@ poly_link <- function(
   years <- as.character(sort(unique(year(unlist(data_sf$time_span_seq)))))
   months <- as.character(sort(unique(month(unlist(data_sf$time_span_seq)))))
 
+  # Average across entire day or by hour
+  if (isFALSE(by_hour)) {
+    product_type <- "monthly_averaged_reanalysis"
+    request_time <- "00:00"
+  } else {
+    product_type <- "monthly_averaged_reanalysis_by_hour_of_day"
+    request_time <- by_hour
+  }
+
   # Download data from API
-  focal_path <- .make_request(indicator, catalogue, extent, years, months, path, prefix = "focal")
+  focal_path <- .make_request(indicator, catalogue, extent, years, months, path,
+                              prefix = "focal", product_type, request_time)
 
   # Load raster file
   raster <- terra::rast(focal_path)
@@ -243,7 +274,9 @@ poly_link <- function(
 
 
     # Download data from API
-    baseline_path <- .make_request(indicator, catalogue, extent, baseline_years, months, path, prefix = "baseline")
+    baseline_path <- .make_request(indicator, catalogue, extent, baseline_years,
+                                   months, path, prefix = "baseline", product_type,
+                                   request_time)
 
     # Load data
     baseline_raster <- terra::rast(baseline_path)

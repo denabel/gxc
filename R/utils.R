@@ -1,6 +1,6 @@
 # R/utils.R
 
-# Allowed catalogues and indicators (by catalogue)
+# Allowed values for arguments
 allowed_catalogues <- c(
   "reanalysis-era5-land-monthly-means",
   "reanalysis-era5-single-levels-monthly-means"
@@ -12,6 +12,9 @@ allowed_indicators_by_catalogue <- list(
   "reanalysis-era5-single-levels-monthly-means" = c("2m_temperature"
                                                     )
 )
+
+allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
+
 
 #' @noRd
 .check_valid_catalogue <- function(catalogue) {
@@ -36,6 +39,19 @@ allowed_indicators_by_catalogue <- list(
       paste0(
         "Invalid 'indicator' for the chosen catalogue '", catalogue, "'.\n",
         "Please choose one of: ", paste(indicators_for_catalogue, collapse = ", ")
+      ), call. = FALSE
+    )
+  }
+}
+
+#' @noRd
+.check_valid_by_hour <- function(by_hour) {
+  # Allowed by_hour values: FALSE or one of the allowed_hours vector
+  if (!isFALSE(by_hour) && !by_hour %in% allowed_hours) {
+    stop(
+      paste0(
+        "Invalid 'by_hour' argument. Please choose either FALSE or one of: ",
+        paste(allowed_hours, collapse = ", ")
       ), call. = FALSE
     )
   }
@@ -88,15 +104,17 @@ allowed_indicators_by_catalogue <- list(
 #'
 #' @importFrom ecmwfr wf_request
 #' @noRd
-.make_request <- function(indicator, catalogue, extent, years, months, path, prefix) {
+.make_request <- function(indicator, catalogue, extent, years, months, path, prefix,
+                          product_type = "monthly_averaged_reanalysis",
+                          request_time = "00:00") {
   timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
   file_name <- paste0(indicator, "_", prefix, "_", timestamp, ".grib")
 
   request <- list(
     data_format = "grib",
     variable = indicator,
-    product_type = "monthly_averaged_reanalysis",
-    time = "00:00",
+    product_type = product_type,
+    time = request_time,
     year = years,
     month = months,
     area = extent,

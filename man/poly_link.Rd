@@ -14,6 +14,7 @@ poly_link(
   order = "my",
   path = "./data/raw",
   catalogue = "reanalysis-era5-land-monthly-means",
+  by_hour = FALSE,
   keep_raw = FALSE
 )
 }
@@ -45,6 +46,11 @@ Options are \code{"reanalysis-era5-land-monthly-means"} (default, higher resolut
 coverage)
 or \code{"reanalysis-era5-single-levels-monthly-means"} (lower resolution but larger temporal coverage).}
 
+\item{by_hour}{Logical or character. If \code{FALSE} (default), the monthly averaged values are derived
+from the entire day (\code{"monthly_averaged_reanalysis"}). If a character string specifying an hour (e.g., \code{"03:00"}),
+then the dataset \code{"monthly_averaged_reanalysis_by_hour_of_day"} is used, and only values from that hour of the day
+are included.}
+
 \item{keep_raw}{Logical value indicating whether to keep the downloaded raw \code{.grib} files.
 If \code{FALSE}, the files are deleted after processing (default is \code{FALSE}).}
 }
@@ -65,7 +71,7 @@ If a baseline period is provided (e.g. \code{baseline = c("1980", "2010")}), it 
 values for comparison, as well as the deviation from the baseline. Without a baseline, only the focal climate
 indicator values are appended.
 
-If \code{keep_raw = TRUE}, the original \code{.grib} or \code{NetCDF}files downloaded from the CDS are retained in the specified \code{path}.
+If \code{keep_raw = TRUE}, the original \code{.grib} files downloaded from the CDS are retained in the specified \code{path}.
 If \code{keep_raw = FALSE}, these files are removed after processing, saving storage space.
 
 The default catalogue \code{"reanalysis-era5-land-monthly-means"} provides higher spatial resolution at 0.1x0.1 degrees
@@ -73,6 +79,10 @@ but is only available from 1950 onwards. If you need data before 1950 or if you 
 spatial extents where finer resolution is not required, you can switch to
 \code{"reanalysis-era5-single-levels-monthly-means"}. This dataset provides a spatial resolution of 0.25x0.25 degrees and
 a temporal coverage until 1940.
+
+If \code{by_hour} is specified as an hour (e.g. \code{"03:00"}), monthly averages for that specific hour of the day are accessed.
+This can be useful if you are interested in intra-day climate patterns over long periods such as heat or cold during
+day or nighttime. The time is specified as UTC.
 
 \strong{Note:} Users must have a CDS account and have their API key configured for \code{ecmwfr}.
 }
@@ -95,6 +105,7 @@ result_dataset <- poly_link(
   order = "ymd",
   path = "./data/raw",
   catalogue = "reanalysis-era5-land-monthly-means",
+  by_hour = FALSE,
   keep_raw = FALSE
 )
 
@@ -109,10 +120,11 @@ result_with_baseline <- poly_link(
   order = "ymd",
   path = "./data/raw",
   catalogue = "reanalysis-era5-land-monthly-means",
+  by_hour = FALSE,
   keep_raw = TRUE
 )
 
-# Use the single-level catalogue if you need data prior to 1981 or for large extents
+# Use the single-level catalogue if you need data prior to 1950 or for large extents
 result_single <- poly_link(
   indicator = "2m_temperature",
   data = my_data,
@@ -120,10 +132,19 @@ result_single <- poly_link(
   catalogue = "reanalysis-era5-single-levels-monthly-means"
 )
 
+# Request data by a specific hour of the day
+result_by_hour <- poly_link(
+  indicator = "2m_temperature",
+  data = my_data,
+  date_var = "date_column",
+  by_hour = "03:00"
+)
+
 # View the results
 head(result_dataset)
 head(result_with_baseline)
 head(result_single)
+head(result_by_hour)
 }
 
 }
