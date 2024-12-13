@@ -124,6 +124,10 @@ poly_link <- function(
   .check_valid_catalogue(catalogue)
   .check_valid_indicator(indicator, catalogue)
 
+  # Access to API
+  api_key <- key_get("wf_api_key")
+  wf_set_key(key = api_key)
+
   # Prep data and create extent
   prepared <- .prep_poly(data)
   data_sf <- prepared$data_sf
@@ -151,38 +155,11 @@ poly_link <- function(
   years <- as.character(sort(unique(year(unlist(data_sf$time_span_seq)))))
   months <- as.character(sort(unique(month(unlist(data_sf$time_span_seq)))))
 
-  # Create timestamp
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-
-  # Access to API
-  api_key <- key_get("wf_api_key")
-  wf_set_key(key = api_key)
-
-  # Specify API request
-  focal_file <- paste0(indicator, "_focal_", timestamp, ".grib")
-
-  focal_request <- list(
-    data_format = "grib",
-    variable = indicator,
-    product_type = "monthly_averaged_reanalysis",
-    time = "00:00",
-    year = years,
-    month = months,
-    area = extent,
-    dataset_short_name = catalogue,
-    target = focal_file
-  )
-
-  # Download data from C3S
-  focal_path <- wf_request(
-    request = focal_request,
-    transfer = TRUE,
-    path = path,
-    verbose = FALSE
-  )
+  # Download data from API
+  focal_path <- .make_request(indicator, catalogue, extent, years, months, path, prefix = "focal")
 
   # Load raster file
-  raster <- terra::rast(file.path(path, focal_file))
+  raster <- terra::rast(focal_path)
 
   # Check CRS of both datasets and adjust if necessary
   if(!identical(crs(data_sf), terra::crs(raster))) {
@@ -244,10 +221,10 @@ poly_link <- function(
 
     # Remove files if keep_raw = FALSE
     if (!keep_raw) {
-      file.remove(file.path(path, focal_file))
+      file.remove(focal_path)
       message("Raw file has been removed.")
     } else {
-      message("Raw file has been stored at: ", file.path(path, focal_file))
+      message("Raw file has been stored at: ", focal_path)
     }
 
     return(data_sf)
@@ -264,31 +241,12 @@ poly_link <- function(
     baseline_years <- seq(min_baseline, max_baseline, by = "1 year")
     baseline_years <- format(baseline_years, "%Y")
 
-    # Specify API request
-    baseline_file <- paste0(indicator, "_baseline_", timestamp, ".grib")
 
-    baseline_request <- list(
-      data_format = "grib",
-      variable = indicator,
-      product_type = "monthly_averaged_reanalysis",
-      time = "00:00",
-      year = baseline_years,
-      month = months,
-      area = extent,
-      dataset_short_name = catalogue,
-      target = baseline_file
-    )
-
-    # Download data from C3S
-    baseline_path <- wf_request(
-      request = baseline_request,
-      transfer = TRUE,
-      path = path,
-      verbose = FALSE
-    )
+    # Download data from API
+    baseline_path <- .make_request(indicator, catalogue, extent, baseline_years, months, path, prefix = "baseline")
 
     # Load data
-    baseline_raster <- terra::rast(file.path(path, baseline_file))
+    baseline_raster <- terra::rast(baseline_path)
 
     # Extract values from raster for each observation and add to dataframe
     if(length(unique(data_sf$link_date)) == 1){
@@ -335,8 +293,8 @@ poly_link <- function(
 
     # Remove files if keep_raw = FALSE
     if (!keep_raw) {
-      file.remove(file.path(path, focal_file))
-      file.remove(file.path(path, baseline_file))
+      file.remove(focal_path)
+      file.remove(baseline_path)
       message("Raw files have been removed.")
     } else {
       message("Raw files have been stored in: ", path)
