@@ -120,6 +120,10 @@ poly_link <- function(
     keep_raw = FALSE
   ) {
 
+  # Validate catalogue and indicator choice
+  .check_valid_catalogue(catalogue)
+  .check_valid_indicator(indicator, catalogue)
+
   # Prep data and create extent
   prepared <- .prep_poly(data)
   data_sf <- prepared$data_sf
