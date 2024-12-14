@@ -2,7 +2,7 @@
 % Please edit documentation in R/poly_link.R
 \name{poly_link}
 \alias{poly_link}
-\title{Link Spatial Data with Copernicus Earth Observation Data}
+\title{Link Spatial Data with Copernicus Earth Observation Indicators}
 \usage{
 poly_link(
   indicator,
@@ -19,7 +19,8 @@ poly_link(
 )
 }
 \arguments{
-\item{indicator}{Character string specifying the indicator to download (e.g., "2m_temperature").}
+\item{indicator}{Character string specifying the indicator to download (e.g., "2m_temperature").
+Allowed indicators differ by catalogue. See the \strong{Details} section for available indicators.}
 
 \item{data}{An \code{sf} object containing the spatial data (polygons or points).}
 
@@ -60,12 +61,37 @@ period is specified, additional columns for baseline values and deviations are i
 }
 \description{
 Downloads and processes Copernicus Earth observation data (ERA5) based on spatial and temporal parameters,
-and extracts the relevant indicators for the provided spatial dataset.
+and extracts the relevant indicators for the provided spatial dataset. Compared to previous versions,
+the set of accessible indicators has been expanded.
 }
 \details{
 This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 monthly-averaged
 reanalysis data for a specified climate indicator and time period. It processes the spatial data to determine
 the geographic extent and constructs time sequences based on the provided \code{date_var}, \code{time_span}, and \code{time_lag}.
+
+The function now supports an extended set of indicators. The allowed indicators depend on the chosen \code{catalogue}:
+
+\strong{For \code{"reanalysis-era5-land-monthly-means"}} (higher resolution, from 1950 onwards):
+\itemize{
+\item \code{"2m_temperature"}
+\item \code{"total_precipitation"}
+\item \code{"10m_u_component_of_wind"}
+\item \code{"10m_v_component_of_wind"}
+\item \code{"leaf_area_index_high_vegetation"}
+\item \code{"leaf_area_index_low_vegetation"}
+\item \code{"snowfall"}
+}
+
+\strong{For \code{"reanalysis-era5-single-levels-monthly-means"}} (lower resolution, from 1940 onwards):
+\itemize{
+\item \code{"2m_temperature"}
+\item \code{"10m_u_component_of_wind"}
+\item \code{"10m_v_component_of_wind"}
+\item \code{"10m_wind_speed"}
+\item \code{"total_cloud_cover"}
+\item \code{"leaf_area_index_high_vegetation"}
+\item \code{"leaf_area_index_low_vegetation"}
+}
 
 If a baseline period is provided (e.g. \code{baseline = c("1980", "2010")}), it calculates and appends baseline
 values for comparison, as well as the deviation from the baseline. Without a baseline, only the focal climate

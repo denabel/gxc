@@ -1,9 +1,11 @@
-#' Link Spatial Data with Copernicus Earth Observation Data
+#' Link Spatial Data with Copernicus Earth Observation Indicators
 #'
 #' Downloads and processes Copernicus Earth observation data (ERA5) based on spatial and temporal parameters,
-#' and extracts the relevant indicators for the provided spatial dataset.
+#' and extracts the relevant indicators for the provided spatial dataset. Compared to previous versions,
+#' the set of accessible indicators has been expanded.
 #'
 #' @param indicator Character string specifying the indicator to download (e.g., "2m_temperature").
+#'   Allowed indicators differ by catalogue. See the **Details** section for available indicators.
 #' @param data An `sf` object containing the spatial data (polygons or points).
 #' @param date_var Character string specifying the name of the date variable in `data`.
 #' @param time_span Integer specifying the time span in months for averaging the climate indicator
@@ -32,6 +34,26 @@
 #' This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 monthly-averaged
 #' reanalysis data for a specified climate indicator and time period. It processes the spatial data to determine
 #' the geographic extent and constructs time sequences based on the provided `date_var`, `time_span`, and `time_lag`.
+#'
+#' The function now supports an extended set of indicators. The allowed indicators depend on the chosen `catalogue`:
+#'
+#' **For `"reanalysis-era5-land-monthly-means"`** (higher resolution, from 1950 onwards):
+#' - `"2m_temperature"`
+#' - `"total_precipitation"`
+#' - `"10m_u_component_of_wind"`
+#' - `"10m_v_component_of_wind"`
+#' - `"leaf_area_index_high_vegetation"`
+#' - `"leaf_area_index_low_vegetation"`
+#' - `"snowfall"`
+#'
+#' **For `"reanalysis-era5-single-levels-monthly-means"`** (lower resolution, from 1940 onwards):
+#' - `"2m_temperature"`
+#' - `"10m_u_component_of_wind"`
+#' - `"10m_v_component_of_wind"`
+#' - `"10m_wind_speed"`
+#' - `"total_cloud_cover"`
+#' - `"leaf_area_index_high_vegetation"`
+#' - `"leaf_area_index_low_vegetation"`
 #'
 #' If a baseline period is provided (e.g. `baseline = c("1980", "2010")`), it calculates and appends baseline
 #' values for comparison, as well as the deviation from the baseline. Without a baseline, only the focal climate
