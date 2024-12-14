@@ -173,6 +173,13 @@ keyring::key_set_with_value(service = "wf_api_key", password = api_key)
 
 ### Run poly_link-function
 
+Check out vignette for `poly_link` for detailed documentation.
+```{r help, message=FALSE}
+?poly_link
+
+```
+
+Specification of poly_link and data access.
 ```{r poly_link}
 dataset_out <- poly_link(
   indicator = "2m_temperature",

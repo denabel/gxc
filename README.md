@@ -256,6 +256,12 @@ keyring::key_set_with_value(service = "wf_api_key", password = api_key)
 
 ### Run poly_link-function
 
+Check out vignette for `poly_link` for detailed documentation.
+
+``` r
+?poly_link
+```
+
 ``` r
 dataset_out <- poly_link(
   indicator = "2m_temperature",
@@ -268,12 +274,12 @@ dataset_out <- poly_link(
   path = "./data/raw",
   catalogue = "reanalysis-era5-land-monthly-means",
   by_hour = FALSE,
-  keep_raw = TRUE)
+  keep_raw = FALSE)
 ```
 
     ## User ecmwfr for ecmwfr service added successfully in keychain
 
-    ## Raw file has been stored at: ./data/raw/2m_temperature_focal_241213_184142.grib
+    ## Raw file has been removed.
 
 ### Explore the extended dataset
 
