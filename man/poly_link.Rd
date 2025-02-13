@@ -69,6 +69,8 @@ This function interacts with the Copernicus Climate Data Store (CDS) API to down
 reanalysis data for a specified climate indicator and time period. It processes the spatial data to determine
 the geographic extent and constructs time sequences based on the provided \code{date_var}, \code{time_span}, and \code{time_lag}.
 
+\strong{Note:} Users must have a CDS account and have their API key configured for \code{ecmwfr}.
+
 The function now supports an extended set of indicators. The allowed indicators depend on the chosen \code{catalogue}:
 
 \strong{For \code{"reanalysis-era5-land-monthly-means"}} (higher resolution, from 1950 onwards):
@@ -110,12 +112,19 @@ If \code{by_hour} is specified as an hour (e.g. \code{"03:00"}), monthly average
 This can be useful if you are interested in intra-day climate patterns over long periods such as heat or cold during
 day or nighttime. The time is specified as UTC.
 
-\strong{Note:} Users must have a CDS account and have their API key configured for \code{ecmwfr}.
+\strong{Parallel Processing:}
+This function uses \code{future.apply::future_lapply} to enable parallel processing for loop-based tasks.
+Users can set a parallel plan (for example, using \code{future::plan(multisession, workers = 6)}) before calling this
+function. If no plan is set, the function will run sequentially.
 }
 \examples{
 \dontrun{
 library(sf)
 library(dplyr)
+library(future)
+
+# Set up a parallel plan if desired (e.g., multisession with 6 workers)
+plan(multisession, workers = 6)
 
 # Load spatial data
 my_data <- st_read("path/to/your/spatial_data.shp")

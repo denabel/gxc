@@ -35,6 +35,8 @@
 #' reanalysis data for a specified climate indicator and time period. It processes the spatial data to determine
 #' the geographic extent and constructs time sequences based on the provided `date_var`, `time_span`, and `time_lag`.
 #'
+#' **Note:** Users must have a CDS account and have their API key configured for `ecmwfr`.
+#'
 #' The function now supports an extended set of indicators. The allowed indicators depend on the chosen `catalogue`:
 #'
 #' **For `"reanalysis-era5-land-monthly-means"`** (higher resolution, from 1950 onwards):
@@ -72,7 +74,10 @@
 #' This can be useful if you are interested in intra-day climate patterns over long periods such as heat or cold during
 #' day or nighttime. The time is specified as UTC.
 #'
-#' **Note:** Users must have a CDS account and have their API key configured for `ecmwfr`.
+#' **Parallel Processing:**
+#' This function uses `future.apply::future_lapply` to enable parallel processing for loop-based tasks.
+#' Users can set a parallel plan (for example, using `future::plan(multisession, workers = 6)`) before calling this
+#' function. If no plan is set, the function will run sequentially.
 #'
 #' @return An `sf` object with the original spatial data and appended climate indicator values. If a baseline
 #' period is specified, additional columns for baseline values and deviations are included.
@@ -84,11 +89,16 @@
 #' @importFrom rlang sym
 #' @importFrom keyring key_get
 #' @importFrom ecmwfr wf_set_key wf_request
+#' @importFrom future.apply future_lapply
 #'
 #' @examples
 #' \dontrun{
 #' library(sf)
 #' library(dplyr)
+#' library(future)
+#'
+#' # Set up a parallel plan if desired (e.g., multisession with 6 workers)
+#' plan(multisession, workers = 6)
 #'
 #' # Load spatial data
 #' my_data <- st_read("path/to/your/spatial_data.shp")
@@ -187,7 +197,7 @@ poly_link <- function(
     mutate(
       link_date_end = link_date - months(time_span)
     )
-  data_sf$time_span_seq <- lapply(1:nrow(data_sf), function(i) {
+  data_sf$time_span_seq <- future_lapply(1:nrow(data_sf), function(i) {
     if (!is.na(data_sf[i,]$link_date) & !is.na(data_sf[i,]$link_date_end)) {
       seq_dates <- seq(data_sf[i,]$link_date_end, data_sf[i,]$link_date, by = "1 month")
       format(seq_dates, "%Y-%m-%d")
@@ -232,7 +242,7 @@ poly_link <- function(
     )
   } else if (length(unique(data_sf$link_date)) > 1 & time_span == 0){
     # All observations have different link dates and direct link to focal month
-    raster_values <- lapply(1:nrow(data_sf), function(i) {
+    raster_values <- future_lapply(1:nrow(data_sf), function(i) {
       if (!is.na(data_sf[i,]$link_date)) {
         raster_value <- terra::extract(
           raster[[as.Date(time(raster))==data_sf[i,]$link_date]],
@@ -247,7 +257,7 @@ poly_link <- function(
     })
   } else if (length(unique(data_sf$link_date)) >= 1 & time_span > 0){
     # All observations have different link dates and mean calculation of focal months
-    raster_values <- lapply(1:nrow(data_sf), function(i) {
+    raster_values <- future_lapply(1:nrow(data_sf), function(i) {
       if (!is.na(data_sf[i,]$link_date)) {
         raster_subset <- app(
           raster[[as.Date(time(raster)) %in% ymd(unlist(data_sf[i,]$time_span_seq))]], mean)
@@ -316,7 +326,7 @@ poly_link <- function(
       )
     } else {
       # All observations have different link dates and mean calculation of focal months
-      baseline_values <- lapply(1:nrow(data_sf), function(i) {
+      baseline_values <- future_lapply(1:nrow(data_sf), function(i) {
         if (!is.na(data_sf[i,]$link_date)) {
           raster_subset <- app(
             baseline_raster[[month(time(baseline_raster)) %in%
