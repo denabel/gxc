@@ -130,6 +130,7 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
 
   request <- list(
     data_format = "grib",
+    download_format = "unarchived",
     variable = indicator,
     product_type = product_type,
     time = request_time,
@@ -149,4 +150,5 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
 
   return(file_path)
 }
+
 
