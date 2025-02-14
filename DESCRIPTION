@@ -19,6 +19,10 @@ Imports:
   lubridate,
   tidyverse,
   sf,
-  terra
+  terra,
+  progressr,
+  rlang,
+  future.apply,
+  
   
 

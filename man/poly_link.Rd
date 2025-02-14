@@ -15,7 +15,9 @@ poly_link(
   path = "./data/raw",
   catalogue = "reanalysis-era5-land-monthly-means",
   by_hour = FALSE,
-  keep_raw = FALSE
+  keep_raw = FALSE,
+  parallel = FALSE,
+  chunk_size = 50
 )
 }
 \arguments{
@@ -54,6 +56,12 @@ are included.}
 
 \item{keep_raw}{Logical value indicating whether to keep the downloaded raw \code{.grib} files.
 If \code{FALSE}, the files are deleted after processing (default is \code{FALSE}).}
+
+\item{parallel}{Logical indicating whether to use parallel processing with chunking.
+Default is \code{FALSE} (i.e. sequential execution).}
+
+\item{chunk_size}{Integer specifying the number of observations per chunk when parallelizing.
+Default is \code{50}.}
 }
 \value{
 An \code{sf} object with the original spatial data and appended climate indicator values. If a baseline
@@ -113,24 +121,21 @@ This can be useful if you are interested in intra-day climate patterns over long
 day or nighttime. The time is specified as UTC.
 
 \strong{Parallel Processing:}
-This function uses \code{future.apply::future_lapply} to enable parallel processing for loop-based tasks.
-Users can set a parallel plan (for example, using \code{future::plan(multisession, workers = 6)}) before calling this
-function. If no plan is set, the function will run sequentially.
+This function can use parallel processing with chunking via
+\code{future.apply::future_lapply} when \code{parallel = TRUE}. If \code{parallel = FALSE},
+the function runs sequentially. When \code{parallel = TRUE}, set your parallel
+plan (for example, using \code{future::plan(multisession, workers = 6)})
+before calling this function. If no plan is set before but \code{parallel = TRUE},
+the function will run sequentially through the chunks, which will most
+likely increase duration.
 }
 \examples{
 \dontrun{
 library(sf)
 library(dplyr)
-library(future)
 
-# Set up a parallel plan if desired (e.g., multisession with 6 workers)
-plan(multisession, workers = 6)
-
-# Load spatial data
-my_data <- st_read("path/to/your/spatial_data.shp")
-
-# Use the function without a baseline and remove raw files after processing
-result_dataset <- poly_link(
+# Example 1: Using the default (sequential) mode with no baseline and time_span = 0
+result1 <- poly_link(
   indicator = "2m_temperature",
   data = my_data,
   date_var = "date_column",
@@ -144,8 +149,8 @@ result_dataset <- poly_link(
   keep_raw = FALSE
 )
 
-# Specify a baseline period and keep the raw files
-result_with_baseline <- poly_link(
+# Example 2: Sequential mode with a baseline period specified
+result2 <- poly_link(
   indicator = "2m_temperature",
   data = my_data,
   date_var = "date_column",
@@ -159,27 +164,47 @@ result_with_baseline <- poly_link(
   keep_raw = TRUE
 )
 
-# Use the single-level catalogue if you need data prior to 1950 or for large extents
-result_single <- poly_link(
+# Example 3: Sequential mode with by_hour specified (e.g., "03:00")
+result3 <- poly_link(
   indicator = "2m_temperature",
   data = my_data,
   date_var = "date_column",
-  catalogue = "reanalysis-era5-single-levels-monthly-means"
+  time_span = 0,
+  time_lag = 0,
+  baseline = FALSE,
+  order = "ymd",
+  path = "./data/raw",
+  catalogue = "reanalysis-era5-land-monthly-means",
+  by_hour = "03:00",
+  keep_raw = FALSE
 )
 
-# Request data by a specific hour of the day
-result_by_hour <- poly_link(
+# Example 4: Using parallel processing with chunking
+# (This example uses a parallel plan set externally.)
+library(future)
+plan(multisession, workers = 6)
+
+result4 <- poly_link(
   indicator = "2m_temperature",
   data = my_data,
   date_var = "date_column",
-  by_hour = "03:00"
+  time_span = 0,
+  time_lag = 0,
+  baseline = c("1980", "2010"),
+  order = "ymd",
+  path = "./data/raw",
+  catalogue = "reanalysis-era5-land-monthly-means",
+  by_hour = FALSE,
+  keep_raw = TRUE,
+  parallel = TRUE,
+  chunk_size = 50
 )
 
-# View the results
-head(result_dataset)
-head(result_with_baseline)
-head(result_single)
-head(result_by_hour)
+# View the results:
+head(result1)
+head(result2)
+head(result3)
+head(result4)
 }
 
 }

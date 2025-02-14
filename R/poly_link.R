@@ -29,6 +29,10 @@
 #'   are included.
 #' @param keep_raw Logical value indicating whether to keep the downloaded raw `.grib` files.
 #'   If `FALSE`, the files are deleted after processing (default is `FALSE`).
+#' @param parallel Logical indicating whether to use parallel processing with chunking.
+#'   Default is `FALSE` (i.e. sequential execution).
+#' @param chunk_size Integer specifying the number of observations per chunk when parallelizing.
+#'   Default is `50`.
 #'
 #' @details
 #' This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 monthly-averaged
@@ -75,9 +79,13 @@
 #' day or nighttime. The time is specified as UTC.
 #'
 #' **Parallel Processing:**
-#' This function uses `future.apply::future_lapply` to enable parallel processing for loop-based tasks.
-#' Users can set a parallel plan (for example, using `future::plan(multisession, workers = 6)`) before calling this
-#' function. If no plan is set, the function will run sequentially.
+#' This function can use parallel processing with chunking via
+#' `future.apply::future_lapply` when `parallel = TRUE`. If `parallel = FALSE`,
+#' the function runs sequentially. When `parallel = TRUE`, set your parallel
+#' plan (for example, using `future::plan(multisession, workers = 6)`)
+#' before calling this function. If no plan is set before but `parallel = TRUE`,
+#' the function will run sequentially through the chunks, which will most
+#' likely increase duration.
 #'
 #' @return An `sf` object with the original spatial data and appended climate indicator values. If a baseline
 #' period is specified, additional columns for baseline values and deviations are included.
@@ -90,21 +98,15 @@
 #' @importFrom keyring key_get
 #' @importFrom ecmwfr wf_set_key wf_request
 #' @importFrom future.apply future_lapply
+#' @importFrom progressr handlers progressor with_progress
 #'
 #' @examples
 #' \dontrun{
 #' library(sf)
 #' library(dplyr)
-#' library(future)
 #'
-#' # Set up a parallel plan if desired (e.g., multisession with 6 workers)
-#' plan(multisession, workers = 6)
-#'
-#' # Load spatial data
-#' my_data <- st_read("path/to/your/spatial_data.shp")
-#'
-#' # Use the function without a baseline and remove raw files after processing
-#' result_dataset <- poly_link(
+#' # Example 1: Using the default (sequential) mode with no baseline and time_span = 0
+#' result1 <- poly_link(
 #'   indicator = "2m_temperature",
 #'   data = my_data,
 #'   date_var = "date_column",
@@ -118,8 +120,8 @@
 #'   keep_raw = FALSE
 #' )
 #'
-#' # Specify a baseline period and keep the raw files
-#' result_with_baseline <- poly_link(
+#' # Example 2: Sequential mode with a baseline period specified
+#' result2 <- poly_link(
 #'   indicator = "2m_temperature",
 #'   data = my_data,
 #'   date_var = "date_column",
@@ -133,241 +135,378 @@
 #'   keep_raw = TRUE
 #' )
 #'
-#' # Use the single-level catalogue if you need data prior to 1950 or for large extents
-#' result_single <- poly_link(
+#' # Example 3: Sequential mode with by_hour specified (e.g., "03:00")
+#' result3 <- poly_link(
 #'   indicator = "2m_temperature",
 #'   data = my_data,
 #'   date_var = "date_column",
-#'   catalogue = "reanalysis-era5-single-levels-monthly-means"
+#'   time_span = 0,
+#'   time_lag = 0,
+#'   baseline = FALSE,
+#'   order = "ymd",
+#'   path = "./data/raw",
+#'   catalogue = "reanalysis-era5-land-monthly-means",
+#'   by_hour = "03:00",
+#'   keep_raw = FALSE
 #' )
 #'
-#' # Request data by a specific hour of the day
-#' result_by_hour <- poly_link(
+#' # Example 4: Using parallel processing with chunking
+#' # (This example uses a parallel plan set externally.)
+#' library(future)
+#' plan(multisession, workers = 6)
+#'
+#' result4 <- poly_link(
 #'   indicator = "2m_temperature",
 #'   data = my_data,
 #'   date_var = "date_column",
-#'   by_hour = "03:00"
+#'   time_span = 0,
+#'   time_lag = 0,
+#'   baseline = c("1980", "2010"),
+#'   order = "ymd",
+#'   path = "./data/raw",
+#'   catalogue = "reanalysis-era5-land-monthly-means",
+#'   by_hour = FALSE,
+#'   keep_raw = TRUE,
+#'   parallel = TRUE,
+#'   chunk_size = 50
 #' )
 #'
-#' # View the results
-#' head(result_dataset)
-#' head(result_with_baseline)
-#' head(result_single)
-#' head(result_by_hour)
+#' # View the results:
+#' head(result1)
+#' head(result2)
+#' head(result3)
+#' head(result4)
 #' }
 #'
 #' @export
 
 poly_link <- function(
-    indicator,
-    data,
-    date_var,
-    time_span = 0,
-    time_lag = 0,
-    baseline = FALSE,
-    order = "my",
-    path = "./data/raw",
-    catalogue = "reanalysis-era5-land-monthly-means",
-    by_hour = FALSE,
-    keep_raw = FALSE
+  indicator,
+  data,
+  date_var,
+  time_span = 0,
+  time_lag = 0,
+  baseline = FALSE,
+  order = "my",
+  path = "./data/raw",
+  catalogue = "reanalysis-era5-land-monthly-means",
+  by_hour = FALSE,
+  keep_raw = FALSE,
+  parallel = FALSE,
+  chunk_size = 50
   ) {
+  with_progress({
+    p <- progressor(steps = 4)
 
-  # Validate catalogue and indicator choice
-  .check_valid_catalogue(catalogue)
-  .check_valid_indicator(indicator, catalogue)
-  .check_valid_by_hour(by_hour)
+    # Validate catalogue and indicator choice
+    .check_valid_catalogue(catalogue)
+    .check_valid_indicator(indicator, catalogue)
+    .check_valid_by_hour(by_hour)
 
-  # Access to API
-  api_key <- key_get("wf_api_key")
-  wf_set_key(key = api_key)
+    # Access to API
+    api_key <- key_get("wf_api_key")
+    wf_set_key(key = api_key)
 
-  # Prep data and create extent
-  prepared <- .prep_poly(data)
-  data_sf <- prepared$data_sf
-  extent <- prepared$extent
+    # Prep data and create extent
+    prepared <- .prep_poly(data)
+    data_sf <- prepared$data_sf
+    extent <- prepared$extent
 
-  # Transform date-variable and extract relevant time points
-  data_sf <- data_sf |>
-    mutate(
-      link_date = parse_date_time(x=!!sym(date_var), orders=order)
-    ) |>
-    mutate(
-      link_date = link_date - months(time_lag)
-    ) |>
-    mutate(
-      link_date_end = link_date - months(time_span)
-    )
-  data_sf$time_span_seq <- future_lapply(1:nrow(data_sf), function(i) {
-    if (!is.na(data_sf[i,]$link_date) & !is.na(data_sf[i,]$link_date_end)) {
-      seq_dates <- seq(data_sf[i,]$link_date_end, data_sf[i,]$link_date, by = "1 month")
-      format(seq_dates, "%Y-%m-%d")
-    } else{
-      NA_character_
-    }
-  })
-  years <- as.character(sort(unique(year(unlist(data_sf$time_span_seq)))))
-  months <- as.character(sort(unique(month(unlist(data_sf$time_span_seq)))))
-
-  # Average across entire day or by hour
-  if (isFALSE(by_hour)) {
-    product_type <- "monthly_averaged_reanalysis"
-    request_time <- "00:00"
-  } else {
-    product_type <- "monthly_averaged_reanalysis_by_hour_of_day"
-    request_time <- by_hour
-  }
-
-  # Download data from API
-  focal_path <- .make_request(indicator, catalogue, extent, years, months, path,
-                              prefix = "focal", product_type, request_time)
-
-  # Load raster file
-  raster <- terra::rast(focal_path)
-
-  # Check CRS of both datasets and adjust if necessary
-  if(!identical(crs(data_sf), terra::crs(raster))) {
+    # Transform date-variable and extract relevant time points
     data_sf <- data_sf |>
-      st_transform(crs=st_crs(raster))
-  }
-
-  # Extract values from raster for each observation and add to dataframe
-  if(length(unique(data_sf$link_date)) == 1 & time_span == 0){
-    # All observations have the same link date and direct link to focal month
-    raster_values <- terra::extract(
-      raster,
-      data_sf,
-      fun = mean,
-      na.rm = TRUE,
-      ID = FALSE
-    )
-  } else if (length(unique(data_sf$link_date)) > 1 & time_span == 0){
-    # All observations have different link dates and direct link to focal month
-    raster_values <- future_lapply(1:nrow(data_sf), function(i) {
-      if (!is.na(data_sf[i,]$link_date)) {
-        raster_value <- terra::extract(
-          raster[[as.Date(time(raster))==data_sf[i,]$link_date]],
-          data_sf[i,],
-          fun = mean,
-          na.rm = TRUE,
-          ID = FALSE
-        )
-      } else {
-        raster_value <- NA
+      mutate(
+        link_date = parse_date_time(x=!!sym(date_var), orders=order)
+      ) |>
+      mutate(
+        link_date = link_date - months(time_lag)
+      ) |>
+      mutate(
+        link_date_end = link_date - months(time_span)
+      )
+    data_sf$time_span_seq <- future_lapply(1:nrow(data_sf), function(i) {
+      if (!is.na(data_sf[i,]$link_date) & !is.na(data_sf[i,]$link_date_end)) {
+        seq_dates <- seq(data_sf[i,]$link_date_end, data_sf[i,]$link_date, by = "1 month")
+        format(seq_dates, "%Y-%m-%d")
+      } else{
+        NA_character_
       }
-    })
-  } else if (length(unique(data_sf$link_date)) >= 1 & time_span > 0){
-    # All observations have different link dates and mean calculation of focal months
-    raster_values <- future_lapply(1:nrow(data_sf), function(i) {
-      if (!is.na(data_sf[i,]$link_date)) {
-        raster_subset <- app(
-          raster[[as.Date(time(raster)) %in% ymd(unlist(data_sf[i,]$time_span_seq))]], mean)
-        raster_value <- terra::extract(
-          raster_subset,
-          data_sf[i,],
-          fun = mean,
-          na.rm = TRUE,
-          ID = FALSE
-        )
-      } else {
-        raster_value <- NA
-      }
-    })
-  }
+    }, future.seed = TRUE)
+    years <- as.character(sort(unique(year(unlist(data_sf$time_span_seq)))))
+    months <- as.character(sort(unique(month(unlist(data_sf$time_span_seq)))))
+    p(amount = 1, message = "Preprocessing complete")
 
-  # Create new variable in dataframe
-  data_sf$focal_value <- unlist(raster_values)
-
-  # Check baseline argument
-  # If no baseline requested, transform back to longitude and latitude and final output
-  if(isFALSE(baseline)){
-    data_sf <- sf::st_transform(data_sf, crs = 4326)
-
-    # Remove files if keep_raw = FALSE
-    if (!keep_raw) {
-      file.remove(focal_path)
-      message("Raw file has been removed.")
+    # Average across entire day or by hour
+    if (isFALSE(by_hour)) {
+      product_type <- "monthly_averaged_reanalysis"
+      request_time <- "00:00"
     } else {
-      message("Raw file has been stored at: ", focal_path)
+      product_type <- "monthly_averaged_reanalysis_by_hour_of_day"
+      request_time <- by_hour
     }
-
-    return(data_sf)
-
-  } else if (is.vector(baseline) && length(baseline) == 2) {
-
-    # Extract minimum and maximum baseline years
-    min_year <- baseline[1]
-    max_year <- baseline[2]
-
-    # Translate user specified baseline years into sequence
-    min_baseline <- parse_date_time(paste0(min_year, "-01-01"), order="ymd")
-    max_baseline <- parse_date_time(paste0(max_year, "-01-01"), order="ymd")
-    baseline_years <- seq(min_baseline, max_baseline, by = "1 year")
-    baseline_years <- format(baseline_years, "%Y")
-
 
     # Download data from API
-    baseline_path <- .make_request(indicator, catalogue, extent, baseline_years,
-                                   months, path, prefix = "baseline", product_type,
-                                   request_time)
+    focal_path <- .make_request(indicator, catalogue, extent, years, months, path,
+                                prefix = "focal", product_type, request_time)
+    p(amount = 1, message = "Download complete")
 
-    # Load data
-    baseline_raster <- terra::rast(baseline_path)
+    # Load raster file
+    raster <- terra::rast(focal_path)
+
+    # Check CRS of both datasets and adjust if necessary
+    if(!identical(crs(data_sf), terra::crs(raster))) {
+      data_sf <- data_sf |>
+        st_transform(crs=st_crs(raster))
+    }
 
     # Extract values from raster for each observation and add to dataframe
-    if(length(unique(data_sf$link_date)) == 1){
-      # All observations have the same link date
-      baseline_raster <- app(baseline_raster, mean)
-      baseline_values <- terra::extract(
-        baseline_raster,
+    if(length(unique(data_sf$link_date)) == 1 & time_span == 0){
+      # All observations have the same link date and direct link to focal month
+      raster_values <- terra::extract(
+        raster,
         data_sf,
         fun = mean,
         na.rm = TRUE,
         ID = FALSE
       )
-    } else {
+    } else if (length(unique(data_sf$link_date)) > 1 & time_span == 0){
+      # All observations have different link dates and direct link to focal month
+      if (!parallel) {
+        # Sequential approach
+        raster_dates <- as.Date(time(raster))
+        raster_values <- lapply(seq_len(nrow(data_sf)), function(i) {
+          if (!is.na(data_sf[i,]$link_date)) {
+            target_date <- data_sf[i,]$link_date
+            layer_index <- which(raster_dates == target_date)
+            if (length(layer_index) == 0) return(NA)
+            terra::extract(
+              raster[[layer_index]],
+              data_sf[i,],
+              fun = mean,
+              na.rm = TRUE,
+              ID = FALSE
+            )
+          } else {
+            NA
+          }
+        })
+        raster_values <- unlist(raster_values, recursive = FALSE)
+      } else {
+        # Parallelization approach
+        chunks <- split(seq_len(nrow(data_sf)),
+                        ceiling(seq_len(nrow(data_sf)) / chunk_size))
+
+        raster_values_list <- future_lapply(chunks, function(idx) {
+          local_raster <- terra::rast(focal_path)
+          local_dates <- as.Date(time(local_raster))
+
+          sapply(idx, function(i) {
+            if (!is.na(data_sf[i,]$link_date)) {
+              target_date <- data_sf[i,]$link_date
+              layer_index <- which(local_dates == target_date)
+              if(length(layer_index) == 0) return(NA)
+              terra::extract(
+                local_raster[[layer_index]],
+                data_sf[i,],
+                fun = mean,
+                na.rm = TRUE,
+                ID = FALSE
+              )
+            } else {
+              NA
+            }
+          })
+        }, future.seed = TRUE)
+
+        raster_values <- unlist(raster_values_list, recursive = FALSE)
+      }
+
+    } else if (length(unique(data_sf$link_date)) >= 1 & time_span > 0){
       # All observations have different link dates and mean calculation of focal months
-      baseline_values <- future_lapply(1:nrow(data_sf), function(i) {
-        if (!is.na(data_sf[i,]$link_date)) {
-          raster_subset <- app(
-            baseline_raster[[month(time(baseline_raster)) %in%
-                               month(ymd(unlist(data_sf[i,]$time_span_seq)))]], mean)
-          baseline_value <- terra::extract(
-            raster_subset,
-            data_sf[i,],
-            fun = mean,
-            na.rm = TRUE,
-            ID = FALSE
-          )
+      if (!parallel) {
+        # Sequential approach
+        raster_dates <- as.Date(time(raster))
+        raster_values <- lapply(seq_len(nrow(data_sf)), function(i) {
+          if (!is.na(data_sf[i,]$link_date)) {
+            target_dates <- ymd(unlist(data_sf[i,]$time_span_seq))
+            layer_index <- which(raster_dates %in% target_dates)
+            if (length(layer_index) == 0) return(NA)
+            raster_subset <- app(raster[[layer_index]], mean)
+            terra::extract(
+              raster_subset,
+              data_sf[i,],
+              fun = mean,
+              na.rm = TRUE,
+              ID = FALSE
+            )
+          } else {
+            NA
+          }
+        })
+        raster_values <- unlist(raster_values, recursive = FALSE)
+      } else {
+        # Parallel approach with chunking
+        chunks <- split(seq_len(nrow(data_sf)),
+                        ceiling(seq_len(nrow(data_sf)) / chunk_size))
+
+        raster_values_list <- future_lapply(chunks, function(idx) {
+          local_raster <- terra::rast(focal_path)
+          local_dates <- as.Date(time(local_raster))
+
+          sapply(idx, function(i) {
+            if (!is.na(data_sf[i,]$link_date)) {
+              target_dates <- ymd(unlist(data_sf[i,]$time_span_seq))
+              layer_index <- which(local_dates %in% target_dates)
+              if(length(layer_index) == 0) return(NA)
+              raster_subset <- app(local_raster[[layer_index]], mean)
+              terra::extract(
+                raster_subset,
+                data_sf[i,],
+                fun = mean,
+                na.rm = TRUE,
+                ID = FALSE
+              )
+            } else {
+              NA
+            }
+          })
+        }, future.seed = TRUE)
+
+        raster_values <- unlist(raster_values_list, recursive = FALSE)
+      }
+    }
+
+    # Create new variable in dataframe
+    data_sf$focal_value <- unlist(raster_values)
+    p(amount = 1, message = "Focal extraction complete")
+
+    # Check baseline argument
+    # If no baseline requested, transform back to longitude and latitude and final output
+    if(isFALSE(baseline)){
+      data_sf <- sf::st_transform(data_sf, crs = 4326)
+
+      # Remove files if keep_raw = FALSE
+      if (!keep_raw) {
+        file.remove(focal_path)
+        message("Raw file has been removed.")
+      } else {
+        message("Raw file has been stored at: ", focal_path)
+      }
+      p(amount = 1, message = "Baseline skipped")
+      p(amount = 0)
+      return(data_sf)
+
+    } else if (is.vector(baseline) && length(baseline) == 2) {
+
+      # Extract minimum and maximum baseline years
+      min_year <- baseline[1]
+      max_year <- baseline[2]
+
+      # Translate user specified baseline years into sequence
+      min_baseline <- parse_date_time(paste0(min_year, "-01-01"), order="ymd")
+      max_baseline <- parse_date_time(paste0(max_year, "-01-01"), order="ymd")
+      baseline_years <- seq(min_baseline, max_baseline, by = "1 year")
+      baseline_years <- format(baseline_years, "%Y")
+
+
+      # Download data from API
+      baseline_path <- .make_request(indicator, catalogue, extent, baseline_years,
+                                     months, path, prefix = "baseline", product_type,
+                                     request_time)
+
+      # Load data
+      baseline_raster <- terra::rast(baseline_path)
+
+      # Extract values from raster for each observation and add to dataframe
+      if(length(unique(data_sf$link_date)) == 1){
+        # All observations have the same link date
+        baseline_raster <- app(baseline_raster, mean)
+        baseline_values <- terra::extract(
+          baseline_raster,
+          data_sf,
+          fun = mean,
+          na.rm = TRUE,
+          ID = FALSE
+        )
+      } else {
+        # All observations have different link dates and mean calculation of focal months
+        if (!parallel) {
+          # Sequential approach
+          baseline_months <- month(time(baseline_raster))
+          baseline_values <- lapply(seq_len(nrow(data_sf)), function(i) {
+            if (!is.na(data_sf[i,]$link_date)) {
+              target_months <- month(ymd(unlist(data_sf[i,]$time_span_seq)))
+              layer_index <- which(baseline_months %in% target_months)
+              if (length(layer_index) == 0) return(NA)
+              raster_subset <- app(baseline_raster[[layer_index]], mean)
+              terra::extract(
+                raster_subset,
+                data_sf[i,],
+                fun = mean,
+                na.rm = TRUE,
+                ID = FALSE
+              )
+            } else {
+              NA
+            }
+          })
+          baseline_values <- unlist(baseline_values, recursive = FALSE)
         } else {
-          baseline_value <- NA
+          # Parallelization approach
+          chunks <- split(seq_len(nrow(data_sf)),
+                          ceiling(seq_len(nrow(data_sf)) / chunk_size))
+
+          baseline_values_list <- future_lapply(chunks, function(idx) {
+            local_baseline_raster <- terra::rast(baseline_path)
+            baseline_months <- month(time(local_baseline_raster))
+
+            sapply(idx, function(i) {
+              if (!is.na(data_sf[i,]$link_date)) {
+                target_months <- month(ymd(unlist(data_sf[i,]$time_span_seq)))
+                layer_index <- which(baseline_months %in% target_months)
+                if (length(layer_index) == 0) return(NA)
+                raster_subset <- app(local_baseline_raster[[layer_index]], mean)
+                terra::extract(
+                  raster_subset,
+                  data_sf[i,],
+                  fun = mean,
+                  na.rm = TRUE,
+                  ID = FALSE
+                )
+              } else {
+                NA
+              }
+            })
+          }, future.seed = TRUE)
+
+          baseline_values <- unlist(baseline_values_list, recursive = FALSE)
         }
-      })
-    }
+      }
 
-    # Add variable to dataframe
-    data_sf$baseline_value <- unlist(baseline_values)
+      # Add variable to dataframe
+      data_sf$baseline_value <- unlist(baseline_values)
 
-    # Calculate absolute deviation between focal and baseline values
-    data_sf <- data_sf |>
-      mutate(
-        deviation = focal_value - baseline_value
-      )
+      # Calculate absolute deviation between focal and baseline values
+      data_sf <- data_sf |>
+        mutate(
+          deviation = focal_value - baseline_value
+        )
 
-    # Transform back to longitude and latitude WGS84
-    data_sf <- st_transform(data_sf, crs = 4326)
+      # Transform back to longitude and latitude WGS84
+      data_sf <- st_transform(data_sf, crs = 4326)
+      p(amount = 1, message = "Baseline complete")
+      p(amount = 0)
+      # Remove files if keep_raw = FALSE
+      if (!keep_raw) {
+        file.remove(focal_path)
+        file.remove(baseline_path)
+        message("Raw files have been removed.")
+      } else {
+        message("Raw files have been stored in: ", path)
+      }
+      return(data_sf)
 
-    # Remove files if keep_raw = FALSE
-    if (!keep_raw) {
-      file.remove(focal_path)
-      file.remove(baseline_path)
-      message("Raw files have been removed.")
     } else {
-      message("Raw files have been stored in: ", path)
+      stop("Baseline argument must be either FALSE or a vector of length 2 specifying min and max baseline years.")
     }
-
-    return(data_sf)
-
-  } else {
-    stop("Baseline argument must be either FALSE or a vector of length 2 specifying min and max baseline years.")
-  }
+  })
 }
