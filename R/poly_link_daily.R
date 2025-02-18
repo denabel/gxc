@@ -180,28 +180,26 @@
 #'
 #' @export
 
-poly_link <- function(
-  indicator,
-  data,
-  date_var,
-  time_span = 0,
-  time_lag = 0,
-  baseline = FALSE,
-  order = "my",
-  path = "./data/raw",
-  catalogue = "reanalysis-era5-land-monthly-means",
-  by_hour = FALSE,
-  keep_raw = FALSE,
-  parallel = FALSE,
-  chunk_size = 50
-  ) {
+poly_link_daily <- function(
+    indicator,
+    data,
+    date_var,
+    time_span = 0,
+    time_lag = 0,
+    baseline = FALSE,
+    order = "ymd",
+    path = "./data/raw",
+    catalogue = "derived-era5-land-daily-statistics",
+    keep_raw = FALSE,
+    parallel = FALSE,
+    chunk_size = 50
+) {
   with_progress({
     p <- progressor(steps = 4)
 
     # Validate catalogue and indicator choice
-    .check_valid_catalogue(catalogue, temp_res = "monthly")
+    .check_valid_catalogue(catalogue, temp_res = "daily")
     .check_valid_indicator(indicator, catalogue)
-    .check_valid_by_hour(by_hour)
 
     # Access to API
     api_key <- key_get("wf_api_key")
@@ -218,14 +216,14 @@ poly_link <- function(
         link_date = parse_date_time(x=!!sym(date_var), orders=order)
       ) |>
       mutate(
-        link_date = link_date - months(time_lag)
+        link_date = link_date - days(time_lag)
       ) |>
       mutate(
-        link_date_end = link_date - months(time_span)
+        link_date_end = link_date - days(time_span)
       )
     data_sf$time_span_seq <- future_lapply(1:nrow(data_sf), function(i) {
       if (!is.na(data_sf[i,]$link_date) & !is.na(data_sf[i,]$link_date_end)) {
-        seq_dates <- seq(data_sf[i,]$link_date_end, data_sf[i,]$link_date, by = "1 month")
+        seq_dates <- seq(data_sf[i,]$link_date_end, data_sf[i,]$link_date, by = "1 day")
         format(seq_dates, "%Y-%m-%d")
       } else{
         NA_character_
@@ -233,21 +231,12 @@ poly_link <- function(
     }, future.seed = TRUE)
     years <- as.character(sort(unique(year(unlist(data_sf$time_span_seq)))))
     months <- as.character(sort(unique(month(unlist(data_sf$time_span_seq)))))
+    days <- as.character(sort(unique(day(unlist(data_sf$time_span_seq)))))
     p(amount = 1, message = "Preprocessing complete")
 
-    # Average across entire day or by hour
-    if (isFALSE(by_hour)) {
-      product_type <- "monthly_averaged_reanalysis"
-      request_time <- "00:00"
-    } else {
-      product_type <- "monthly_averaged_reanalysis_by_hour_of_day"
-      request_time <- by_hour
-    }
-
     # Download data from API
-    focal_path <- .make_request_monthly(indicator, catalogue, extent, years,
-                                        months, path, prefix = "focal",
-                                        product_type, request_time)
+    focal_path <- .make_request_daily(indicator, catalogue, extent, years, months,
+                                      days, path, prefix = "focal")
     p(amount = 1, message = "Download complete")
 
     # Load raster file
