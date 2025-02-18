@@ -187,50 +187,6 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
   return(file_path)
 }
 
-#' @title Internal helper function to request ERA5 daily data from C3S
-#'
-#' @description This function requests ERA5 daily-averaged reanalysis data for
-#' a specified indicator, catalogue, time period, and spatial extent.
-#'
-#' @param indicator Character string specifying the indicator to download.
-#' @param catalogue Character string specifying which ERA5 catalogue to use.
-#' @param extent Numeric vector specifying the bounding box area (N,W,S,E).
-#' @param years Character vector of years for which data should be retrieved.
-#' @param months Character vector of months for which data should be retrieved.
-#' @param path Character string specifying the directory path where data will be stored.
-#' @param prefix Character string specifying a prefix for the target filename (e.g., "focal" or "baseline").
-#'
-#' @return A character string with the path to the downloaded file.
-#'
-#' @importFrom ecmwfr wf_request
-#' @noRd
-.make_request_daily <- function(indicator, catalogue, extent, years, months, days,
-                                  path, prefix) {
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp, "nc.zip")
 
-  request <- list(
-    variable = indicator,
-    product_type = "reanalysis",
-    year = years,
-    month = months,
-    day = days,
-    daily_statistic = "mean",
-    time_zone = "utc+00:00",
-    frequency = "1_hourly",
-    area = extent,
-    dataset_short_name = catalogue,
-    target = file_name
-  )
-
-  file_path <- ecmwfr::wf_request(
-    request = request,
-    transfer = TRUE,
-    path = path,
-    verbose = FALSE
-  )
-
-  return(file_path)
-}
 
 
