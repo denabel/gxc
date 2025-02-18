@@ -36,14 +36,14 @@ allowed_indicators_by_catalogue <- list(
                                                     "leaf_area_index_low_vegetation"
                                                     #"snowfall" # time stamp last day of previous month
   ),
-  "derived-era5-land-daily-statistics" = c("2m_temperature",
+  "derived-era5-land-daily-statistics" = c("2m_temperature"
                                            #"snow_cover",
                                            #"10m_u_component_of_wind",
                                            #"10m_v_component_of_wind",
                                            #"leaf_area_index_high_vegetation",
                                            #"leaf_area_index_low_vegetation"
   ),
-  "derived-era5-single-levels-daily-statistics" = c("2m_temperature",
+  "derived-era5-single-levels-daily-statistics" = c("2m_temperature"
                                                     #"total_precipitation",
                                                     #"10m_u_component_of_wind",
                                                     #"10m_v_component_of_wind",
