@@ -1,5 +1,8 @@
 # R/utils.R
 
+
+# Valid input checks ------------------------------------------------------
+
 # Allowed catalogues
 allowed_catalogues_monthly <- c(
   "reanalysis-era5-land-monthly-means",
@@ -111,6 +114,9 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
   }
 }
 
+
+# Spatial processing of input ---------------------------------------------
+
 #' @title Helper function for making a bbox and create the spatial extent of the dataset
 #' @noRd
 .prep_poly <- function(data) {
@@ -140,6 +146,9 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
   # Return data and extent
   list(data_sf = data, extent = extent)
 }
+
+
+# Data retrieval helpers --------------------------------------------------
 
 #' @title Internal helper function to request ERA5 monthly data from C3S
 #'
