@@ -2,6 +2,7 @@
 
 export(gxc_link_dwd)
 export(poly_link)
+export(poly_link_daily)
 export(specify_days)
 importFrom(dplyr,"%>%")
 importFrom(dplyr,mutate)

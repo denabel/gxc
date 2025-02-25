@@ -219,7 +219,7 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
 .make_request_daily <- function(indicator, catalogue, extent, years, months, days,
                                 path, prefix) {
   timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp, ".nc.zip")
+  file_name <- paste0(indicator, "_", prefix, "_", timestamp)
 
   request <- list(
     variable = indicator,
@@ -227,7 +227,7 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
     year = years,
     month = months,
     day = days,
-    daily_statistic = "mean",
+    daily_statistic = "daily_mean",
     time_zone = "utc+00:00",
     frequency = "1_hourly",
     area = extent,
