@@ -244,3 +244,10 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
 
   return(file_path)
 }
+
+# Data extraction helpers -------------------------------------------------
+
+#' @noRd
+
+
+
