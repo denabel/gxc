@@ -249,5 +249,129 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
 
 #' @noRd
 
+# Focal extraction
+.focal_extract <- function(raster,
+                           focal_path,
+                           data_sf,
+                           time_span = 0,
+                           parallel = FALSE,
+                           chunk_size = 50
+                           ) {
+  # Extract values from raster for each observation and add to dataframe
+  if(length(unique(data_sf$link_date)) == 1 & time_span == 0){
+    # All observations have the same link date and direct link to focal month
+    raster_values <- terra::extract(
+      raster,
+      data_sf,
+      fun = mean,
+      na.rm = TRUE,
+      ID = FALSE
+    )
+  } else if (length(unique(data_sf$link_date)) > 1 & time_span == 0){
+    # All observations have different link dates and direct link to focal month
+    if (!parallel) {
+      # Sequential approach
+      raster_dates <- as.Date(terra::time(raster))
+      raster_values <- lapply(seq_len(nrow(data_sf)), function(i) {
+        if (!is.na(data_sf[i,]$link_date)) {
+          target_date <- data_sf[i,]$link_date
+          layer_index <- which(raster_dates == target_date)
+          if (length(layer_index) == 0) return(NA)
+          terra::extract(
+            raster[[layer_index]],
+            data_sf[i,],
+            fun = mean,
+            na.rm = TRUE,
+            ID = FALSE
+          )
+        } else {
+          NA
+        }
+      })
+      raster_values <- unlist(raster_values, recursive = FALSE)
+    } else {
+      # Parallelization approach
+      chunks <- split(seq_len(nrow(data_sf)),
+                      ceiling(seq_len(nrow(data_sf)) / chunk_size))
 
+      raster_values_list <- future.apply::future_lapply(chunks, function(idx) {
+        local_raster <- terra::rast(focal_path)
+        local_dates <- as.Date(terra::time(local_raster))
+
+        sapply(idx, function(i) {
+          if (!is.na(data_sf[i,]$link_date)) {
+            target_date <- data_sf[i,]$link_date
+            layer_index <- which(local_dates == target_date)
+            if(length(layer_index) == 0) return(NA)
+            terra::extract(
+              local_raster[[layer_index]],
+              data_sf[i,],
+              fun = mean,
+              na.rm = TRUE,
+              ID = FALSE
+            )
+          } else {
+            NA
+          }
+        })
+      }, future.seed = TRUE)
+
+      raster_values <- unlist(raster_values_list, recursive = FALSE)
+    }
+
+  } else if (length(unique(data_sf$link_date)) >= 1 & time_span > 0){
+    # All observations have different link dates and mean calculation of focal months
+    if (!parallel) {
+      # Sequential approach
+      raster_dates <- as.Date(terra::time(raster))
+      raster_values <- lapply(seq_len(nrow(data_sf)), function(i) {
+        if (!is.na(data_sf[i,]$link_date)) {
+          target_dates <- lubridate::ymd(unlist(data_sf[i,]$time_span_seq))
+          layer_index <- which(raster_dates %in% target_dates)
+          if (length(layer_index) == 0) return(NA)
+          raster_subset <- terra::app(raster[[layer_index]], mean)
+          terra::extract(
+            raster_subset,
+            data_sf[i,],
+            fun = mean,
+            na.rm = TRUE,
+            ID = FALSE
+          )
+        } else {
+          NA
+        }
+      })
+      raster_values <- unlist(raster_values, recursive = FALSE)
+    } else {
+      # Parallel approach with chunking
+      chunks <- split(seq_len(nrow(data_sf)),
+                      ceiling(seq_len(nrow(data_sf)) / chunk_size))
+
+      raster_values_list <- future.apply::future_lapply(chunks, function(idx) {
+        local_raster <- terra::rast(focal_path)
+        local_dates <- as.Date(terra::time(local_raster))
+
+        sapply(idx, function(i) {
+          if (!is.na(data_sf[i,]$link_date)) {
+            target_dates <- lubridate::ymd(unlist(data_sf[i,]$time_span_seq))
+            layer_index <- which(local_dates %in% target_dates)
+            if(length(layer_index) == 0) return(NA)
+            raster_subset <- terra::app(local_raster[[layer_index]], mean)
+            terra::extract(
+              raster_subset,
+              data_sf[i,],
+              fun = mean,
+              na.rm = TRUE,
+              ID = FALSE
+            )
+          } else {
+            NA
+          }
+        })
+      }, future.seed = TRUE)
+
+      raster_values <- unlist(raster_values_list, recursive = FALSE)
+    }
+  }
+}
 
