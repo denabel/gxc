@@ -63,7 +63,15 @@ allowed_indicators_by_catalogue <- list(
 
 
 # Allowed input hours
-allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
+allowed_hours <- sprintf("%02d:00", 0:23)
+
+# Allowed statistic
+allowed_statistic <- c("daily_mean",
+                       "daily_maximum",
+                       "daily_minimum")
+
+# Allowed time-zone
+allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
 # Check allowed values functions
 #' @noRd
@@ -109,6 +117,29 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
       paste0(
         "Invalid 'by_hour' argument. Please choose either FALSE or one of: ",
         paste(allowed_hours, collapse = ", ")
+      ), call. = FALSE
+    )
+  }
+}
+
+#' @noRd
+.check_valid_statistic <- function(statistic) {
+  if (!statistic %in% allowed_statistic)  {
+    stop(
+      paste0(
+        "Invalid 'statistic' argument. Please choose one of: ",
+        paste(allowed_statistic, collapse = ", ")
+      ), call. = FALSE
+    )
+  }
+}
+
+#' @noRd
+.check_valid_time_zone <- function(time_zone) {
+  if (!time_zone %in% allowed_time_zone)  {
+    stop(
+      paste0(
+        "Invalid 'time_zone' argument. Please choose one between utc-12:00 and utc+14:00."
       ), call. = FALSE
     )
   }
@@ -217,7 +248,8 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
 #' @importFrom ecmwfr wf_request
 #' @noRd
 .make_request_daily <- function(indicator, catalogue, extent, years, months, days,
-                                path, prefix) {
+                                path, prefix, statistic = "daily_mean",
+                                time_zone = "utc+00:00") {
   timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
   file_name <- paste0(indicator, "_", prefix, "_", timestamp)
 
@@ -227,8 +259,8 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
     year = years,
     month = months,
     day = days,
-    daily_statistic = "daily_mean",
-    time_zone = "utc+00:00",
+    daily_statistic = statistic,
+    time_zone = time_zone,
     frequency = "1_hourly",
     area = extent,
     dataset_short_name = catalogue,
@@ -243,6 +275,63 @@ allowed_hours <- sprintf("%02d:00", 0:23)  # "00:00", "01:00", ..., "23:00"
   )
 
   return(file_path)
+}
+
+
+# Raster processing helpers -----------------------------------------------
+
+#' Process raster file to add timestamp and update the stored file
+#'
+#' This function takes a SpatRaster object and a set of days, months, and years,
+#' constructs a valid date vector, assigns it as the raster's time dimension,
+#' writes the raster to a temporary NetCDF file using terra::writeCDF, removes the
+#' original file, and renames the temporary file to the original file path.
+#'
+#' @param raster A SpatRaster object to be processed.
+#' @param days Vector of days (numeric or character) used to build the date vector.
+#' @param months Vector of months (numeric or character).
+#' @param years Vector of years (numeric or character).
+#' @param path Directory where the raster file is stored.
+#' @param file_path Full file path to the raster file that will be replaced.
+#'
+#' @return The input SpatRaster with its time dimension updated. On disk, the original
+#'         file is replaced by the new file with time information.
+.raster_timestamp <- function(raster, days, months, years, path, file_path) {
+
+  # Build a vector of valid date strings
+  valid_date_strings <- expand_grid(
+    day = as.numeric(days),
+    month = as.numeric(months),
+    year = as.numeric(years)
+  ) |>
+    mutate(date = make_date(year, month, day)) |>
+    filter(!is.na(date)) |>
+    arrange(date) |>
+    pull(date) |>
+    format("%Y-%m-%d")
+
+  # Assign the date vector as the raster's time dimension
+  terra::time(raster) <- as.Date(valid_date_strings)
+
+  # Extract the original variable names and units from the raster
+  orig_units <- terra::units(raster)
+  orig_varnames <- terra::varnames(raster)
+
+  # Create a temporary file path for the updated raster file
+  temp_file <- file.path(path, paste0("temp_", basename(file_path)))
+
+  # Write the raster to the temporary file (NetCDF format)
+  terra::writeCDF(raster,
+                  filename = temp_file,
+                  varname = orig_varnames,
+                  unit = orig_units,
+                  overwrite = TRUE)
+
+  # Remove the original file and rename the temporary file to the original name
+  file.remove(file_path)
+  file.rename(temp_file, file_path)
+
+  return(raster)
 }
 
 # Data extraction helpers -------------------------------------------------

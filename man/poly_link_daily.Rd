@@ -2,7 +2,7 @@
 % Please edit documentation in R/poly_link_daily.R
 \name{poly_link_daily}
 \alias{poly_link_daily}
-\title{Link Spatial Data with Copernicus Earth Observation Indicators}
+\title{Link Spatial Data with Copernicus Earth Observation Daily Indicators}
 \usage{
 poly_link_daily(
   indicator,
@@ -14,6 +14,8 @@ poly_link_daily(
   order = "ymd",
   path = "./data/raw",
   catalogue = "derived-era5-land-daily-statistics",
+  statistic = "daily_mean",
+  time_zone = "utc+00:00",
   keep_raw = FALSE,
   parallel = FALSE,
   chunk_size = 50
@@ -27,26 +29,27 @@ Allowed indicators differ by catalogue. See the \strong{Details} section for ava
 
 \item{date_var}{Character string specifying the name of the date variable in \code{data}.}
 
-\item{time_span}{Integer specifying the time span in months for averaging the climate indicator
-values prior to linking with the spatial data (default is \code{0}).}
+\item{time_span}{Integer specifying the time span in days for averaging the climate indicator values prior to linking
+with the spatial data (default is \code{0}).}
 
-\item{time_lag}{Integer specifying the time lag in months to shift the \code{date_var} backward
-(default is \code{0}).}
+\item{time_lag}{Integer specifying the time lag in days to shift the \code{date_var} backward (default is \code{0}).}
 
 \item{baseline}{Either \code{FALSE} (default) or a character vector of length 2 specifying the baseline
 period in years. For example, \code{baseline = c("1980", "2010")} uses the years 1980 to 2010 as the baseline.
 If \code{FALSE}, no baseline calculation is performed.}
 
-\item{order}{Character string specifying the date format for parsing \code{date_var}
-(default is \code{"my"} for month-year format).}
+\item{order}{Character string specifying the date format for parsing \code{date_var} (default is \code{"ymd"}).}
 
 \item{path}{Character string specifying the directory path where data will be downloaded and/or stored
 (default is \code{"./data/raw"}).}
 
 \item{catalogue}{Character string specifying which ERA5 catalogue to use.
-Options are \code{"reanalysis-era5-land-monthly-means"} (default, higher resolution but lower temporal
-coverage)
-or \code{"reanalysis-era5-single-levels-monthly-means"} (lower resolution but larger temporal coverage).}
+Options are \code{"derived-era5-land-daily-statistics"} (default) or \code{"derived-era5-single-levels-daily-statistics"}.}
+
+\item{statistic}{Character string specifying the type of daily statistic to download.
+Options are \code{"daily_mean"} (default), \code{"daily_maximum"}, and \code{"daily_minimum"}.}
+
+\item{time_zone}{Character string specifying the time zone to use (default is \code{"utc+00:00"}).}
 
 \item{keep_raw}{Logical value indicating whether to keep the downloaded raw \code{.grib} files.
 If \code{FALSE}, the files are deleted after processing (default is \code{FALSE}).}
@@ -56,68 +59,33 @@ Default is \code{FALSE} (i.e. sequential execution).}
 
 \item{chunk_size}{Integer specifying the number of observations per chunk when parallelizing.
 Default is \code{50}.}
-
-\item{by_hour}{Logical or character. If \code{FALSE} (default), the monthly averaged values are derived
-from the entire day (\code{"monthly_averaged_reanalysis"}). If a character string specifying an hour (e.g., \code{"03:00"}),
-then the dataset \code{"monthly_averaged_reanalysis_by_hour_of_day"} is used, and only values from that hour of the day
-are included.}
 }
 \value{
 An \code{sf} object with the original spatial data and appended climate indicator values. If a baseline
 period is specified, additional columns for baseline values and deviations are included.
 }
 \description{
-Downloads and processes Copernicus Earth observation data (ERA5) based on spatial and temporal parameters,
-and extracts the relevant indicators for the provided spatial dataset. Compared to previous versions,
-the set of accessible indicators has been expanded.
+Downloads and processes Copernicus Earth observation data (ERA5) based on
+spatial and daily temporal parameters, and extracts the relevant daily
+climate indicator values for the provided spatial dataset. The function
+constructs daily time sequences based on the provided date variable and time
+adjustments, downloads the corresponding daily statistics (mean, maximum,
+or minimum), and links these values to the spatial features. If a baseline
+period is specified, baseline daily statistics are downloaded for the
+corresponding days across the baseline years and compared with the focal
+values.
 }
 \details{
-This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 monthly-averaged
-reanalysis data for a specified climate indicator and time period. It processes the spatial data to determine
-the geographic extent and constructs time sequences based on the provided \code{date_var}, \code{time_span}, and \code{time_lag}.
+This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 daily reanalysis data for a specified
+climate indicator and time period based on daily temporal resolution. It processes the spatial data to determine the geographic
+extent and constructs daily time sequences based on the provided \code{date_var}, \code{time_span}, and \code{time_lag}. The function downloads
+the corresponding daily statistics (e.g. daily mean, maximum, or minimum) and extracts these values for each spatial feature.
+
+If a baseline period is provided (e.g. \code{baseline = c("1980", "2010")}), the function downloads baseline daily statistics for the
+specified period and calculates the average value for the same day (e.g., 3rd February, 15th March, etc.) across the baseline years.
+It then computes the deviation between the focal and baseline values.
 
 \strong{Note:} Users must have a CDS account and have their API key configured for \code{ecmwfr}.
-
-The function now supports an extended set of indicators. The allowed indicators depend on the chosen \code{catalogue}:
-
-\strong{For \code{"reanalysis-era5-land-monthly-means"}} (higher resolution, from 1950 onwards):
-\itemize{
-\item \code{"2m_temperature"}
-\item \code{"total_precipitation"}
-\item \code{"10m_u_component_of_wind"}
-\item \code{"10m_v_component_of_wind"}
-\item \code{"leaf_area_index_high_vegetation"}
-\item \code{"leaf_area_index_low_vegetation"}
-\item \code{"snowfall"}
-}
-
-\strong{For \code{"reanalysis-era5-single-levels-monthly-means"}} (lower resolution, from 1940 onwards):
-\itemize{
-\item \code{"2m_temperature"}
-\item \code{"10m_u_component_of_wind"}
-\item \code{"10m_v_component_of_wind"}
-\item \code{"10m_wind_speed"}
-\item \code{"total_cloud_cover"}
-\item \code{"leaf_area_index_high_vegetation"}
-\item \code{"leaf_area_index_low_vegetation"}
-}
-
-If a baseline period is provided (e.g. \code{baseline = c("1980", "2010")}), it calculates and appends baseline
-values for comparison, as well as the deviation from the baseline. Without a baseline, only the focal climate
-indicator values are appended.
-
-If \code{keep_raw = TRUE}, the original \code{.grib} files downloaded from the CDS are retained in the specified \code{path}.
-If \code{keep_raw = FALSE}, these files are removed after processing, saving storage space.
-
-The default catalogue \code{"reanalysis-era5-land-monthly-means"} provides higher spatial resolution at 0.1x0.1 degrees
-but is only available from 1950 onwards. If you need data before 1950 or if you are working with large
-spatial extents where finer resolution is not required, you can switch to
-\code{"reanalysis-era5-single-levels-monthly-means"}. This dataset provides a spatial resolution of 0.25x0.25 degrees and
-a temporal coverage until 1940.
-
-If \code{by_hour} is specified as an hour (e.g. \code{"03:00"}), monthly averages for that specific hour of the day are accessed.
-This can be useful if you are interested in intra-day climate patterns over long periods such as heat or cold during
-day or nighttime. The time is specified as UTC.
 
 \strong{Parallel Processing:}
 This function can use parallel processing with chunking via
@@ -133,8 +101,8 @@ likely increase duration.
 library(sf)
 library(dplyr)
 
-# Example 1: Using the default (sequential) mode with no baseline and time_span = 0
-result1 <- poly_link(
+# Example 1: Sequential mode with no baseline and time_span = 0
+result1 <- poly_link_daily(
   indicator = "2m_temperature",
   data = my_data,
   date_var = "date_column",
@@ -143,13 +111,14 @@ result1 <- poly_link(
   baseline = FALSE,
   order = "ymd",
   path = "./data/raw",
-  catalogue = "reanalysis-era5-land-monthly-means",
-  by_hour = FALSE,
+  catalogue = "derived-era5-land-daily-statistics",
+  statistic = "daily_mean",
+  time_zone = "utc+00:00",
   keep_raw = FALSE
 )
 
 # Example 2: Sequential mode with a baseline period specified
-result2 <- poly_link(
+result2 <- poly_link_daily(
   indicator = "2m_temperature",
   data = my_data,
   date_var = "date_column",
@@ -158,32 +127,17 @@ result2 <- poly_link(
   baseline = c("1980", "2010"),
   order = "ymd",
   path = "./data/raw",
-  catalogue = "reanalysis-era5-land-monthly-means",
-  by_hour = FALSE,
+  catalogue = "derived-era5-land-daily-statistics",
+  statistic = "daily_maximum",
+  time_zone = "utc+00:00",
   keep_raw = TRUE
 )
 
-# Example 3: Sequential mode with by_hour specified (e.g., "03:00")
-result3 <- poly_link(
-  indicator = "2m_temperature",
-  data = my_data,
-  date_var = "date_column",
-  time_span = 0,
-  time_lag = 0,
-  baseline = FALSE,
-  order = "ymd",
-  path = "./data/raw",
-  catalogue = "reanalysis-era5-land-monthly-means",
-  by_hour = "03:00",
-  keep_raw = FALSE
-)
-
-# Example 4: Using parallel processing with chunking
-# (This example uses a parallel plan set externally.)
+# Example 3: Parallel processing with chunking and baseline specified
 library(future)
 plan(multisession, workers = 6)
 
-result4 <- poly_link(
+result3 <- poly_link_daily(
   indicator = "2m_temperature",
   data = my_data,
   date_var = "date_column",
@@ -192,8 +146,9 @@ result4 <- poly_link(
   baseline = c("1980", "2010"),
   order = "ymd",
   path = "./data/raw",
-  catalogue = "reanalysis-era5-land-monthly-means",
-  by_hour = FALSE,
+  catalogue = "derived-era5-land-daily-statistics",
+  statistic = "daily_minimum",
+  time_zone = "utc+00:00",
   keep_raw = TRUE,
   parallel = TRUE,
   chunk_size = 50
@@ -203,7 +158,6 @@ result4 <- poly_link(
 head(result1)
 head(result2)
 head(result3)
-head(result4)
 }
 
 }

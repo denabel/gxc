@@ -106,7 +106,7 @@
 #' library(dplyr)
 #'
 #' # Example 1: Using the default (sequential) mode with no baseline and time_span = 0
-#' result1 <- poly_link(
+#' result1 <- poly_link_monthly(
 #'   indicator = "2m_temperature",
 #'   data = my_data,
 #'   date_var = "date_column",
@@ -121,7 +121,7 @@
 #' )
 #'
 #' # Example 2: Sequential mode with a baseline period specified
-#' result2 <- poly_link(
+#' result2 <- poly_link_monthly(
 #'   indicator = "2m_temperature",
 #'   data = my_data,
 #'   date_var = "date_column",
@@ -136,7 +136,7 @@
 #' )
 #'
 #' # Example 3: Sequential mode with by_hour specified (e.g., "03:00")
-#' result3 <- poly_link(
+#' result3 <- poly_link_monthly(
 #'   indicator = "2m_temperature",
 #'   data = my_data,
 #'   date_var = "date_column",
@@ -155,7 +155,7 @@
 #' library(future)
 #' plan(multisession, workers = 6)
 #'
-#' result4 <- poly_link(
+#' result4 <- poly_link_monthly(
 #'   indicator = "2m_temperature",
 #'   data = my_data,
 #'   date_var = "date_column",
@@ -180,7 +180,7 @@
 #'
 #' @export
 
-poly_link <- function(
+poly_link_monthly <- function(
   indicator,
   data,
   date_var,
@@ -259,122 +259,14 @@ poly_link <- function(
         st_transform(crs=st_crs(raster))
     }
 
-    # Extract values from raster for each observation and add to dataframe
-    if(length(unique(data_sf$link_date)) == 1 & time_span == 0){
-      # All observations have the same link date and direct link to focal month
-      raster_values <- terra::extract(
-        raster,
-        data_sf,
-        fun = mean,
-        na.rm = TRUE,
-        ID = FALSE
-      )
-    } else if (length(unique(data_sf$link_date)) > 1 & time_span == 0){
-      # All observations have different link dates and direct link to focal month
-      if (!parallel) {
-        # Sequential approach
-        raster_dates <- as.Date(time(raster))
-        raster_values <- lapply(seq_len(nrow(data_sf)), function(i) {
-          if (!is.na(data_sf[i,]$link_date)) {
-            target_date <- data_sf[i,]$link_date
-            layer_index <- which(raster_dates == target_date)
-            if (length(layer_index) == 0) return(NA)
-            terra::extract(
-              raster[[layer_index]],
-              data_sf[i,],
-              fun = mean,
-              na.rm = TRUE,
-              ID = FALSE
-            )
-          } else {
-            NA
-          }
-        })
-        raster_values <- unlist(raster_values, recursive = FALSE)
-      } else {
-        # Parallelization approach
-        chunks <- split(seq_len(nrow(data_sf)),
-                        ceiling(seq_len(nrow(data_sf)) / chunk_size))
-
-        raster_values_list <- future_lapply(chunks, function(idx) {
-          local_raster <- terra::rast(focal_path)
-          local_dates <- as.Date(time(local_raster))
-
-          sapply(idx, function(i) {
-            if (!is.na(data_sf[i,]$link_date)) {
-              target_date <- data_sf[i,]$link_date
-              layer_index <- which(local_dates == target_date)
-              if(length(layer_index) == 0) return(NA)
-              terra::extract(
-                local_raster[[layer_index]],
-                data_sf[i,],
-                fun = mean,
-                na.rm = TRUE,
-                ID = FALSE
-              )
-            } else {
-              NA
-            }
-          })
-        }, future.seed = TRUE)
-
-        raster_values <- unlist(raster_values_list, recursive = FALSE)
-      }
-
-    } else if (length(unique(data_sf$link_date)) >= 1 & time_span > 0){
-      # All observations have different link dates and mean calculation of focal months
-      if (!parallel) {
-        # Sequential approach
-        raster_dates <- as.Date(time(raster))
-        raster_values <- lapply(seq_len(nrow(data_sf)), function(i) {
-          if (!is.na(data_sf[i,]$link_date)) {
-            target_dates <- ymd(unlist(data_sf[i,]$time_span_seq))
-            layer_index <- which(raster_dates %in% target_dates)
-            if (length(layer_index) == 0) return(NA)
-            raster_subset <- app(raster[[layer_index]], mean)
-            terra::extract(
-              raster_subset,
-              data_sf[i,],
-              fun = mean,
-              na.rm = TRUE,
-              ID = FALSE
-            )
-          } else {
-            NA
-          }
-        })
-        raster_values <- unlist(raster_values, recursive = FALSE)
-      } else {
-        # Parallel approach with chunking
-        chunks <- split(seq_len(nrow(data_sf)),
-                        ceiling(seq_len(nrow(data_sf)) / chunk_size))
-
-        raster_values_list <- future_lapply(chunks, function(idx) {
-          local_raster <- terra::rast(focal_path)
-          local_dates <- as.Date(time(local_raster))
-
-          sapply(idx, function(i) {
-            if (!is.na(data_sf[i,]$link_date)) {
-              target_dates <- ymd(unlist(data_sf[i,]$time_span_seq))
-              layer_index <- which(local_dates %in% target_dates)
-              if(length(layer_index) == 0) return(NA)
-              raster_subset <- app(local_raster[[layer_index]], mean)
-              terra::extract(
-                raster_subset,
-                data_sf[i,],
-                fun = mean,
-                na.rm = TRUE,
-                ID = FALSE
-              )
-            } else {
-              NA
-            }
-          })
-        }, future.seed = TRUE)
-
-        raster_values <- unlist(raster_values_list, recursive = FALSE)
-      }
-    }
+    # Extract focal values
+    raster_values <- .focal_extract(raster,
+                                    focal_path,
+                                    data_sf,
+                                    time_span = time_span,
+                                    parallel = parallel,
+                                    chunk_size = chunk_size
+    )
 
     # Create new variable in dataframe
     data_sf$focal_value <- unlist(raster_values)
