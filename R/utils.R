@@ -148,7 +148,8 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
 # Spatial processing of input ---------------------------------------------
 
-#' @title Helper function for making a bbox and create the spatial extent of the dataset
+#' @title Helper function for making a bbox and create the spatial extent of the
+#' sf dataset
 #' @noRd
 .prep_poly <- function(data) {
 
@@ -176,6 +177,33 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
   # Return data and extent
   list(data_sf = data, extent = extent)
+}
+
+#' @title Helper function for making a bbox and create the spatial extent of
+#' the gridded dataset
+#' @noRd
+.prep_grid <- function(data) {
+
+  # Check SpatRaster
+  if (!inherits(data, "SpatRaster")) {
+    stop("Data must be a SpatRaster object for gridded input.")
+  }
+
+  # Check CRS and transform to WGS84 if necessary for gridded data
+  crs_info <- terra::crs(data, describe = TRUE)
+  if (is.null(crs_info$code) || crs_info$code != "EPSG:4326") {
+    message("Transforming raster data to WGS84 (EPSG:4326).")
+    data <- terra::project(data, "EPSG:4326")
+  }
+
+  # Extract extent
+  e <- terra::ext(data)
+
+  # Create an extent vector in order: north, west, south, east
+  # north  = ymax, west = xmin, south = ymin, east = xmax
+  extent <- c(ceiling(e[4]), floor(e[1]), floor(e[3]), ceiling(e[2]))
+
+  list(grid = data, extent = extent)
 }
 
 
@@ -461,6 +489,59 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
       raster_values <- unlist(raster_values_list, recursive = FALSE)
     }
+  }
+}
+
+
+# Focal extraction for gridded data input
+.focal_extract_grid <- function(raster,
+                                data_sf,
+                                grid_df,
+                                time_span = 0,
+                                parallel = FALSE,
+                                chunk_size = 50,
+                                method = "bilinear"
+                                ) {
+  # Get focal raster dates
+  raster_dates <- as.Date(terra::time(raster))
+
+  if (time_span == 0) {
+    # For a single date, all grid cells share the same link_date.
+    unique_dates <- unique(grid_df$link_date)
+    if (length(unique_dates) != 1) {
+      stop("For gridded data with time_span == 0, the link_date should be unique across the grid.")
+    }
+    target_date <- unique_dates[1]
+    match_idx <- which(raster_dates == target_date)
+    if (length(match_idx) == 0) {
+      warning("No matching focal layer found for the target date.")
+      return(NA)
+    }
+    # Use the first matching layer
+    focal_layer <- raster[[match_idx[1]]]
+
+    # Resample the focal layer to match grid_data
+    extracted <- terra::resample(focal_layer, data_sf, method = method)
+    return(extracted)
+
+  } else {
+    # For time_span > 0, all grid cells share the same time_span_seq.
+    unique_seq <- unique(grid_df$time_span_seq)
+    if (length(unique_seq) != 1) {
+      stop("For gridded data with time_span > 0, all cells should share the same time_span_seq.")
+    }
+    seq_dates <- lubridate::ymd(unique_seq[[1]])
+    match_idx <- which(raster_dates %in% seq_dates)
+    if (length(match_idx) == 0) {
+      warning("No matching focal layers found for the target time span.")
+      return(NA)
+    }
+    # Compute the average of the matching layers
+    subset_avg <- terra::app(raster[[match_idx]], mean, na.rm = TRUE)
+
+    # Resample the averaged raster to grid_data
+    extracted <- terra::resample(subset_avg, data_sf, method = method)
+    return(extracted)
   }
 }
 
