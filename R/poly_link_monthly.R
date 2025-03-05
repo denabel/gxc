@@ -302,9 +302,11 @@ poly_link_monthly <- function(
 
 
       # Download data from API
-      baseline_path <- .make_request(indicator, catalogue, extent, baseline_years,
-                                     months, path, prefix = "baseline", product_type,
-                                     request_time)
+      baseline_path <- .make_request_monthly(indicator, catalogue, extent,
+                                             baseline_years, months, path,
+                                             prefix = "baseline", product_type,
+                                             request_time
+                                             )
 
       # Load data
       baseline_raster <- terra::rast(baseline_path)
