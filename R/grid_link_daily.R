@@ -1,26 +1,27 @@
-#' Link Spatial Data with Copernicus Earth Observation Daily Indicators
+#' Link Gridded Data with Copernicus Earth Observation Daily Indicators
 #'
 #' Downloads and processes Copernicus Earth observation data (ERA5) based on
-#' spatial and daily temporal parameters, and extracts the relevant daily
-#' climate indicator values for the provided spatial dataset. The function
-#' constructs daily time sequences based on the provided date variable and time
-#' adjustments, downloads the corresponding daily statistics (mean, maximum,
-#' or minimum), and links these values to the spatial features. If a baseline
-#' period is specified, baseline daily statistics are downloaded for the
-#' corresponding days across the baseline years and compared with the focal
-#' values.
+#' gridded daily temporal parameters, and extracts the relevant daily climate
+#' indicator values for the provided gridded dataset. The function uses the
+#' time dimension of the input grid (a SpatRaster) along with specified time
+#' adjustments (time_lag and time_span) to construct daily time sequences.
+#' It then downloads the corresponding daily statistics (e.g., daily mean, maximum,
+#' or minimum) and extracts these values for each grid cell. If a baseline period
+#' is specified (e.g., `baseline = c("1980", "2010")`), baseline daily statistics
+#' are downloaded for the specified period and appended as a separate layer.
+#' The resampling method (e.g., `"bilinear"`) is used to align the downloaded data
+#' with the input grid. Parallel processing via `future.apply::future_lapply`
+#' is supported.
 #'
 #' @param indicator Character string specifying the indicator to download (e.g., "2m_temperature").
 #'   Allowed indicators differ by catalogue. See the **Details** section for available indicators.
-#' @param data An `sf` object containing the spatial data (polygons or points).
-#' @param date_var Character string specifying the name of the date variable in `data`.
+#' @param data A SpatRaster containing the gridded input data.
 #' @param time_span Integer specifying the time span in days for averaging the climate indicator values prior to linking
 #'   with the spatial data (default is `0`).
 #' @param time_lag Integer specifying the time lag in days to shift the `date_var` backward (default is `0`).
 #' @param baseline Either `FALSE` (default) or a character vector of length 2 specifying the baseline
 #'   period in years. For example, `baseline = c("1980", "2010")` uses the years 1980 to 2010 as the baseline.
 #'   If `FALSE`, no baseline calculation is performed.
-#' @param order Character string specifying the date format for parsing `date_var` (default is `"ymd"`).
 #' @param path Character string specifying the directory path where data will be downloaded and/or stored
 #'   (default is `"./data/raw"`).
 #' @param catalogue Character string specifying which ERA5 catalogue to use.
@@ -28,6 +29,8 @@
 #' @param statistic Character string specifying the type of daily statistic to download.
 #'   Options are `"daily_mean"` (default), `"daily_maximum"`, and `"daily_minimum"`.
 #' @param time_zone Character string specifying the time zone to use (default is `"utc+00:00"`).
+#' @param method Character string specifying the resampling method to use when aligning the downloaded data with the grid.
+#'   Options include `"bilinear"` (default), `"near"`, `"cubic"`, etc.
 #' @param keep_raw Logical value indicating whether to keep the downloaded raw `.grib` files.
 #'   If `FALSE`, the files are deleted after processing (default is `FALSE`).
 #' @param parallel Logical indicating whether to use parallel processing with chunking.
@@ -37,13 +40,12 @@
 #'
 #' @details
 #' This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 daily reanalysis data for a specified
-#' climate indicator and time period based on daily temporal resolution. It processes the spatial data to determine the geographic
-#' extent and constructs daily time sequences based on the provided `date_var`, `time_span`, and `time_lag`. The function downloads
-#' the corresponding daily statistics (e.g. daily mean, maximum, or minimum) and extracts these values for each spatial feature.
-#'
-#' If a baseline period is provided (e.g. `baseline = c("1980", "2010")`), the function downloads baseline daily statistics for the
-#' specified period and calculates the average value for the same day (e.g., 3rd February, 15th March, etc.) across the baseline years.
-#' It then computes the deviation between the focal and baseline values.
+#' climate indicator and time period based on daily temporal resolution. The input gridded data (a SpatRaster) is processed to determine
+#' its spatial extent and its time dimension is used—after adjusting by the specified time_lag and time_span—to build daily time sequences.
+#' The function downloads the corresponding daily statistics (e.g., daily mean, maximum, or minimum) and extracts these values for each
+#' grid cell. If a baseline period is provided (e.g., `baseline = c("1980", "2010")`), baseline daily statistics are downloaded for the
+#' specified period and appended as a new layer. The resampling method (e.g., `"bilinear"`) is applied to ensure that the downloaded data
+#' aligns with the input grid. Parallel processing via `future.apply::future_lapply` is supported to improve performance.
 #'
 #' **Note:** Users must have a CDS account and have their API key configured for `ecmwfr`.
 #'
@@ -56,14 +58,13 @@
 #' the function will run sequentially through the chunks, which will most
 #' likely increase duration.
 #'
-#' @return An `sf` object with the original spatial data and appended climate indicator values. If a baseline
-#' period is specified, additional columns for baseline values and deviations are included.
+#' @return A SpatRaster containing the original grid along with appended layers for the focal climate indicator values and, if requested,
+#'   baseline values (and optionally deviations).
 #'
-#' @importFrom sf st_transform st_bbox st_crs
 #' @importFrom dplyr mutate %>%
 #' @importFrom lubridate parse_date_time ymd year month day
-#' @importFrom terra rast extract app time crs writeCDF
-#' @importFrom rlang sym
+#' @importFrom terra rast extract app time crs writeCDF project resample
+#' @importFrom tibble tibble
 #' @importFrom keyring key_get
 #' @importFrom ecmwfr wf_set_key wf_request
 #' @importFrom future.apply future_lapply
@@ -71,66 +72,32 @@
 #'
 #' @examples
 #' \dontrun{
-#' library(sf)
-#' library(dplyr)
+#' library(terra)
+#' # Create a sample grid (SpatRaster) covering a given extent.
+#' # For instance, create a raster with 10 km resolution over Germany's bounding box.
+#' germany_bbox <- c(xmin = 5, xmax = 16, ymin = 47, ymax = 55) # approximate extent
+#' sample_grid <- rast(xmin = germany_bbox["xmin"], xmax = germany_bbox["xmax"],
+#'                     ymin = germany_bbox["ymin"], ymax = germany_bbox["ymax"],
+#'                     resolution = 10000, crs = "EPSG:4326")
+#' terra::time(sample_grid) <- as.Date("2014-08-01")
 #'
-#' # Example 1: Sequential mode with no baseline and time_span = 0
-#' result1 <- poly_link_daily(
+#' # Example: Download daily focal values for "2m_temperature" and optionally baseline
+#' result <- grid_link_daily(
 #'   indicator = "2m_temperature",
-#'   data = my_data,
-#'   date_var = "date_column",
+#'   data = sample_grid,
 #'   time_span = 0,
 #'   time_lag = 0,
-#'   baseline = FALSE,
-#'   order = "ymd",
+#'   baseline = c("1980", "2010"),
 #'   path = "./data/raw",
 #'   catalogue = "derived-era5-land-daily-statistics",
 #'   statistic = "daily_mean",
 #'   time_zone = "utc+00:00",
-#'   keep_raw = FALSE
-#' )
-#'
-#' # Example 2: Sequential mode with a baseline period specified
-#' result2 <- poly_link_daily(
-#'   indicator = "2m_temperature",
-#'   data = my_data,
-#'   date_var = "date_column",
-#'   time_span = 0,
-#'   time_lag = 0,
-#'   baseline = c("1980", "2010"),
-#'   order = "ymd",
-#'   path = "./data/raw",
-#'   catalogue = "derived-era5-land-daily-statistics",
-#'   statistic = "daily_maximum",
-#'   time_zone = "utc+00:00",
-#'   keep_raw = TRUE
-#' )
-#'
-#' # Example 3: Parallel processing with chunking and baseline specified
-#' library(future)
-#' plan(multisession, workers = 6)
-#'
-#' result3 <- poly_link_daily(
-#'   indicator = "2m_temperature",
-#'   data = my_data,
-#'   date_var = "date_column",
-#'   time_span = 0,
-#'   time_lag = 0,
-#'   baseline = c("1980", "2010"),
-#'   order = "ymd",
-#'   path = "./data/raw",
-#'   catalogue = "derived-era5-land-daily-statistics",
-#'   statistic = "daily_minimum",
-#'   time_zone = "utc+00:00",
-#'   keep_raw = TRUE,
-#'   parallel = TRUE,
+#'   method = "bilinear",
+#'   keep_raw = FALSE,
+#'   parallel = FALSE,
 #'   chunk_size = 50
 #' )
-#'
-#' # View the results:
-#' head(result1)
-#' head(result2)
-#' head(result3)
+#' plot(result)
 #' }
 #'
 #' @export
@@ -313,12 +280,13 @@ grid_link_daily <- function(
         baseline_extracted <- terra::resample(baseline_avg, data_sf, method = method)
       }
 
-      print(baseline_extracted)
+      names(baseline_extracted) <- "baseline_value"
 
       # Append the baseline as a new layer to the grid.
       data_sf <- c(data_sf, baseline_value = baseline_extracted)
       # Calculate the deviation (focal_value minus baseline_value) using raster arithmetic.
       deviation <- data_sf[["focal_value"]] - data_sf[["baseline_value"]]
+      names(deviation) <- "deviation"
       data_sf <- c(data_sf, deviation = deviation)
 
       # Transform the final output back to WGS84
