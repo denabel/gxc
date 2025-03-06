@@ -179,6 +179,45 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   list(data_sf = data, extent = extent)
 }
 
+#' @title Helper function for preparing an sf dataset of points with buffering
+#' @noRd
+.prep_points <- function(data, buffer = 0) {
+  # Check that data is an sf object
+  if (!inherits(data, "sf")) {
+    stop("Data must be a sf object.")
+  }
+
+  # If buffering is needed, reproject to a metric CRS, apply buffer,
+  # then reproject to WGS84.
+  if (buffer > 0) {
+    message("Reprojecting data to metric CRS for buffering.")
+    data_metric <- sf::st_transform(data, crs = 3857)  # Metric CRS (meters)
+    data_metric <- sf::st_buffer(data_metric, dist = buffer * 1000)
+    message("Transforming data to WGS84 (EPSG:4326) for further processing.")
+    data <- sf::st_transform(data_metric, crs = 4326)  # Back to WGS84
+  } else {
+    # Otherwise, simply ensure the data is in WGS84.
+    if (sf::st_crs(data)$epsg != 4326) {
+      message("Transforming data to WGS84 (EPSG:4326) for further processing.")
+      data <- sf::st_transform(data, crs = 4326)
+    }
+  }
+
+  # Extract bounding box
+  box <- sf::st_bbox(data)
+
+  # Create extent in order: north, west, south, east
+  extent <- c(
+    ceiling(box$ymax),
+    floor(box$xmin),
+    floor(box$ymin),
+    ceiling(box$xmax)
+  )
+
+  list(data_sf = data, extent = extent)
+}
+
+
 #' @title Helper function for making a bbox and create the spatial extent of
 #' the gridded dataset
 #' @noRd
