@@ -1,5 +1,7 @@
 
-# gxc
+# gxc: Easy access to Earth observation data 🌐
+
+## Description
 
 <img src="man/figures/gxclogo_v1_bright.png" align="right" height="200"/>
 
@@ -11,8 +13,8 @@ in applying and using these data, resulting from 1) a lack of technical
 expertise, 2) a lack of knowledge of data sources and how to access
 them, 3) unfamiliarity with complex data formats, such as
 high-resolution, longitudinal raster datacubes, and 4) lack of expertise
-in integrating the data into existing social science datasets. GxC aims
-to close the gap by creating an automated interface to EO data and
+in integrating the data into existing social science datasets. `gxc`
+aims to close the gap by creating an automated interface to EO data and
 complementary resources for social science research.
 
 The project’s core is creating an open-source tool to link time- and
@@ -24,47 +26,34 @@ same time, Earth system science researchers may similarly profit from
 integrated social science data. This project supports inter- and
 transdisciplinary research which is often made difficult because of
 technical, disciplinary, and organizational barriers. The project
-emphasizes research data management (RDM) workflows based on FAIR and
-Open Data principles. All code is written in the open-source software R
-and is made available on this website.
+emphasizes research data management (RDM) workflows based on FAIR data
+and Open Science principles.
 
-## Package features
-
-The unique feature of the tool should be the possibility of carrying out
-both geographically and temporally high-resolution queries of data from
+The unique feature of the tool is the possibility of carrying out both
+geographically and temporally high-resolution queries of data from
 Copernicus and other Earth observation data sources, which at the same
 time function efficiently on simple workstations albeit large amounts of
-data. Our tested workflow development has identified five major levers:
+data. Our workflow development has identified five major levers:
 indicator type, indicator intensity, focal time period, baseline time
 period, and spatial buffer. Flexibility on these five attributes should
-be maximized for users. The tool also offers the functionality to
+be maximized for users. Thus, the tool offers the functionality to
 automatically derive spatio-temporal links with other georeferenced data
 (e.g., surveys, digital behavioral data).
-
-Users should benefit from the core variables integrated into the
-interface for social research. Preparatory work is currently being
-carried out to select appropriate indicators from the corpus of
-indicators offered by data providers and conceptualize the data
-integration logic. Furthermore, in exchange with users and other
-stakeholders, we compile data products from EOD that are particularly
-relevant for social scientists. Examples include data on local air
-quality and pollutants, extreme weather events, or land use changes. The
-main data providers will be the Copernicus Monitoring Services on
-Climate Change, Atmosphere, and Land.
 
 <img src="man/figures/attribute_tree.PNG" align="center" height="400"/>
 
 Major attributes for indicator specification. Source: Abel and Jünger
 2024
 
-GESIS strongly supports the FAIR data principles and Open Data. The
-selection of R as the programming language for the tool supports
-open-source infrastructure development and shareability, as well as
-quality control via online repositories. Publishing the R scripts for
-data management and analysis ensures the reproducibility of all research
-steps.
-
-## Sources of Earth observation data
+Users benefit from a curated core of EO variables which are most
+relevant for social science research. For now, `gxc` is focused on
+weather indicators. Additional indicators on local air quality,
+greenhouse gas emissions (GHG), and land cover and use will be
+integrated in the near term. The main data providers are the Copernicus
+Monitoring Services on Climate Change, Atmosphere, and Land. For an
+up-to-date list of all integrated data sources and variables, please
+visit our [indicator
+catalogue](https://denabel.github.io/gxc_pages/catalogue.html).
 
 Europe’s Earth Observation programme is called
 [Copernicus](https://www.copernicus.eu/en). It is funded and managed by
@@ -101,18 +90,104 @@ usage along several thematic areas:
 Source: [Copernicus infrastructure and data
 services](https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs)
 
-This project focuses on the data provided by the Copernicus programme.
-However, this is not the only relevant source of EO data which you can
-consider for your projects. The US equivalent, for example, is based on
-the [Landsat satellite programme](https://landsat.gsfc.nasa.gov/), which
-is jointly operated by [NASA](https://www.nasa.gov/) and the [US
-Geological Survey](https://www.usgs.gov/landsat-missions) (USGS).
-[Google’s Earth Engine Cloud Computing
-Platform](https://developers.google.com/earth-engine/datasets/catalog)
-catalogs an extensive selection of additional data sets from various
-sources.
+## Keywords
 
-## API Access
+geospatial data, spatial linking, Earth observation
+
+## Social Science Use Case(s)
+
+There are several major topics in the social sciences which could
+benefit from the integration of EO:
+
+1.  **Environmental social sciences** 🌱,
+2.  **Conflict and peace research** 🕊,
+3.  **Political attitudes and behavior** 🗳,
+4.  **Policy studies** 📜,
+5.  **Economic development and inequality** 📈, and
+6.  **Public health** 💪.
+
+The **environmental social sciences** are a growing research field at
+the intersection between the Earth system and societies. One particular
+topic, the role of extreme weather events for people’s environmental
+attitudes and behavior, has especially benefited from a growing data
+availability of EO data. A noteworthy study by [Hoffmann et
+al. (2022)](https://doi.org/10.1038/s41558-021-01263-8) analyses how the
+experience of climate anomalies and extremes influences environmental
+attitudes and vote intention in Europe by integrating climatological,
+survey, and parliamentary data.
+
+Economists and social scientists who study **economic development and
+inequality** exploit EO data in various forms to operationalize
+independent variables such as drivers and barriers to development
+(e.g. droughts) as well as dependent variables (e.g. night lights as
+proxies for economic activity or the quality of rooftops as development
+indicator). [García-León et
+al. (2021)](https://doi.org/10.1038/s41467-021-26050-z), for example,
+investigate historical and future economic impacts of recent heatwaves
+in Europe and [Jean et
+al. (2016)](https://doi.org/10.1126/science.aaf7894) show how nighttime
+maps can be utilized as estimates of household consumption and assets.
+
+## Repo Structure
+
+This package provides six core functions to link your input data with EO
+indicators. Depending on your data input format (points, polygons, or
+raster) and the desired temporal resolution of the required indicators
+(daily or monthly), you can choose from the list of functions below:
+
+### For Spatial Points
+
+**Key features:**  
+- Extracts values directly from the underlying grid cell for each point,
+or  
+- Computes an aggregated mean over a specified buffer (in km) around
+each point. - Supports baseline calculations and deviation computations.
+
+**`point_link_daily`**  
+*Designed for spatial point data (sf objects).*  
+**Use when:** You have point observations (with an optional buffer) and
+need daily indicator values.
+
+**`point_link_monthly`**  
+*Designed for spatial point data (sf objects).*  
+**Use when:** You have point observations and need monthly indicator
+values.
+
+### For Polygons
+
+**Key features:**  
+- Extracts area-weighted averages from the raster for each polygon.  
+- Supports baseline calculations and deviation computations.
+
+**`poly_link_daily`**  
+*Designed for polygon (or multipolygon) data (sf objects).*  
+**Use when:** You have polygon features (e.g., administrative
+boundaries) and need daily indicator values.
+
+**`poly_link_monthly`**  
+*Designed for polygon (or multipolygon) data (sf objects).*  
+**Use when:** You have polygon features and need monthly indicator
+values.
+
+### For Gridded Data
+
+**Key features:**  
+- Aligns the downloaded daily data with your grid cells using resampling
+and adds extracted values as new layer to the raster input.
+
+**`grid_link_daily`**  
+*Designed for gridded data (SpatRaster objects).*  
+**Use when:** Your input data are gridded (e.g., regular rasters) and
+you require daily indicator values.
+
+**`grid_link_monthly`**  
+*Designed for gridded data (SpatRaster objects).*  
+**Use when:** Your input data are gridded and you need monthly indicator
+values.
+
+## Environment Setup
+
+### API Access
 
 The new system of data stores of the Copernicus services have simplified
 access. With an [ECMWF](https://www.ecmwf.int/)-account, most indicators
@@ -127,11 +202,71 @@ To use most `gxc` functions, you need an ECMWF-account.
 In order to access the Copernicus data services, we integrate the
 [ecmwfr](https://github.com/bluegreen-labs/ecmwfr)-package into `gxc`.
 
-## Example: Global temperature
+### Parallel processing
 
-In this example, we show how to utilize the `poly_link()`-function from
-the `gxc`-package to integrate temperature data from the ERA5 reanalysis
-across countries and for a specific point in time.
+`gxc` follows the parallel computing paradigm of the `future` package.
+By default, this is disabled and the data will be processed through a
+“standard” sequential pipeline. However, users can enable parallel
+processing in all major functions (`parallel = TRUE`). This can
+significantly increase execution time of processes which use large
+datasets. In our functions, parallel computing becomes especially
+relevant when observations are linked with EO data based on varying
+focal time periods. At the same time, setting up a parallel plan and
+chunk-based processing generates an overhead which could lead to
+performance decreases compared to sequential approaches. This is
+especially true for smaller datasets with narrower spatial extent and
+fewer observations.
+
+If `parallel=TRUE`, data processing is performed by pre-chunking input
+data. The chunk sizes can be varied with `chunk_size=`. The default is
+set to `50`.
+
+### R Version
+
+This package requires R version 4.2.0 or higher.
+
+### Dependencies
+
+All necessary package dependencies are listed in the DESCRIPTION file.
+Key dependencies include: -**sf** (for handling spatial vector data)
+-**terra** (for raster data processing) -**dplyr** (for data
+manipulation) -**lubridate** (for date/time processing) -**keyring**
+(for secure key management) -**ecmwfr** (for interacting with the CDS
+API) -**future.apply** (for parallel processing) -**progressr** (for
+progress reporting)
+
+## Hardware Requirements
+
+`gxc` is meant to function efficiently on simple workstations. However,
+if users have access to a cluster environment, you can set up a
+cluster-plan with the `future`-package.
+
+## Input Data
+
+The input data format depends on the selected function.
+-**`point_link_`**-functions: spatial point objects (`sf`)
+-**`poly_link_`**-functions: spatial polygon or multipolygon objects
+(`sf`) -**`grid_link_`**-functions: gridded raster files (`SpatRaster`)
+
+## Sample Input and Output Data
+
+In general, output files will have the same format as the input files.
+Indicator values are added as additional variables to `sf` objects and
+as additional layers to `SpatRaster` objects. When spatial buffer are
+specified for point data, the `sf`-output file contains polygons.
+
+The figure below visualizes how the selected EO indicator will be
+processed based on the different input formats.
+
+<img src="man/figures/path_stock_pic.PNG" align="center" height="400"/>
+
+## How to Use
+
+### Example 1: Retrieving daily temperature for point data
+
+In this first example, we show how to utilize the
+`point_link_daily`-function from the `gxc`-package to integrate
+temperature data from ERA5 reanalysis for a set of spatial points.
 
 ### Package setup
 
@@ -148,60 +283,244 @@ if(length(new_packages)) install.packages(new_packages)
 lapply(required_packages, library, character.only = TRUE)
 ```
 
-    ## Lade nötiges Paket: usethis
-
-    ## Linking to GEOS 3.12.1, GDAL 3.8.4, PROJ 9.3.1; sf_use_s2() is TRUE
-
-    ## Warning: Paket 'lubridate' wurde unter R Version 4.4.2 erstellt
-
-    ## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-    ## ✔ dplyr     1.1.4     ✔ readr     2.1.5
-    ## ✔ forcats   1.0.0     ✔ stringr   1.5.1
-    ## ✔ ggplot2   3.5.1     ✔ tibble    3.2.1
-    ## ✔ lubridate 1.9.4     ✔ tidyr     1.3.1
-    ## ✔ purrr     1.0.2
-
-    ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-    ## ✖ dplyr::filter() masks stats::filter()
-    ## ✖ dplyr::lag()    masks stats::lag()
-    ## ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
-
     ## [[1]]
-    ## [1] "devtools"  "usethis"   "stats"     "graphics"  "grDevices" "utils"    
-    ## [7] "datasets"  "methods"   "base"     
+    ##  [1] "devtools"  "usethis"   "emo"       "stats"     "graphics"  "grDevices"
+    ##  [7] "utils"     "datasets"  "methods"   "base"     
     ## 
     ## [[2]]
-    ##  [1] "keyring"   "devtools"  "usethis"   "stats"     "graphics"  "grDevices"
-    ##  [7] "utils"     "datasets"  "methods"   "base"     
+    ##  [1] "keyring"   "devtools"  "usethis"   "emo"       "stats"     "graphics" 
+    ##  [7] "grDevices" "utils"     "datasets"  "methods"   "base"     
     ## 
     ## [[3]]
     ##  [1] "rnaturalearth" "keyring"       "devtools"      "usethis"      
-    ##  [5] "stats"         "graphics"      "grDevices"     "utils"        
-    ##  [9] "datasets"      "methods"       "base"         
+    ##  [5] "emo"           "stats"         "graphics"      "grDevices"    
+    ##  [9] "utils"         "datasets"      "methods"       "base"         
     ## 
     ## [[4]]
     ##  [1] "sf"            "rnaturalearth" "keyring"       "devtools"     
-    ##  [5] "usethis"       "stats"         "graphics"      "grDevices"    
-    ##  [9] "utils"         "datasets"      "methods"       "base"         
+    ##  [5] "usethis"       "emo"           "stats"         "graphics"     
+    ##  [9] "grDevices"     "utils"         "datasets"      "methods"      
+    ## [13] "base"         
     ## 
     ## [[5]]
     ##  [1] "lubridate"     "forcats"       "stringr"       "dplyr"        
     ##  [5] "purrr"         "readr"         "tidyr"         "tibble"       
     ##  [9] "ggplot2"       "tidyverse"     "sf"            "rnaturalearth"
-    ## [13] "keyring"       "devtools"      "usethis"       "stats"        
-    ## [17] "graphics"      "grDevices"     "utils"         "datasets"     
-    ## [21] "methods"       "base"
+    ## [13] "keyring"       "devtools"      "usethis"       "emo"          
+    ## [17] "stats"         "graphics"      "grDevices"     "utils"        
+    ## [21] "datasets"      "methods"       "base"
 
 ``` r
-# Load gxc package (locally for now)
+# Load gxc package
 devtools::load_all()
 ```
 
-    ## ℹ Loading gxc
+### Create sample point data
+
+Let’s assume we have a sample of survey respondents across Germany with
+a field period from July to August 2019. We would like to extend this
+dataset with temperature data from the specific interview day. We create
+a sample of random points based on a shapefile for Germany and add
+random day variables for the field period.
+
+``` r
+# Get Germany's boundary as an sf object
+germany <- ne_countries(scale = "medium", country = "Germany", returnclass = "sf")
+
+# Generate 1000 random points within Germany's boundary
+random_points <- st_sample(germany, size = 1000)
+
+# Convert to an sf object with proper geometry column
+points_sf <- st_sf(geometry = random_points)
+
+# Random date within day, month and year limits of field period
+set.seed(123)
+months <- c("7", "8")
+years <- c("2019")
+days <- 1:31
+n <- nrow(points_sf)
+points_sf$date_raw <- paste0(sample(years, n, replace = TRUE), "-",
+                         sample(months, n, replace = TRUE), "-",
+                         sample(days, n, replace = TRUE)
+                         )
+```
+
+### Store your API-key
+
+A final setting before we can access the `point_link_daily`-function is
+to store our API key. By setting it to “wf_api_key”, the function
+automatically retrieves the key.
+
+``` r
+api_key <- Sys.getenv("WF_API_KEY")
+
+keyring::key_set_with_value(service = "wf_api_key", password = api_key)
+```
+
+### Run function
+
+Check out vignette for `point_link_daily` for detailed documentation.
+
+``` r
+# ?point_link_daily
+```
+
+Here, we would like to retrieve the daily maximum temperature
+(`statistic = "daily_maximum`) for the specific interview day
+(`time_span = 0` and `time_lag = 0`) in a 10km area around the
+respondents location (`buffer = 10`).
+
+``` r
+dataset_out <- point_link_daily(
+  indicator = "2m_temperature",
+  data = points_sf,
+  date_var = "date_raw",
+  time_span = 0,
+  time_lag = 0,
+  buffer = 10,
+  baseline = FALSE,
+  order = "ymd",
+  path = "./data/raw",
+  catalogue = "derived-era5-land-daily-statistics",
+  statistic = "daily_maximum",
+  time_zone = "utc+00:00",
+  keep_raw = FALSE,
+  parallel = FALSE,
+  chunk_size = 50
+)
+```
+
+    ## User ecmwfr for ecmwfr service added successfully in keychain
+
+    ## Reprojecting data to metric CRS for buffering.
+
+    ## Transforming data to WGS84 (EPSG:4326) for further processing.
+
+    ## Raw file has been removed.
+
+### Explore the extended dataset
+
+We can see that the function has added additional columns on the linking
+dates, and the actual values (in Kelvin), averaged across the buffer
+zone.
+
+``` r
+head(dataset_out)
+```
+
+    ## Simple feature collection with 6 features and 5 fields
+    ## Geometry type: POLYGON
+    ## Dimension:     XY
+    ## Bounding box:  xmin: 5.773702 ymin: 48.44569 xmax: 13.89798 ymax: 54.32446
+    ## Geodetic CRS:  WGS 84
+    ##                         geometry  date_raw  link_date link_date_end
+    ## 1 POLYGON ((10.74447 54.27204...  2019-7-1 2019-07-01    2019-07-01
+    ## 2 POLYGON ((10.51173 48.50524... 2019-8-31 2019-08-31    2019-08-31
+    ## 3 POLYGON ((13.89798 50.80692... 2019-8-17 2019-08-17    2019-08-17
+    ## 4 POLYGON ((9.345668 52.13551... 2019-7-18 2019-07-18    2019-07-18
+    ## 5 POLYGON ((13.82903 53.90418... 2019-8-10 2019-08-10    2019-08-10
+    ## 6 POLYGON ((5.953366 51.02495...  2019-7-9 2019-07-09    2019-07-09
+    ##   time_span_seq focal_value
+    ## 1    2019-07-01    293.7542
+    ## 2    2019-08-31    300.5044
+    ## 3    2019-08-17    294.7190
+    ## 4    2019-07-18    297.3293
+    ## 5    2019-08-10    298.4656
+    ## 6    2019-07-09    294.0500
+
+``` r
+ggplot(data = dataset_out) +
+  geom_sf(aes(fill = focal_value)) +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  labs(
+    title = "Mean temperature (K) in July/August 2019",
+    subtitle = "At respondent location on interview day",
+    fill = "Temperature (K)"
+  )
+```
+
+![](README_files/figure-gfm/visualize_example1-1.png)<!-- -->
+
+### Example 2: Retrieving monthly averaged precipitation for countries
+
+In this example, we show how to utilize the `poly_link_monthly`-function
+from the `gxc`-package to integrate precipitation data from the ERA5
+reanalysis across countries and for a specific point in time. We will
+enable parallel processing.
+
+### Package setup
+
+We need some packages to load and prepare the world map
+(`rnaturalearth`, `sf`, `future`, and `tidyverse`). We also need the
+`keyring`-package to safely store our API key. Finally, we need
+`devtools` to load the `gxc`-package.
+
+``` r
+# Install and load required packages
+required_packages <- c("devtools", "keyring", "rnaturalearth", "sf", "tidyverse", "future")
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+lapply(required_packages, library, character.only = TRUE)
+```
+
+    ## [[1]]
+    ##  [1] "gxc"           "lubridate"     "forcats"       "stringr"      
+    ##  [5] "dplyr"         "purrr"         "readr"         "tidyr"        
+    ##  [9] "tibble"        "ggplot2"       "tidyverse"     "sf"           
+    ## [13] "rnaturalearth" "keyring"       "devtools"      "usethis"      
+    ## [17] "emo"           "stats"         "graphics"      "grDevices"    
+    ## [21] "utils"         "datasets"      "methods"       "base"         
+    ## 
+    ## [[2]]
+    ##  [1] "gxc"           "lubridate"     "forcats"       "stringr"      
+    ##  [5] "dplyr"         "purrr"         "readr"         "tidyr"        
+    ##  [9] "tibble"        "ggplot2"       "tidyverse"     "sf"           
+    ## [13] "rnaturalearth" "keyring"       "devtools"      "usethis"      
+    ## [17] "emo"           "stats"         "graphics"      "grDevices"    
+    ## [21] "utils"         "datasets"      "methods"       "base"         
+    ## 
+    ## [[3]]
+    ##  [1] "gxc"           "lubridate"     "forcats"       "stringr"      
+    ##  [5] "dplyr"         "purrr"         "readr"         "tidyr"        
+    ##  [9] "tibble"        "ggplot2"       "tidyverse"     "sf"           
+    ## [13] "rnaturalearth" "keyring"       "devtools"      "usethis"      
+    ## [17] "emo"           "stats"         "graphics"      "grDevices"    
+    ## [21] "utils"         "datasets"      "methods"       "base"         
+    ## 
+    ## [[4]]
+    ##  [1] "gxc"           "lubridate"     "forcats"       "stringr"      
+    ##  [5] "dplyr"         "purrr"         "readr"         "tidyr"        
+    ##  [9] "tibble"        "ggplot2"       "tidyverse"     "sf"           
+    ## [13] "rnaturalearth" "keyring"       "devtools"      "usethis"      
+    ## [17] "emo"           "stats"         "graphics"      "grDevices"    
+    ## [21] "utils"         "datasets"      "methods"       "base"         
+    ## 
+    ## [[5]]
+    ##  [1] "gxc"           "lubridate"     "forcats"       "stringr"      
+    ##  [5] "dplyr"         "purrr"         "readr"         "tidyr"        
+    ##  [9] "tibble"        "ggplot2"       "tidyverse"     "sf"           
+    ## [13] "rnaturalearth" "keyring"       "devtools"      "usethis"      
+    ## [17] "emo"           "stats"         "graphics"      "grDevices"    
+    ## [21] "utils"         "datasets"      "methods"       "base"         
+    ## 
+    ## [[6]]
+    ##  [1] "future"        "gxc"           "lubridate"     "forcats"      
+    ##  [5] "stringr"       "dplyr"         "purrr"         "readr"        
+    ##  [9] "tidyr"         "tibble"        "ggplot2"       "tidyverse"    
+    ## [13] "sf"            "rnaturalearth" "keyring"       "devtools"     
+    ## [17] "usethis"       "emo"           "stats"         "graphics"     
+    ## [21] "grDevices"     "utils"         "datasets"      "methods"      
+    ## [25] "base"
+
+``` r
+# Load gxc package
+devtools::load_all()
+```
 
 ### Load a world map
 
-Let’s assume we require global temperature data for October 2014. We
+Let’s assume we require global precipitation data for October 2014. We
 load the shapefile containing country-level polygons, subset it to the
 most relevant variables, and add a time variable.
 
@@ -244,8 +563,8 @@ plot(world[1])
 
 ### Store your API-key
 
-A final setting before we can access the `poly_link`-function is to
-store our API key. By setting it to “wf_api_key”, the function
+A final setting before we can access the `poly_link_monthly`-function is
+to store our API key. By setting it to “wf_api_key”, the function
 automatically retrieves the key.
 
 ``` r
@@ -254,17 +573,31 @@ api_key <- Sys.getenv("WF_API_KEY")
 keyring::key_set_with_value(service = "wf_api_key", password = api_key)
 ```
 
-### Run poly_link-function
+### Parallel processing
 
-Check out vignette for `poly_link` for detailed documentation.
+We also set up a multisession with the `future`-package. We select six
+workers (rule of thumb: maximum number of cores - 1).
 
 ``` r
-?poly_link
+future::plan(multisession, workers = 6)
 ```
 
+### Run poly_link-function
+
+Check out vignette for `poly_link_monthly` for detailed documentation.
+
 ``` r
-dataset_out <- poly_link(
-  indicator = "2m_temperature",
+# ?poly_link_monthly
+```
+
+We want to directly retrieve the averaged total precipitation data for
+August 2014 (`time_span = 0` and `time_lag = 0`). We furthermore enable
+parallel processing (`parallel = TRUE`) and rely on the default chunk
+size (`chunk_size = 50`).
+
+``` r
+dataset_out <- poly_link_monthly(
+  indicator = "total_precipitation",
   data = world,
   date_var = "date_raw",
   time_span = 0,
@@ -274,12 +607,20 @@ dataset_out <- poly_link(
   path = "./data/raw",
   catalogue = "reanalysis-era5-land-monthly-means",
   by_hour = FALSE,
-  keep_raw = FALSE)
+  keep_raw = FALSE,
+  parallel = TRUE,
+  chunk_size = 50
+  )
 ```
 
     ## User ecmwfr for ecmwfr service added successfully in keychain
 
     ## Raw file has been removed.
+
+``` r
+# Set back to sequential plan
+future::plan(sequential)
+```
 
 ### Explore the extended dataset
 
@@ -302,13 +643,13 @@ head(dataset_out)
     ## 4   Vietnam    VNM     VN MULTIPOLYGON (((104.064 10....  08-2014 2014-08-01
     ## 5 Venezuela    VEN     VE MULTIPOLYGON (((-60.82119 9...  08-2014 2014-08-01
     ## 6   Vatican    VAT      V MULTIPOLYGON (((12.43916 41...  08-2014 2014-08-01
-    ##   link_date_end time_span_seq focal_value
-    ## 1    2014-08-01    2014-08-01    291.9876
-    ## 2    2014-08-01    2014-08-01    294.8992
-    ## 3    2014-08-01    2014-08-01    302.7773
-    ## 4    2014-08-01    2014-08-01    298.4403
-    ## 5    2014-08-01    2014-08-01    297.4988
-    ## 6    2014-08-01    2014-08-01    297.3257
+    ##   link_date_end time_span_seq  focal_value
+    ## 1    2014-08-01    2014-08-01 5.770897e-05
+    ## 2    2014-08-01    2014-08-01 1.161533e-05
+    ## 3    2014-08-01    2014-08-01 8.133225e-04
+    ## 4    2014-08-01    2014-08-01 9.156265e-03
+    ## 5    2014-08-01    2014-08-01 8.992145e-03
+    ## 6    2014-08-01    2014-08-01 2.695586e-04
 
 ``` r
 ggplot(data = dataset_out) +
@@ -316,10 +657,27 @@ ggplot(data = dataset_out) +
   scale_fill_viridis_c() +
   theme_minimal() +
   labs(
-    title = "Mean temperature (K) in August 2014",
+    title = "Average total precipitation in August 2014",
     subtitle = "Averaged across countries",
-    fill = "Temperature (K)"
+    fill = "Averaged total precipitation"
   )
 ```
 
-![](README_files/figure-gfm/visualize-1.png)<!-- -->
+![](README_files/figure-gfm/visualize_example2-1.png)<!-- -->
+
+## Contact Details
+
+For questions or contributions, please contact Dennis Abel
+(<dennis.abel@gesis.org>) and Stefan Jünger
+(<stefan.juenger@gesis.org>).
+
+## Disclaimer
+
+Access to data from [Copernicus Climate Change
+Service](https://cds.climate.copernicus.eu/), [Copernicus Atmosphere
+Monitoring Service](https://ads.atmosphere.copernicus.eu/), and
+[Copernicus Emergency Management
+Service](https://ewds.climate.copernicus.eu/) requires a user-account
+with the [European Center for Medium-Range Weather Forecasts
+(ECMWF)](https://www.ecmwf.int/). Please ensure you follow their Terms
+and Conditions.
