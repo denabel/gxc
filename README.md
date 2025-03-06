@@ -1,5 +1,5 @@
 
-# gxc: Easy access to Earth observation data 🌐
+# gxc: Easy access to Earth observation data 🌏
 
 ## Description
 
@@ -228,12 +228,16 @@ This package requires R version 4.2.0 or higher.
 ### Dependencies
 
 All necessary package dependencies are listed in the DESCRIPTION file.
-Key dependencies include: -**sf** (for handling spatial vector data)
--**terra** (for raster data processing) -**dplyr** (for data
-manipulation) -**lubridate** (for date/time processing) -**keyring**
-(for secure key management) -**ecmwfr** (for interacting with the CDS
-API) -**future.apply** (for parallel processing) -**progressr** (for
-progress reporting)
+Key dependencies include:
+
+- **sf** (for handling spatial vector data),
+- **terra** (for raster data processing),
+- **dplyr** (for data manipulation),
+- **lubridate** (for date/time processing),
+- **keyring** (for secure key management),
+- **ecmwfr** (for interacting with the CDS API),
+- **future.apply** (for parallel processing),
+- **progressr** (for progress reporting).
 
 ## Hardware Requirements
 
@@ -258,7 +262,7 @@ specified for point data, the `sf`-output file contains polygons.
 The figure below visualizes how the selected EO indicator will be
 processed based on the different input formats.
 
-<img src="man/figures/path_stock_pic.PNG" align="center" height="400"/>
+<img src="man/figures/path_stock_pic.png" align="center" height="400"/>
 
 ## How to Use
 
@@ -281,36 +285,7 @@ required_packages <- c("devtools", "keyring", "rnaturalearth", "sf", "tidyverse"
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 lapply(required_packages, library, character.only = TRUE)
-```
 
-    ## [[1]]
-    ##  [1] "devtools"  "usethis"   "emo"       "stats"     "graphics"  "grDevices"
-    ##  [7] "utils"     "datasets"  "methods"   "base"     
-    ## 
-    ## [[2]]
-    ##  [1] "keyring"   "devtools"  "usethis"   "emo"       "stats"     "graphics" 
-    ##  [7] "grDevices" "utils"     "datasets"  "methods"   "base"     
-    ## 
-    ## [[3]]
-    ##  [1] "rnaturalearth" "keyring"       "devtools"      "usethis"      
-    ##  [5] "emo"           "stats"         "graphics"      "grDevices"    
-    ##  [9] "utils"         "datasets"      "methods"       "base"         
-    ## 
-    ## [[4]]
-    ##  [1] "sf"            "rnaturalearth" "keyring"       "devtools"     
-    ##  [5] "usethis"       "emo"           "stats"         "graphics"     
-    ##  [9] "grDevices"     "utils"         "datasets"      "methods"      
-    ## [13] "base"         
-    ## 
-    ## [[5]]
-    ##  [1] "lubridate"     "forcats"       "stringr"       "dplyr"        
-    ##  [5] "purrr"         "readr"         "tidyr"         "tibble"       
-    ##  [9] "ggplot2"       "tidyverse"     "sf"            "rnaturalearth"
-    ## [13] "keyring"       "devtools"      "usethis"       "emo"          
-    ## [17] "stats"         "graphics"      "grDevices"     "utils"        
-    ## [21] "datasets"      "methods"       "base"
-
-``` r
 # Load gxc package
 devtools::load_all()
 ```
@@ -390,14 +365,6 @@ dataset_out <- point_link_daily(
 )
 ```
 
-    ## User ecmwfr for ecmwfr service added successfully in keychain
-
-    ## Reprojecting data to metric CRS for buffering.
-
-    ## Transforming data to WGS84 (EPSG:4326) for further processing.
-
-    ## Raw file has been removed.
-
 ### Explore the extended dataset
 
 We can see that the function has added additional columns on the linking
@@ -411,22 +378,22 @@ head(dataset_out)
     ## Simple feature collection with 6 features and 5 fields
     ## Geometry type: POLYGON
     ## Dimension:     XY
-    ## Bounding box:  xmin: 5.773702 ymin: 48.44569 xmax: 13.89798 ymax: 54.32446
+    ## Bounding box:  xmin: 7.31289 ymin: 48.37652 xmax: 13.32381 ymax: 53.17635
     ## Geodetic CRS:  WGS 84
     ##                         geometry  date_raw  link_date link_date_end
-    ## 1 POLYGON ((10.74447 54.27204...  2019-7-1 2019-07-01    2019-07-01
-    ## 2 POLYGON ((10.51173 48.50524... 2019-8-31 2019-08-31    2019-08-31
-    ## 3 POLYGON ((13.89798 50.80692... 2019-8-17 2019-08-17    2019-08-17
-    ## 4 POLYGON ((9.345668 52.13551... 2019-7-18 2019-07-18    2019-07-18
-    ## 5 POLYGON ((13.82903 53.90418... 2019-8-10 2019-08-10    2019-08-10
-    ## 6 POLYGON ((5.953366 51.02495...  2019-7-9 2019-07-09    2019-07-09
+    ## 1 POLYGON ((10.66403 50.74481...  2019-7-1 2019-07-01    2019-07-01
+    ## 2 POLYGON ((13.32381 48.43616... 2019-8-31 2019-08-31    2019-08-31
+    ## 3 POLYGON ((12.33496 50.55411... 2019-8-17 2019-08-17    2019-08-17
+    ## 4 POLYGON ((8.122067 52.00618... 2019-7-18 2019-07-18    2019-07-18
+    ## 5 POLYGON ((8.399837 53.12247... 2019-8-10 2019-08-10    2019-08-10
+    ## 6 POLYGON ((7.492553 49.76681...  2019-7-9 2019-07-09    2019-07-09
     ##   time_span_seq focal_value
-    ## 1    2019-07-01    293.7542
-    ## 2    2019-08-31    300.5044
-    ## 3    2019-08-17    294.7190
-    ## 4    2019-07-18    297.3293
-    ## 5    2019-08-10    298.4656
-    ## 6    2019-07-09    294.0500
+    ## 1    2019-07-01    298.0107
+    ## 2    2019-08-31    303.0532
+    ## 3    2019-08-17    295.0544
+    ## 4    2019-07-18    298.9956
+    ## 5    2019-08-10    296.2949
+    ## 6    2019-07-09    292.2241
 
 ``` r
 ggplot(data = dataset_out) +
@@ -462,58 +429,7 @@ required_packages <- c("devtools", "keyring", "rnaturalearth", "sf", "tidyverse"
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 lapply(required_packages, library, character.only = TRUE)
-```
 
-    ## [[1]]
-    ##  [1] "gxc"           "lubridate"     "forcats"       "stringr"      
-    ##  [5] "dplyr"         "purrr"         "readr"         "tidyr"        
-    ##  [9] "tibble"        "ggplot2"       "tidyverse"     "sf"           
-    ## [13] "rnaturalearth" "keyring"       "devtools"      "usethis"      
-    ## [17] "emo"           "stats"         "graphics"      "grDevices"    
-    ## [21] "utils"         "datasets"      "methods"       "base"         
-    ## 
-    ## [[2]]
-    ##  [1] "gxc"           "lubridate"     "forcats"       "stringr"      
-    ##  [5] "dplyr"         "purrr"         "readr"         "tidyr"        
-    ##  [9] "tibble"        "ggplot2"       "tidyverse"     "sf"           
-    ## [13] "rnaturalearth" "keyring"       "devtools"      "usethis"      
-    ## [17] "emo"           "stats"         "graphics"      "grDevices"    
-    ## [21] "utils"         "datasets"      "methods"       "base"         
-    ## 
-    ## [[3]]
-    ##  [1] "gxc"           "lubridate"     "forcats"       "stringr"      
-    ##  [5] "dplyr"         "purrr"         "readr"         "tidyr"        
-    ##  [9] "tibble"        "ggplot2"       "tidyverse"     "sf"           
-    ## [13] "rnaturalearth" "keyring"       "devtools"      "usethis"      
-    ## [17] "emo"           "stats"         "graphics"      "grDevices"    
-    ## [21] "utils"         "datasets"      "methods"       "base"         
-    ## 
-    ## [[4]]
-    ##  [1] "gxc"           "lubridate"     "forcats"       "stringr"      
-    ##  [5] "dplyr"         "purrr"         "readr"         "tidyr"        
-    ##  [9] "tibble"        "ggplot2"       "tidyverse"     "sf"           
-    ## [13] "rnaturalearth" "keyring"       "devtools"      "usethis"      
-    ## [17] "emo"           "stats"         "graphics"      "grDevices"    
-    ## [21] "utils"         "datasets"      "methods"       "base"         
-    ## 
-    ## [[5]]
-    ##  [1] "gxc"           "lubridate"     "forcats"       "stringr"      
-    ##  [5] "dplyr"         "purrr"         "readr"         "tidyr"        
-    ##  [9] "tibble"        "ggplot2"       "tidyverse"     "sf"           
-    ## [13] "rnaturalearth" "keyring"       "devtools"      "usethis"      
-    ## [17] "emo"           "stats"         "graphics"      "grDevices"    
-    ## [21] "utils"         "datasets"      "methods"       "base"         
-    ## 
-    ## [[6]]
-    ##  [1] "future"        "gxc"           "lubridate"     "forcats"      
-    ##  [5] "stringr"       "dplyr"         "purrr"         "readr"        
-    ##  [9] "tidyr"         "tibble"        "ggplot2"       "tidyverse"    
-    ## [13] "sf"            "rnaturalearth" "keyring"       "devtools"     
-    ## [17] "usethis"       "emo"           "stats"         "graphics"     
-    ## [21] "grDevices"     "utils"         "datasets"      "methods"      
-    ## [25] "base"
-
-``` r
 # Load gxc package
 devtools::load_all()
 ```
@@ -611,13 +527,7 @@ dataset_out <- poly_link_monthly(
   parallel = TRUE,
   chunk_size = 50
   )
-```
 
-    ## User ecmwfr for ecmwfr service added successfully in keychain
-
-    ## Raw file has been removed.
-
-``` r
 # Set back to sequential plan
 future::plan(sequential)
 ```
