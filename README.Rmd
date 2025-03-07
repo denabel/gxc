@@ -19,7 +19,7 @@ law <- emo::ji("scroll")
 
 ## Description
 
-<img src="man/figures/gxclogo_v1_bright.png" align="right" height="200"/>
+<img src="man/figures/gxc_v2.png" align="right" height="200"/>
 
 Welcome to the package website of "GESIS meets Copernicus" (gxc).
 

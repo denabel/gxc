@@ -1,9 +1,9 @@
 
-# gxc: Easy access to Earth observation data 🌏
+# gxc: Easy access to Earth observation data 🌎
 
 ## Description
 
-<img src="man/figures/gxclogo_v1_bright.png" align="right" height="200"/>
+<img src="man/figures/gxc_v2.png" align="right" height="200"/>
 
 Welcome to the package website of “GESIS meets Copernicus” (gxc).
 
@@ -378,22 +378,22 @@ head(dataset_out)
     ## Simple feature collection with 6 features and 5 fields
     ## Geometry type: POLYGON
     ## Dimension:     XY
-    ## Bounding box:  xmin: 7.31289 ymin: 48.37652 xmax: 13.32381 ymax: 53.17635
+    ## Bounding box:  xmin: 8.633732 ymin: 47.73227 xmax: 13.03843 ymax: 52.71189
     ## Geodetic CRS:  WGS 84
     ##                         geometry  date_raw  link_date link_date_end
-    ## 1 POLYGON ((10.66403 50.74481...  2019-7-1 2019-07-01    2019-07-01
-    ## 2 POLYGON ((13.32381 48.43616... 2019-8-31 2019-08-31    2019-08-31
-    ## 3 POLYGON ((12.33496 50.55411... 2019-8-17 2019-08-17    2019-08-17
-    ## 4 POLYGON ((8.122067 52.00618... 2019-7-18 2019-07-18    2019-07-18
-    ## 5 POLYGON ((8.399837 53.12247... 2019-8-10 2019-08-10    2019-08-10
-    ## 6 POLYGON ((7.492553 49.76681...  2019-7-9 2019-07-09    2019-07-09
+    ## 1 POLYGON ((13.03843 48.30216...  2019-7-1 2019-07-01    2019-07-01
+    ## 2 POLYGON ((12.46849 47.79265... 2019-8-31 2019-08-31    2019-08-31
+    ## 3 POLYGON ((12.63989 48.11225... 2019-8-17 2019-08-17    2019-08-17
+    ## 4 POLYGON ((8.813395 50.90298... 2019-7-18 2019-07-18    2019-07-18
+    ## 5 POLYGON ((8.915953 52.65743... 2019-8-10 2019-08-10    2019-08-10
+    ## 6 POLYGON ((9.610477 51.52758...  2019-7-9 2019-07-09    2019-07-09
     ##   time_span_seq focal_value
-    ## 1    2019-07-01    298.0107
-    ## 2    2019-08-31    303.0532
-    ## 3    2019-08-17    295.0544
-    ## 4    2019-07-18    298.9956
-    ## 5    2019-08-10    296.2949
-    ## 6    2019-07-09    292.2241
+    ## 1    2019-07-01    303.7075
+    ## 2    2019-08-31    299.5410
+    ## 3    2019-08-17    297.4355
+    ## 4    2019-07-18    298.0684
+    ## 5    2019-08-10    296.9746
+    ## 6    2019-07-09    288.8733
 
 ``` r
 ggplot(data = dataset_out) +
