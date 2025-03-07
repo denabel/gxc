@@ -1,58 +1,62 @@
 
-# gxc: Easy access to Earth observation data 🌎
+# gxc: Easy access to Earth observation data 🌍
 
 ## Description
 
 <img src="man/figures/gxc_v2.png" align="right" height="200"/>
 
-Welcome to the package website of “GESIS meets Copernicus” (gxc).
+Welcome to the package website of “**GESIS meets Copernicus**”
+(**`gxc`**).
 
-For many researchers in the social sciences, Earth observation (EO) data
-represents a black box. Social science researchers face many obstacles
-in applying and using these data, resulting from 1) a lack of technical
-expertise, 2) a lack of knowledge of data sources and how to access
-them, 3) unfamiliarity with complex data formats, such as
+For many researchers in the social sciences, **Earth observation (EO)**
+data represents a black box. Social science researchers face many
+obstacles in applying and using these data, resulting from 1) a lack of
+technical expertise, 2) a lack of knowledge of data sources and how to
+access them, 3) unfamiliarity with complex data formats, such as
 high-resolution, longitudinal raster datacubes, and 4) lack of expertise
-in integrating the data into existing social science datasets. `gxc`
+in integrating the data into existing social science datasets. **`gxc`**
 aims to close the gap by creating an automated interface to EO data and
 complementary resources for social science research.
 
-The project’s core is creating an open-source tool to link time- and
-space-sensitive social science datasets with data from Earth observation
-programs. Detailed documentation and beginner-friendly tutorials
-complement the tool to showcase the capability of our project. The
-social science community is the main target group of our tool. At the
-same time, Earth system science researchers may similarly profit from
-integrated social science data. This project supports inter- and
-transdisciplinary research which is often made difficult because of
-technical, disciplinary, and organizational barriers. The project
-emphasizes research data management (RDM) workflows based on FAIR data
-and Open Science principles.
+The project’s core is creating an **open-source tool** to link **time-
+and space-sensitive** social science datasets with data from Earth
+observation programs. Detailed documentation and beginner-friendly
+tutorials complement the tool to showcase the capability of our project.
+The social science community is the main target group of our tool. At
+the same time, Earth system science researchers may similarly profit
+from it. This project supports inter- and transdisciplinary research
+which is often made difficult because of technical, disciplinary, and
+organizational barriers. The project emphasizes research data management
+(RDM) workflows based on **FAIR data** and **Open Science** principles.
+Please visit our [**online
+compendium**](https://denabel.github.io/gxc_pages/) for the detailed
+documentation, overview of indicators and training material.
 
 The unique feature of the tool is the possibility of carrying out both
 geographically and temporally high-resolution queries of data from
-Copernicus and other Earth observation data sources, which at the same
-time function efficiently on simple workstations albeit large amounts of
-data. Our workflow development has identified five major levers:
-indicator type, indicator intensity, focal time period, baseline time
-period, and spatial buffer. Flexibility on these five attributes should
-be maximized for users. Thus, the tool offers the functionality to
-automatically derive spatio-temporal links with other georeferenced data
-(e.g., surveys, digital behavioral data).
+**Copernicus Data Services** and other Earth observation data sources,
+which at the same time function efficiently on simple workstations
+albeit larger amounts of data. Our workflow development has identified
+five major levers: **indicator type**, **indicator intensity**, **focal
+time period**, **baseline time period**, and **spatial buffer**.
+Flexibility on these five attributes should be maximized for users.
+Thus, the tool offers the functionality to automatically derive
+**spatio-temporal links** with other georeferenced data (e.g., surveys,
+digital behavioral data).
 
 <img src="man/figures/attribute_tree.PNG" align="center" height="400"/>
 
-Major attributes for indicator specification. Source: Abel and Jünger
-2024
+*Major attributes for indicator specification. Source: Abel and Jünger
+2024.*
 
-Users benefit from a curated core of EO variables which are most
-relevant for social science research. For now, `gxc` is focused on
-weather indicators. Additional indicators on local air quality,
-greenhouse gas emissions (GHG), and land cover and use will be
-integrated in the near term. The main data providers are the Copernicus
-Monitoring Services on Climate Change, Atmosphere, and Land. For an
-up-to-date list of all integrated data sources and variables, please
-visit our [indicator
+Users benefit from a **curated core** of EO variables which are most
+relevant for social science research. For now, **`gxc`** is primarily
+focused on **weather and climate indicators**. Additional variables on
+**local air quality**, **greenhouse gas emissions (GHG)**, and **land
+cover and use** will be integrated in the near term. The main data
+providers are the **Copernicus Monitoring Services on Climate Change,
+Atmosphere, and Land**. For an up-to-date list of all integrated data
+sources and variables, please visit our [indicator
 catalogue](https://denabel.github.io/gxc_pages/catalogue.html).
 
 Europe’s Earth Observation programme is called
@@ -61,10 +65,10 @@ the European Commission and partners like the [European Space
 Agency](https://www.esa.int/) (ESA) and the [European Organisation for
 the Exploitation of Meteorological
 Satellites](https://www.eumetsat.int/) (EUMETSAT). It has been
-operational since 2014 and provides free access to a wealth of satellite
-data from ESA’s “Sentinel” fleet. Copernicus combines data from
-satellites, ground-based as well as air- and sea-borne sensors to track
-the Earth system and provide this information largely free for all
+operational since 2014 and provides free and open access to a wealth of
+satellite data from ESA’s “Sentinel” fleet. Copernicus combines data
+from satellites, ground-based as well as air- and sea-borne sensors to
+track the Earth system and provide this information largely free for all
 customers.
 
 The ESA describes Copernicus as the world’s most ambitious Earth
@@ -87,17 +91,18 @@ usage along several thematic areas:
 
 <img src="man/figures/copernicus_services.png" align="center" height="400"/>
 
-Source: [Copernicus infrastructure and data
-services](https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs)
+*Source: [Copernicus infrastructure and data
+services](https://www.copernicus.eu/en/accessing-data-where-and-how/conventional-data-access-hubs).*
 
 ## Keywords
 
-geospatial data, spatial linking, Earth observation
+geospatial data, spatial linking, Earth observation, inter- and
+transdisciplinary research
 
 ## Social Science Use Case(s)
 
-There are several major topics in the social sciences which could
-benefit from the integration of EO:
+There are several major research topics in the social sciences which
+benefit from the integration of EO data:
 
 1.  **Environmental social sciences** 🌱,
 2.  **Conflict and peace research** 🕊,
@@ -109,12 +114,12 @@ benefit from the integration of EO:
 The **environmental social sciences** are a growing research field at
 the intersection between the Earth system and societies. One particular
 topic, the role of extreme weather events for people’s environmental
-attitudes and behavior, has especially benefited from a growing data
+attitudes and behavior, has especially benefited from a growing
 availability of EO data. A noteworthy study by [Hoffmann et
-al. (2022)](https://doi.org/10.1038/s41558-021-01263-8) analyses how the
-experience of climate anomalies and extremes influences environmental
-attitudes and vote intention in Europe by integrating climatological,
-survey, and parliamentary data.
+al. (2022)](https://doi.org/10.1038/s41558-021-01263-8), for example,
+analyses how the experience of climate anomalies and extremes influences
+environmental attitudes and vote intention in Europe by integrating
+climatological, survey, and parliamentary data.
 
 Economists and social scientists who study **economic development and
 inequality** exploit EO data in various forms to operationalize
@@ -135,7 +140,7 @@ indicators. Depending on your data input format (points, polygons, or
 raster) and the desired temporal resolution of the required indicators
 (daily or monthly), you can choose from the list of functions below:
 
-### For Spatial Points
+### For Spatial Points (**`point_link_`**)
 
 **Key features:**  
 - Extracts values directly from the underlying grid cell for each point,
@@ -153,7 +158,7 @@ need daily indicator values.
 **Use when:** You have point observations and need monthly indicator
 values.
 
-### For Polygons
+### For Polygons (**`poly_link_`**)
 
 **Key features:**  
 - Extracts area-weighted averages from the raster for each polygon.  
@@ -169,7 +174,7 @@ boundaries) and need daily indicator values.
 **Use when:** You have polygon features and need monthly indicator
 values.
 
-### For Gridded Data
+### For Gridded Data (**`grid_link_`**)
 
 **Key features:**  
 - Aligns the downloaded daily data with your grid cells using resampling
@@ -190,17 +195,20 @@ values.
 ### API Access
 
 The new system of data stores of the Copernicus services have simplified
-access. With an [ECMWF](https://www.ecmwf.int/)-account, most indicators
-from the Copernicus services are retrievable. In particular, this
-account grants access to the
+access for users. With a user-account with the [European Center for
+Medium-Range Weather Forecasts (ECMWF)](https://www.ecmwf.int/), most
+indicators from the Copernicus services are retrievable. In particular,
+this account grants access to the
 [Climate](https://cds.climate.copernicus.eu/),
 [Atmosphere](https://ads.atmosphere.copernicus.eu/), [Early
-Warning](https://ewds.climate.copernicus.eu/) data Stores.
+Warning](https://ewds.climate.copernicus.eu/) data stores.
 
-To use most `gxc` functions, you need an ECMWF-account.
+To use most `gxc` functions, you need an ECMWF-account. Please ensure
+you follow their Terms and Conditions.
 
 In order to access the Copernicus data services, we integrate the
 [ecmwfr](https://github.com/bluegreen-labs/ecmwfr)-package into `gxc`.
+Many thanks to the authors and developers of this awesome package.
 
 ### Parallel processing
 
@@ -215,7 +223,10 @@ focal time periods. At the same time, setting up a parallel plan and
 chunk-based processing generates an overhead which could lead to
 performance decreases compared to sequential approaches. This is
 especially true for smaller datasets with narrower spatial extent and
-fewer observations.
+fewer observations. Check out our [performance
+website](https://denabel.github.io/gxc_pages/performance.html) to find
+out, whether it makes sense to enable parallel processing for your
+dataset.
 
 If `parallel=TRUE`, data processing is performed by pre-chunking input
 data. The chunk sizes can be varied with `chunk_size=`. The default is
@@ -242,22 +253,28 @@ Key dependencies include:
 ## Hardware Requirements
 
 `gxc` is meant to function efficiently on simple workstations. However,
-if users have access to a cluster environment, you can set up a
+if you have access to a cluster environment, you can set up a
 cluster-plan with the `future`-package.
 
 ## Input Data
 
-The input data format depends on the selected function.
--**`point_link_`**-functions: spatial point objects (`sf`)
--**`poly_link_`**-functions: spatial polygon or multipolygon objects
-(`sf`) -**`grid_link_`**-functions: gridded raster files (`SpatRaster`)
+The input data format depends on the selected function:
+
+- **`point_link_`** functions: spatial point objects (`sf`),
+- **`poly_link_`** functions: spatial polygon or multipolygon objects
+  (`sf`),
+- **`grid_link_`** functions: gridded raster files (`SpatRaster`).
 
 ## Sample Input and Output Data
 
 In general, output files will have the same format as the input files.
 Indicator values are added as additional variables to `sf` objects and
 as additional layers to `SpatRaster` objects. When spatial buffer are
-specified for point data, the `sf`-output file contains polygons.
+specified for point data, the `sf`-output file contains polygons. The
+link-functions will perform reprojections of the CRS (for example for
+buffer-calculation). These will be displayed in the progress bar. In
+general, we advice you to assign the data output to a new object (like
+`dataset_out` in our examples below).
 
 The figure below visualizes how the selected EO indicator will be
 processed based on the different input formats.
@@ -378,22 +395,22 @@ head(dataset_out)
     ## Simple feature collection with 6 features and 5 fields
     ## Geometry type: POLYGON
     ## Dimension:     XY
-    ## Bounding box:  xmin: 8.633732 ymin: 47.73227 xmax: 13.03843 ymax: 52.71189
+    ## Bounding box:  xmin: 6.823039 ymin: 48.09856 xmax: 14.22044 ymax: 53.773
     ## Geodetic CRS:  WGS 84
     ##                         geometry  date_raw  link_date link_date_end
-    ## 1 POLYGON ((13.03843 48.30216...  2019-7-1 2019-07-01    2019-07-01
-    ## 2 POLYGON ((12.46849 47.79265... 2019-8-31 2019-08-31    2019-08-31
-    ## 3 POLYGON ((12.63989 48.11225... 2019-8-17 2019-08-17    2019-08-17
-    ## 4 POLYGON ((8.813395 50.90298... 2019-7-18 2019-07-18    2019-07-18
-    ## 5 POLYGON ((8.915953 52.65743... 2019-8-10 2019-08-10    2019-08-10
-    ## 6 POLYGON ((9.610477 51.52758...  2019-7-9 2019-07-09    2019-07-09
+    ## 1 POLYGON ((11.63237 48.15852...  2019-7-1 2019-07-01    2019-07-01
+    ## 2 POLYGON ((7.983889 51.13007... 2019-8-31 2019-08-31    2019-08-31
+    ## 3 POLYGON ((11.72832 48.53882... 2019-8-17 2019-08-17    2019-08-17
+    ## 4 POLYGON ((14.22044 53.71988... 2019-7-18 2019-07-18    2019-07-18
+    ## 5 POLYGON ((7.268335 50.96663... 2019-8-10 2019-08-10    2019-08-10
+    ## 6 POLYGON ((7.002702 51.3186,...  2019-7-9 2019-07-09    2019-07-09
     ##   time_span_seq focal_value
-    ## 1    2019-07-01    303.7075
-    ## 2    2019-08-31    299.5410
-    ## 3    2019-08-17    297.4355
-    ## 4    2019-07-18    298.0684
-    ## 5    2019-08-10    296.9746
-    ## 6    2019-07-09    288.8733
+    ## 1    2019-07-01    302.3059
+    ## 2    2019-08-31    300.9585
+    ## 3    2019-08-17    297.9739
+    ## 4    2019-07-18    296.4902
+    ## 5    2019-08-10    296.5742
+    ## 6    2019-07-09    291.9866
 
 ``` r
 ggplot(data = dataset_out) +
@@ -498,7 +515,7 @@ workers (rule of thumb: maximum number of cores - 1).
 future::plan(multisession, workers = 6)
 ```
 
-### Run poly_link-function
+### Run `poly_link_monthly` function
 
 Check out vignette for `poly_link_monthly` for detailed documentation.
 
