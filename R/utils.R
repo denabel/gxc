@@ -363,6 +363,7 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 #'
 #' @return The input SpatRaster with its time dimension updated. On disk, the original
 #'         file is replaced by the new file with time information.
+#' @noRd
 .raster_timestamp <- function(raster, days, months, years, path, file_path) {
 
   # Build a vector of valid date strings
@@ -403,9 +404,8 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
 # Data extraction helpers -------------------------------------------------
 
+#' Focal extraction
 #' @noRd
-
-# Focal extraction
 .focal_extract <- function(raster,
                            focal_path,
                            data_sf,
@@ -532,7 +532,8 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 }
 
 
-# Focal extraction for gridded data input
+#' Focal extraction for gridded data input
+#' @noRd
 .focal_extract_grid <- function(raster,
                                 data_sf,
                                 grid_df,
