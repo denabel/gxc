@@ -1,11 +1,25 @@
-bibentry(
-  bibtype  = "Article",
-  title    = ,
-  author   = ,
-  journal  = ,
-  year     = ,
-  volume   = ,
-  number   = ,
-  pages    = ,
-  doi      =
+# CITATION file for package 'gxc'
+
+# Display a header message when users run citation("gxc")
+citHeader("To cite package 'gxc' in publications, please use:")
+
+# Create a bibentry object with your package details
+bib <- bibentry(
+  bibtype = "Manual",
+  title = "gxc: Easy Access to Earth Observation Data",
+  author = c(
+    person("Dennis", "Abel", role = c("aut", "cre")),
+    person("Stefan", "Jünger", role = "aut")
+  ),
+  year = "2025",
+  note = "R package version 0.1.0",
+  url = "https://github.com/denabel/gxc"
 )
+
+# Print the citation in a human-friendly format
+print(bib, style = "text")
+
+cat("\nEin BibTeX-Eintrag für LaTeX-Benutzer ist\n\n")
+
+# Print the BibTeX entry for users of LaTeX
+cat(toBibtex(bib))
