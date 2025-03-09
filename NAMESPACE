@@ -2,12 +2,10 @@
 
 export(grid_link_daily)
 export(grid_link_monthly)
-export(gxc_link_dwd)
 export(point_link_daily)
 export(point_link_monthly)
 export(poly_link_daily)
 export(poly_link_monthly)
-export(specify_days)
 importFrom(dplyr,"%>%")
 importFrom(dplyr,mutate)
 importFrom(ecmwfr,wf_request)

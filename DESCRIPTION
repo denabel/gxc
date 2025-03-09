@@ -1,28 +1,33 @@
 Package: gxc
+Type: Package
 Title: Easy Access to Earth Observation Data
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R: c(
     person("Dennis", "Abel", , "dennis.abel@gesis.org", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-6220-2511")),
     person("Stefan", "Jünger", , "stefan.juenger@gesis.org", role = c("aut"),
            comment = c(ORCID = "YOUR-ORCID-NO"))
            )
-Description: This package is part of the project "GESIS meets Copernicus". It supports users of Earth observation data by offering easy access and processing of data from Copernicus services.
+Description: This package is part of the project "GESIS meets Copernicus". It supports users of Earth observation data by offering easy access and processing of data from Copernicus services and other Earth observation sources.
+URL: https://github.com/denabel/gxc
+BugReports: https://github.com/denabel/gxc/issues
 License: `use_mit_license()`
+Date: 2025-03-09
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports: 
+  dplyr,
   ecmwfr,
+  future.apply,
   keyring,
   lubridate,
-  tidyverse,
+  progressr,
+  rlang,  
   sf,
   terra,
-  progressr,
-  rlang,
-  future.apply,
+  tibble
   
   
 
