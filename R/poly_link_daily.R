@@ -60,14 +60,16 @@
 #' period is specified, additional columns for baseline values and deviations are included.
 #'
 #' @importFrom sf st_transform st_bbox st_crs
-#' @importFrom dplyr mutate %>%
-#' @importFrom lubridate parse_date_time ymd year month day days
+#' @importFrom dplyr mutate %>% pull filter arrange
+#' @importFrom tidyr expand_grid
+#' @importFrom lubridate parse_date_time ymd year month day days make_date
 #' @importFrom terra rast extract app time crs writeCDF
 #' @importFrom rlang sym
 #' @importFrom keyring key_get
 #' @importFrom ecmwfr wf_set_key wf_request
 #' @importFrom future.apply future_lapply
 #' @importFrom progressr handlers progressor with_progress
+#' @importFrom tibble tibble
 #'
 #' @examples
 #' \dontrun{
