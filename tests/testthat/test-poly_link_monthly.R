@@ -19,7 +19,7 @@ test_that("poly_link_monthly returns an sf object with appended focal_value when
   )))
   poly_sf <- st_sf(geometry = st_sfc(polygon, crs = 4326))
 
-  poly_sf$date_column <- "2014-01-01"
+  poly_sf$date_column <- "08-2014"
 
   result <- poly_link_monthly(
     indicator = "2m_temperature",

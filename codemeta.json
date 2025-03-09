@@ -6,7 +6,7 @@
   "name": "gxc: Easy Access to Earth Observation Data",
   "codeRepository": "https://github.com/denabel/gxc",
   "issueTracker": "https://github.com/denabel/gxc/issues",
-  "license": "`use_mit_license()`",
+  "license": "https://spdx.org/licenses/MIT",
   "version": "0.1.0",
   "programmingLanguage": {
     "@type": "ComputerLanguage",
@@ -37,6 +37,45 @@
       "familyName": "Abel",
       "email": "dennis.abel@gesis.org",
       "@id": "https://orcid.org/0000-0001-6220-2511"
+    }
+  ],
+  "softwareSuggestions": [
+    {
+      "@type": "SoftwareApplication",
+      "identifier": "knitr",
+      "name": "knitr",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=knitr"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "identifier": "rmarkdown",
+      "name": "rmarkdown",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=rmarkdown"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "identifier": "testthat",
+      "name": "testthat",
+      "version": ">= 3.0.0",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=testthat"
     }
   ],
   "softwareRequirements": {
@@ -160,8 +199,43 @@
       },
       "sameAs": "https://CRAN.R-project.org/package=tibble"
     },
+    "11": {
+      "@type": "SoftwareApplication",
+      "identifier": "tidyr",
+      "name": "tidyr",
+      "provider": {
+        "@id": "https://cran.r-project.org",
+        "@type": "Organization",
+        "name": "Comprehensive R Archive Network (CRAN)",
+        "url": "https://cran.r-project.org"
+      },
+      "sameAs": "https://CRAN.R-project.org/package=tidyr"
+    },
     "SystemRequirements": null
   },
-  "fileSize": "4788.879KB",
-  "readme": "https://github.com/denabel/gxc/blob/main/README.md"
+  "fileSize": "4800.898KB",
+  "citation": [
+    {
+      "@type": "SoftwareSourceCode",
+      "datePublished": "2025",
+      "author": [
+        {
+          "@type": "Person",
+          "givenName": "Dennis",
+          "familyName": "Abel"
+        },
+        {
+          "@type": "Person",
+          "givenName": "Stefan",
+          "familyName": "Juenger"
+        }
+      ],
+      "name": "gxc: Easy Access to Earth Observation Data",
+      "url": "https://github.com/denabel/gxc",
+      "description": "R package version 0.1.0"
+    }
+  ],
+  "readme": "https://github.com/denabel/gxc/blob/main/README.md",
+  "contIntegration": "https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml",
+  "developmentStatus": "https://www.repostatus.org/#active"
 }

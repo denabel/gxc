@@ -11,7 +11,7 @@ test_that("point_link_monthly returns an sf object with appended focal_value whe
   pts <- data.frame(
     lon = c(13.4, 11.6, 9.9),
     lat = c(52.5, 51.3, 50.1),
-    date_column = c("2014-01-01", "2014-01-01", "2014-01-01")
+    date_column = c("08-2014", "08-2014", "08-2014")
   )
   pts_sf <- sf::st_as_sf(pts, coords = c("lon", "lat"), crs = 4326)
 
