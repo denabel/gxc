@@ -1,13 +1,14 @@
 
-<!-- badges: start --> [![Project Status: Active – The project has
-reached a stable, usable state and is being actively
-developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)[![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://choosealicense.com/licenses/mit/)[![Last-changedate](https://img.shields.io/badge/last%20change-2025--03--09-yellowgreen.svg)](/commits/master)
-[![R-CMD-check](https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml)
-[![R CMD
-check](https://github.com/denabel/gxc/actions/workflows/pkgcheck.yaml/badge.svg)](https://github.com/denabel/gxc/actions/workflows/pkgcheck.yaml)
-<!-- badges: end -->
+[![Project Status:
+Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://choosealicense.com/licenses/mit/)
+[![Last-changedate](https://img.shields.io/badge/last%20change-2025--03--09-yellowgreen.svg)](/commits/master)
+[![R-CMD-check.yaml](https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml)
+<!-- 
+[![pkgcheck](https://github.com/denabel/gxc/workflows/pkgcheck/badge.svg)](https://github.com/denabel/gxc/actions?query=workflow%3Apkgcheck)
+-->
 
-# gxc: Easy access to Earth observation data 🌐
+# gxc: Easy access to Earth observation data 🌎
 
 ## Description
 
@@ -414,22 +415,22 @@ head(dataset_out)
     ## Simple feature collection with 6 features and 5 fields
     ## Geometry type: POLYGON
     ## Dimension:     XY
-    ## Bounding box:  xmin: 6.696028 ymin: 48.94153 xmax: 12.57355 ymax: 52.65778
+    ## Bounding box:  xmin: 8.06531 ymin: 48.02507 xmax: 12.55399 ymax: 53.42959
     ## Geodetic CRS:  WGS 84
     ##                         geometry  date_raw  link_date link_date_end
-    ## 1 POLYGON ((8.639884 49.60797...  2019-7-1 2019-07-01    2019-07-01
-    ## 2 POLYGON ((12.03866 49.0005,... 2019-8-31 2019-08-31    2019-08-31
-    ## 3 POLYGON ((10.81224 52.24487... 2019-8-17 2019-08-17    2019-08-17
-    ## 4 POLYGON ((6.875691 52.60326... 2019-7-18 2019-07-18    2019-07-18
-    ## 5 POLYGON ((9.429469 49.72562... 2019-8-10 2019-08-10    2019-08-10
-    ## 6 POLYGON ((12.57355 51.70488...  2019-7-9 2019-07-09    2019-07-09
+    ## 1 POLYGON ((12.1765 53.37603,...  2019-7-1 2019-07-01    2019-07-01
+    ## 2 POLYGON ((11.66142 50.71301... 2019-8-31 2019-08-31    2019-08-31
+    ## 3 POLYGON ((9.527877 52.19278... 2019-8-17 2019-08-17    2019-08-17
+    ## 4 POLYGON ((12.55399 52.67861... 2019-7-18 2019-07-18    2019-07-18
+    ## 5 POLYGON ((8.244973 48.08512... 2019-8-10 2019-08-10    2019-08-10
+    ## 6 POLYGON ((10.51061 49.60912...  2019-7-9 2019-07-09    2019-07-09
     ##   time_span_seq focal_value
-    ## 1    2019-07-01    302.6455
-    ## 2    2019-08-31    301.3984
-    ## 3    2019-08-17    296.3323
-    ## 4    2019-07-18    297.9149
-    ## 5    2019-08-10    297.2971
-    ## 6    2019-07-09    291.0237
+    ## 1    2019-07-01    296.6702
+    ## 2    2019-08-31    302.5078
+    ## 3    2019-08-17    294.6295
+    ## 4    2019-07-18    297.4707
+    ## 5    2019-08-10    295.1409
+    ## 6    2019-07-09    292.0959
 
 ``` r
 ggplot(data = dataset_out) +
