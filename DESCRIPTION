@@ -33,6 +33,10 @@ Suggests:
     knitr,
     rmarkdown,
     testthat (>= 3.0.0),
-    pkgcheck
+    pkgcheck,
+    rcmdcheck,
+    sessioninfo
+Remotes:
+    ropensci/pkgcheck
 VignetteBuilder: knitr
 Config/testthat/edition: 3
