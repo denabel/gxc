@@ -1,8 +1,9 @@
 
-[![Repository
-Status](https://www.repostatus.org/badge/active.svg)](https://www.repostatus.org/#active)
+“[![Project Status: Active – The project has reached a stable, usable
+state and is being actively
+developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)[![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://choosealicense.com/licenses/mit/)[![Last-changedate](https://img.shields.io/badge/last%20change-2025--03--09-yellowgreen.svg)](/commits/master)”
 
-# gxc: Easy access to Earth observation data 🌍
+# gxc: Easy access to Earth observation data 🌎
 
 ## Description
 
@@ -409,22 +410,22 @@ head(dataset_out)
     ## Simple feature collection with 6 features and 5 fields
     ## Geometry type: POLYGON
     ## Dimension:     XY
-    ## Bounding box:  xmin: 6.046118 ymin: 47.8791 xmax: 11.98812 ymax: 52.06597
+    ## Bounding box:  xmin: 6.334682 ymin: 49.04919 xmax: 13.94097 ymax: 54.30143
     ## Geodetic CRS:  WGS 84
     ##                         geometry  date_raw  link_date link_date_end
-    ## 1 POLYGON ((6.906627 50.60255...  2019-7-1 2019-07-01    2019-07-01
-    ## 2 POLYGON ((6.225781 51.30098... 2019-8-31 2019-08-31    2019-08-31
-    ## 3 POLYGON ((7.408243 52.01072... 2019-8-17 2019-08-17    2019-08-17
-    ## 4 POLYGON ((11.98812 50.9976,... 2019-7-18 2019-07-18    2019-07-18
-    ## 5 POLYGON ((10.46633 47.93932... 2019-8-10 2019-08-10    2019-08-10
-    ## 6 POLYGON ((10.99978 50.21446...  2019-7-9 2019-07-09    2019-07-09
+    ## 1 POLYGON ((10.14929 54.24897...  2019-7-1 2019-07-01    2019-07-01
+    ## 2 POLYGON ((6.514345 50.08257... 2019-8-31 2019-08-31    2019-08-31
+    ## 3 POLYGON ((9.844175 53.41689... 2019-8-17 2019-08-17    2019-08-17
+    ## 4 POLYGON ((11.24315 51.79688... 2019-7-18 2019-07-18    2019-07-18
+    ## 5 POLYGON ((13.94097 50.99629... 2019-8-10 2019-08-10    2019-08-10
+    ## 6 POLYGON ((10.0315 49.10804,...  2019-7-9 2019-07-09    2019-07-09
     ##   time_span_seq focal_value
-    ## 1    2019-07-01    297.0654
-    ## 2    2019-08-31    302.8970
-    ## 3    2019-08-17    293.9343
-    ## 4    2019-07-18    297.5464
-    ## 5    2019-08-10    293.5791
-    ## 6    2019-07-09    291.9172
+    ## 1    2019-07-01    293.6885
+    ## 2    2019-08-31    300.0752
+    ## 3    2019-08-17    294.7590
+    ## 4    2019-07-18    297.0112
+    ## 5    2019-08-10    298.6970
+    ## 6    2019-07-09    292.0051
 
 ``` r
 ggplot(data = dataset_out) +
