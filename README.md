@@ -1,4 +1,7 @@
 
+[![Repository
+Status](https://www.repostatus.org/badge/active.svg)](https://www.repostatus.org/#active)
+
 # gxc: Easy access to Earth observation data 🌍
 
 ## Description
@@ -192,6 +195,16 @@ values.
 
 ## Environment Setup
 
+### Installation instructions- development release
+
+To install the package from github:
+
+``` r
+# if(!require(remotes)){install.packages("remotes")}
+# remotes::install_github("denabel/gxc")
+# library(gxc)
+```
+
 ### API Access
 
 The new system of data stores of the Copernicus services have simplified
@@ -209,6 +222,7 @@ you follow their Terms and Conditions.
 In order to access the Copernicus data services, we integrate the
 [ecmwfr](https://github.com/bluegreen-labs/ecmwfr)-package into `gxc`.
 Many thanks to the authors and developers of this awesome package.
+Please revise their description of usage and setup.
 
 ### Parallel processing
 
@@ -304,7 +318,7 @@ if(length(new_packages)) install.packages(new_packages)
 lapply(required_packages, library, character.only = TRUE)
 
 # Load gxc package
-devtools::load_all()
+library(gxc)
 ```
 
 ### Create sample point data
@@ -395,22 +409,22 @@ head(dataset_out)
     ## Simple feature collection with 6 features and 5 fields
     ## Geometry type: POLYGON
     ## Dimension:     XY
-    ## Bounding box:  xmin: 6.823039 ymin: 48.09856 xmax: 14.22044 ymax: 53.773
+    ## Bounding box:  xmin: 6.046118 ymin: 47.8791 xmax: 11.98812 ymax: 52.06597
     ## Geodetic CRS:  WGS 84
     ##                         geometry  date_raw  link_date link_date_end
-    ## 1 POLYGON ((11.63237 48.15852...  2019-7-1 2019-07-01    2019-07-01
-    ## 2 POLYGON ((7.983889 51.13007... 2019-8-31 2019-08-31    2019-08-31
-    ## 3 POLYGON ((11.72832 48.53882... 2019-8-17 2019-08-17    2019-08-17
-    ## 4 POLYGON ((14.22044 53.71988... 2019-7-18 2019-07-18    2019-07-18
-    ## 5 POLYGON ((7.268335 50.96663... 2019-8-10 2019-08-10    2019-08-10
-    ## 6 POLYGON ((7.002702 51.3186,...  2019-7-9 2019-07-09    2019-07-09
+    ## 1 POLYGON ((6.906627 50.60255...  2019-7-1 2019-07-01    2019-07-01
+    ## 2 POLYGON ((6.225781 51.30098... 2019-8-31 2019-08-31    2019-08-31
+    ## 3 POLYGON ((7.408243 52.01072... 2019-8-17 2019-08-17    2019-08-17
+    ## 4 POLYGON ((11.98812 50.9976,... 2019-7-18 2019-07-18    2019-07-18
+    ## 5 POLYGON ((10.46633 47.93932... 2019-8-10 2019-08-10    2019-08-10
+    ## 6 POLYGON ((10.99978 50.21446...  2019-7-9 2019-07-09    2019-07-09
     ##   time_span_seq focal_value
-    ## 1    2019-07-01    302.3059
-    ## 2    2019-08-31    300.9585
-    ## 3    2019-08-17    297.9739
-    ## 4    2019-07-18    296.4902
-    ## 5    2019-08-10    296.5742
-    ## 6    2019-07-09    291.9866
+    ## 1    2019-07-01    297.0654
+    ## 2    2019-08-31    302.8970
+    ## 3    2019-08-17    293.9343
+    ## 4    2019-07-18    297.5464
+    ## 5    2019-08-10    293.5791
+    ## 6    2019-07-09    291.9172
 
 ``` r
 ggplot(data = dataset_out) +
@@ -442,13 +456,13 @@ We need some packages to load and prepare the world map
 
 ``` r
 # Install and load required packages
-required_packages <- c("devtools", "keyring", "rnaturalearth", "sf", "tidyverse", "future")
+required_packages <- c("devtools", "keyring", "rnaturalearth", "sf", "tidyverse", "future", "future.apply")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 lapply(required_packages, library, character.only = TRUE)
 
 # Load gxc package
-devtools::load_all()
+library(gxc)
 ```
 
 ### Load a world map
@@ -597,6 +611,13 @@ ggplot(data = dataset_out) +
 For questions or contributions, please contact Dennis Abel
 (<dennis.abel@gesis.org>) and Stefan Jünger
 (<stefan.juenger@gesis.org>).
+
+## Citation
+
+To cite `gxc` in publications use:
+
+> Abel D, Jünger S (2025). gxc: Easy Access to Earth Observation Data. R
+> package version 0.1.0, <https://github.com/denabel/gxc>.
 
 ## Disclaimer
 

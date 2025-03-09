@@ -14,6 +14,8 @@ law <- emo::ji("scroll")
 
 ```
 
+[![Repository Status](https://www.repostatus.org/badge/active.svg)](https://www.repostatus.org/#active)
+
 # gxc: Easy access to Earth observation data `r earth`
 
 
@@ -132,6 +134,16 @@ This package provides six core functions to link your input data with EO indicat
 
 ## Environment Setup
 
+### Installation instructions- development release
+
+To install the package from github:
+
+```{r install, message=FALSE, warning=FALSE, results ='hide'}
+# if(!require(remotes)){install.packages("remotes")}
+# remotes::install_github("denabel/gxc")
+# library(gxc)
+```
+
 ### API Access
 
 The new system of data stores of the Copernicus services have simplified access for users. With a user-account with the [European Center for Medium-Range Weather Forecasts (ECMWF)](https://www.ecmwf.int/), most indicators from the Copernicus services are retrievable. In particular, this account grants access to the 
@@ -141,7 +153,7 @@ The new system of data stores of the Copernicus services have simplified access 
 To use most `gxc` functions, you need an ECMWF-account. Please ensure you follow their Terms and Conditions.
 
 In order to access the Copernicus data services, we integrate the 
-[ecmwfr](https://github.com/bluegreen-labs/ecmwfr)-package into `gxc`. Many thanks to the authors and developers of this awesome package.
+[ecmwfr](https://github.com/bluegreen-labs/ecmwfr)-package into `gxc`. Many thanks to the authors and developers of this awesome package. Please revise their description of usage and setup.
 
 
 ### Parallel processing
@@ -208,7 +220,7 @@ if(length(new_packages)) install.packages(new_packages)
 lapply(required_packages, library, character.only = TRUE)
 
 # Load gxc package
-devtools::load_all()
+library(gxc)
 ```
 
 ### Create sample point data
@@ -313,13 +325,13 @@ We need some packages to load and prepare the world map (`rnaturalearth`, `sf`,
 
 ```{r setup_example2, message=FALSE, warning=FALSE, results ='hide'}
 # Install and load required packages
-required_packages <- c("devtools", "keyring", "rnaturalearth", "sf", "tidyverse", "future")
+required_packages <- c("devtools", "keyring", "rnaturalearth", "sf", "tidyverse", "future", "future.apply")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) install.packages(new_packages)
 lapply(required_packages, library, character.only = TRUE)
 
 # Load gxc package
-devtools::load_all()
+library(gxc)
 ```
 
 ### Load a world map
@@ -423,6 +435,14 @@ ggplot(data = dataset_out) +
 ## Contact Details
 
 For questions or contributions, please contact Dennis Abel (dennis.abel@gesis.org) and Stefan Jünger (stefan.juenger@gesis.org).
+
+
+## Citation
+
+To cite `gxc` in publications use:
+
+> Abel D, Jünger S (2025). gxc: Easy Access to Earth Observation 
+> Data. R package version 0.1.0, <https://github.com/denabel/gxc>.
 
 
 ## Disclaimer

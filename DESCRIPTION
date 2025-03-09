@@ -28,6 +28,7 @@ Imports:
   sf,
   terra,
   tibble
-  
-  
-
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
