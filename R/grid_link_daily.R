@@ -62,7 +62,7 @@
 #'   baseline values (and optionally deviations).
 #'
 #' @importFrom dplyr mutate %>%
-#' @importFrom lubridate parse_date_time ymd year month day
+#' @importFrom lubridate parse_date_time ymd year month day days
 #' @importFrom terra rast extract app time crs writeCDF project resample
 #' @importFrom tibble tibble
 #' @importFrom keyring key_get

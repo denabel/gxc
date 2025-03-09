@@ -375,7 +375,7 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
     mutate(date = make_date(year, month, day)) |>
     filter(!is.na(date)) |>
     arrange(date) |>
-    pull(date) |>
+    dplyr::pull(date) |>
     format("%Y-%m-%d")
 
   # Assign the date vector as the raster's time dimension

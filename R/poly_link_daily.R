@@ -61,7 +61,7 @@
 #'
 #' @importFrom sf st_transform st_bbox st_crs
 #' @importFrom dplyr mutate %>%
-#' @importFrom lubridate parse_date_time ymd year month day
+#' @importFrom lubridate parse_date_time ymd year month day days
 #' @importFrom terra rast extract app time crs writeCDF
 #' @importFrom rlang sym
 #' @importFrom keyring key_get
