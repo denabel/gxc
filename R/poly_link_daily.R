@@ -227,7 +227,8 @@ poly_link_daily <- function(
     p(amount = 1, message = "Focal extraction complete")
 
     # Check baseline argument
-    # If no baseline requested, transform back to longitude and latitude and final output
+    # If no baseline requested, transform back to longitude and latitude and
+    # export final output
     if(isFALSE(baseline)){
       data_sf <- sf::st_transform(data_sf, crs = 4326)
 
@@ -248,7 +249,7 @@ poly_link_daily <- function(
       min_year <- baseline[1]
       max_year <- baseline[2]
 
-      # Translate user specified baseline years into sequence
+      # Translate baseline years into sequence
       min_baseline <- parse_date_time(paste0(min_year, "-01-01"), order="ymd")
       max_baseline <- parse_date_time(paste0(max_year, "-01-01"), order="ymd")
       baseline_years <- seq(min_baseline, max_baseline, by = "1 year")

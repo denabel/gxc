@@ -196,7 +196,7 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
     message("Transforming data to WGS84 (EPSG:4326) for further processing.")
     data <- sf::st_transform(data_metric, crs = 4326)  # Back to WGS84
   } else {
-    # Otherwise, simply ensure the data is in WGS84.
+    # Otherwise, ensure data is in WGS84.
     if (sf::st_crs(data)$epsg != 4326) {
       message("Transforming data to WGS84 (EPSG:4326) for further processing.")
       data <- sf::st_transform(data, crs = 4326)
@@ -239,7 +239,6 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   e <- terra::ext(data)
 
   # Create an extent vector in order: north, west, south, east
-  # north  = ymax, west = xmin, south = ymin, east = xmax
   extent <- c(ceiling(e[4]), floor(e[1]), floor(e[3]), ceiling(e[2]))
 
   list(grid = data, extent = extent)
@@ -248,13 +247,13 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
 # Data retrieval helpers --------------------------------------------------
 
-#' @title Internal helper function to request ERA5 monthly data from C3S
+#' @title Internal helper function to request monthly data from C3S
 #'
-#' @description This function requests ERA5 monthly-averaged reanalysis data for
+#' @description This function requests monthly-averaged reanalysis data for
 #' a specified indicator, catalogue, time period, and spatial extent.
 #'
 #' @param indicator Character string specifying the indicator to download.
-#' @param catalogue Character string specifying which ERA5 catalogue to use.
+#' @param catalogue Character string specifying which catalogue to use.
 #' @param extent Numeric vector specifying the bounding box area (N,W,S,E).
 #' @param years Character vector of years for which data should be retrieved.
 #' @param months Character vector of months for which data should be retrieved.
@@ -296,13 +295,13 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 }
 
 
-#' @title Internal helper function to request ERA5 daily data from C3S
+#' @title Internal helper function to request daily data from C3S
 #'
-#' @description This function requests ERA5 daily-averaged reanalysis data for
+#' @description This function requests daily-averaged reanalysis data for
 #' a specified indicator, catalogue, time period, and spatial extent.
 #'
 #' @param indicator Character string specifying the indicator to download.
-#' @param catalogue Character string specifying which ERA5 catalogue to use.
+#' @param catalogue Character string specifying which catalogue to use.
 #' @param extent Numeric vector specifying the bounding box area (N,W,S,E).
 #' @param years Character vector of years for which data should be retrieved.
 #' @param months Character vector of months for which data should be retrieved.
@@ -395,7 +394,7 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
                   unit = orig_units,
                   overwrite = TRUE)
 
-  # Remove the original file and rename the temporary file to the original name
+  # Replace original file with temporary file
   file.remove(file_path)
   file.rename(temp_file, file_path)
 

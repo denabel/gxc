@@ -116,7 +116,7 @@ grid_link_monthly <- function(
   with_progress({
     p <- progressor(steps = 4)
 
-    # Validate catalogue and indicator choice
+    # Validate catalogue, indicator choice and by_hour
     .check_valid_catalogue(catalogue, temp_res = "monthly")
     .check_valid_indicator(indicator, catalogue)
     .check_valid_by_hour(by_hour)
@@ -190,7 +190,8 @@ grid_link_monthly <- function(
     p(amount = 1, message = "Focal extraction complete")
 
     # Check baseline argument
-    # If no baseline requested, transform back to longitude and latitude and final output
+    # If no baseline requested, transform back to longitude and latitude and
+    # export final output
     if(isFALSE(baseline)){
       crs_info <- terra::crs(data_sf, describe = TRUE)
       if (is.null(crs_info$code) || is.na(crs_info$code) || crs_info$code != "EPSG:4326") {
@@ -215,7 +216,7 @@ grid_link_monthly <- function(
       min_year <- baseline[1]
       max_year <- baseline[2]
 
-      # Translate user specified baseline years into sequence
+      # Translate baseline years into sequence
       min_baseline <- parse_date_time(paste0(min_year, "-01-01"), order="ymd")
       max_baseline <- parse_date_time(paste0(max_year, "-01-01"), order="ymd")
       baseline_years <- seq(min_baseline, max_baseline, by = "1 year")
@@ -263,9 +264,8 @@ grid_link_monthly <- function(
         if (length(unique_seq) != 1) {
           stop("For gridded data with time_span > 0, all cells should share the same time_span_seq.")
         }
-        # Convert the unique sequence into Date objects.
         seq_dates <- as.Date(unique_seq[[1]])
-        # Extract the month numbers from the sequence.
+        # Extract month from the sequence.
         seq_months <- month(seq_dates)
         baseline_dates <- as.Date(terra::time(baseline_raster))
         baseline_months <- month(baseline_dates)
@@ -283,7 +283,7 @@ grid_link_monthly <- function(
 
       # Append the baseline as a new layer to the grid.
       data_sf <- c(data_sf, baseline_value = baseline_extracted)
-      # Calculate the deviation (focal_value minus baseline_value) using raster arithmetic.
+      # Calculate the deviation
       deviation <- data_sf[["focal_value"]] - data_sf[["baseline_value"]]
       names(deviation) <- "deviation"
       data_sf <- c(data_sf, deviation = deviation)

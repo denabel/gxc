@@ -192,7 +192,8 @@ grid_link_daily <- function(
     p(amount = 1, message = "Focal extraction complete")
 
     # Check baseline argument
-    # If no baseline requested, transform back to longitude and latitude and final output
+    # If no baseline requested, transform back to longitude and latitude
+    # and create final output
     if(isFALSE(baseline)){
       crs_info <- terra::crs(data_sf, describe = TRUE)
       if (is.null(crs_info$code) || crs_info$code != "EPSG:4326") {
@@ -200,7 +201,7 @@ grid_link_daily <- function(
         data_sf <- terra::project(data_sf, "EPSG:4326")
       }
 
-      # Remove files if keep_raw = FALSE
+      # raw file handling
       if (!keep_raw) {
         file.remove(focal_path)
         message("Raw file has been removed.")
@@ -217,7 +218,7 @@ grid_link_daily <- function(
       min_year <- baseline[1]
       max_year <- baseline[2]
 
-      # Translate user specified baseline years into sequence
+      # Translate into sequence
       min_baseline <- parse_date_time(paste0(min_year, "-01-01"), order="ymd")
       max_baseline <- parse_date_time(paste0(max_year, "-01-01"), order="ymd")
       baseline_years <- seq(min_baseline, max_baseline, by = "1 year")
@@ -286,7 +287,7 @@ grid_link_daily <- function(
 
       # Append the baseline as a new layer to the grid.
       data_sf <- c(data_sf, baseline_value = baseline_extracted)
-      # Calculate the deviation (focal_value minus baseline_value) using raster arithmetic.
+      # Calculate the deviation
       deviation <- data_sf[["focal_value"]] - data_sf[["baseline_value"]]
       names(deviation) <- "deviation"
       data_sf <- c(data_sf, deviation = deviation)
