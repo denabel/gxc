@@ -43,7 +43,7 @@ space-sensitive** social science datasets with data from Earth observation progr
 
 The unique feature of the tool is the possibility of carrying out both 
 geographically and temporally high-resolution queries of data from **Copernicus Data Services** and other Earth observation data sources, which at the same time function efficiently on simple workstations albeit larger amounts of data. Our
-workflow development has identified five major levers: **indicator type**, **indicator intensity**, **focal time period**, **baseline time period**, and **spatial buffer**. Flexibility on these five attributes should be maximized for users. Thus, the tool offers the functionality to automatically derive **spatio-temporal links** with other georeferenced data (e.g., surveys, digital behavioral data).
+workflow development has identified five major levers: **indicator type**, **indicator intensity**, **focal time period**, **baseline time period**, and **spatial buffer**. Flexibility on these five attributes should be maximized for users. Thus, the tool offers the functionality to automatically derive **spatio-temporal links** with other georeferenced data typically used in the social sciences, like surveys, digital behavioral data or socio-economic indicators.
 
 <img src="man/figures/attribute_tree.PNG" align="center" height="400"/>
 
@@ -89,9 +89,11 @@ There are several major research topics in the social sciences which benefit fro
 5. **Economic development and inequality** `r chart_up`, and 
 6. **Public health** `r muscle`.
 
-The **environmental social sciences** are a growing research field at the intersection between the Earth system and societies. One particular topic, the role of extreme weather events for people's environmental attitudes and behavior, has especially benefited from a growing availability of EO data. A noteworthy study by [Hoffmann et al. (2022)]( https://doi.org/10.1038/s41558-021-01263-8), for example, analyses how the experience of climate anomalies and extremes influences environmental attitudes and vote intention in Europe by integrating climatological, survey, and parliamentary data. 
+The **environmental social sciences** are a growing research field at the intersection between the Earth system and societies. One particular topic, the role of extreme weather events for people's environmental attitudes and behavior, has especially benefited from a growing availability of EO data. A noteworthy study by [Hoffmann et al. (2022)]( https://doi.org/10.1038/s41558-021-01263-8), for example, analyses how the experience of climate anomalies and extremes influences environmental attitudes and vote intention in Europe by integrating **climatological, survey, and parliamentary data**. 
 
-Economists and social scientists who study **economic development and inequality** exploit EO data in various forms to operationalize independent variables such as drivers and barriers to development (e.g. droughts) as well as dependent variables (e.g. night lights as proxies for economic activity or the quality of rooftops as development indicator). [García-León et al. (2021)](https://doi.org/10.1038/s41467-021-26050-z), for example, investigate historical and future economic impacts of recent heatwaves in Europe and [Jean et al. (2016)](https://doi.org/10.1126/science.aaf7894) show how nighttime maps can be utilized as estimates of household consumption and assets.
+**Digital behavioral data**, like posts on social media, online-search behavior and other forms of digital traces are increasingly georeferenced and/or include references to points of interest (POI). Having access to this location data advances the opportunities for linking these data points to EO indicators. "People as sensors" is increasingly popular in the social sciences to understand human-environment interactions. An early study by [Kirilenko et al. (2015)](https://doi.org/10.1016/j.gloenvcha.2014.11.003) investigates the relationship between temperature anomalies and tweets on climate change in the US. In the following years, the state of research was expanded to include case studies on Spain ([Mumenthaler et al. 2021](https://doi.org/10.1016/j.gloenvcha.2021.102286)) and the UK ([Young et al. 2025](https://doi.org/10.1038/s41598-024-82384-w)), among others.
+
+Beyond environmental social sciences, there are other fields which benefit from EO data. Economists and social scientists who study **economic development and inequality** exploit EO data in various forms to operationalize independent variables such as drivers and barriers to development (e.g. droughts) as well as dependent variables (e.g. night lights as proxies for economic activity or the quality of rooftops as development indicator). [García-León et al. (2021)](https://doi.org/10.1038/s41467-021-26050-z), for example, investigate historical and future economic impacts of recent heatwaves in Europe and [Jean et al. (2016)](https://doi.org/10.1126/science.aaf7894) show how nighttime maps can be utilized as estimates of household consumption and assets.
 
 
 ## Repo Structure
@@ -211,7 +213,7 @@ The figure below visualizes how the selected EO indicator will be processed base
 
 ### Example 1: Retrieving daily temperature for point data
 
-In this first example, we show how to utilize the `point_link_daily`-function from the `gxc`-package to integrate temperature data from ERA5 reanalysis for a set of spatial points.
+In this first example, we show how to utilize the `point_link_daily`-function from the `gxc`-package to integrate temperature data from ERA5 reanalysis for a set of spatial points. Let's assume we have a series of georeferenced social media posts on climate change and we would like to understand how these are associated with temperature patterns at the person's location. 
 
 ### Package setup
 
@@ -231,7 +233,7 @@ library(gxc)
 
 ### Create sample point data
 
-Let's assume we have a sample of survey respondents across Germany with a field period from July to August 2019. We would like to extend this dataset with temperature data from the specific interview day. We create a sample of random points based on a shapefile for Germany and add random day variables for the field period.
+Let's assume we have a sample of social media posts across Germany covering the time period from July to August 2019. We would like to extend this dataset with temperature data from the specific day of the content post. We create a sample of random points based on a shapefile for Germany and add random day variables for the field period.
 
 ```{r random_points}
 # Get Germany's boundary as an sf object

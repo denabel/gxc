@@ -8,7 +8,7 @@ Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repost
 [![pkgcheck](https://github.com/denabel/gxc/workflows/pkgcheck/badge.svg)](https://github.com/denabel/gxc/actions?query=workflow%3Apkgcheck)
 -->
 
-# gxc: Easy access to Earth observation data 🌎
+# gxc: Easy access to Earth observation data 🌐
 
 ## Description
 
@@ -50,8 +50,9 @@ five major levers: **indicator type**, **indicator intensity**, **focal
 time period**, **baseline time period**, and **spatial buffer**.
 Flexibility on these five attributes should be maximized for users.
 Thus, the tool offers the functionality to automatically derive
-**spatio-temporal links** with other georeferenced data (e.g., surveys,
-digital behavioral data).
+**spatio-temporal links** with other georeferenced data typically used
+in the social sciences, like surveys, digital behavioral data or
+socio-economic indicators.
 
 <img src="man/figures/attribute_tree.PNG" align="center" height="400"/>
 
@@ -128,14 +129,30 @@ availability of EO data. A noteworthy study by [Hoffmann et
 al. (2022)](https://doi.org/10.1038/s41558-021-01263-8), for example,
 analyses how the experience of climate anomalies and extremes influences
 environmental attitudes and vote intention in Europe by integrating
-climatological, survey, and parliamentary data.
+**climatological, survey, and parliamentary data**.
 
-Economists and social scientists who study **economic development and
-inequality** exploit EO data in various forms to operationalize
-independent variables such as drivers and barriers to development
-(e.g. droughts) as well as dependent variables (e.g. night lights as
-proxies for economic activity or the quality of rooftops as development
-indicator). [García-León et
+**Digital behavioral data**, like posts on social media, online-search
+behavior and other forms of digital traces are increasingly
+georeferenced and/or include references to points of interest (POI).
+Having access to this location data advances the opportunities for
+linking these data points to EO indicators. “People as sensors” is
+increasingly popular in the social sciences to understand
+human-environment interactions. An early study by [Kirilenko et
+al. (2015)](https://doi.org/10.1016/j.gloenvcha.2014.11.003)
+investigates the relationship between temperature anomalies and tweets
+on climate change in the US. In the following years, the state of
+research was expanded to include case studies on Spain ([Mumenthaler et
+al. 2021](https://doi.org/10.1016/j.gloenvcha.2021.102286)) and the UK
+([Young et al. 2025](https://doi.org/10.1038/s41598-024-82384-w)), among
+others.
+
+Beyond environmental social sciences, there are other fields which
+benefit from EO data. Economists and social scientists who study
+**economic development and inequality** exploit EO data in various forms
+to operationalize independent variables such as drivers and barriers to
+development (e.g. droughts) as well as dependent variables (e.g. night
+lights as proxies for economic activity or the quality of rooftops as
+development indicator). [García-León et
 al. (2021)](https://doi.org/10.1038/s41467-021-26050-z), for example,
 investigate historical and future economic impacts of recent heatwaves
 in Europe and [Jean et
@@ -307,7 +324,10 @@ processed based on the different input formats.
 
 In this first example, we show how to utilize the
 `point_link_daily`-function from the `gxc`-package to integrate
-temperature data from ERA5 reanalysis for a set of spatial points.
+temperature data from ERA5 reanalysis for a set of spatial points. Let’s
+assume we have a series of georeferenced social media posts on climate
+change and we would like to understand how these are associated with
+temperature patterns at the person’s location.
 
 ### Package setup
 
@@ -329,11 +349,11 @@ library(gxc)
 
 ### Create sample point data
 
-Let’s assume we have a sample of survey respondents across Germany with
-a field period from July to August 2019. We would like to extend this
-dataset with temperature data from the specific interview day. We create
-a sample of random points based on a shapefile for Germany and add
-random day variables for the field period.
+Let’s assume we have a sample of social media posts across Germany
+covering the time period from July to August 2019. We would like to
+extend this dataset with temperature data from the specific day of the
+content post. We create a sample of random points based on a shapefile
+for Germany and add random day variables for the field period.
 
 ``` r
 # Get Germany's boundary as an sf object
@@ -415,22 +435,22 @@ head(dataset_out)
     ## Simple feature collection with 6 features and 5 fields
     ## Geometry type: POLYGON
     ## Dimension:     XY
-    ## Bounding box:  xmin: 8.06531 ymin: 48.02507 xmax: 12.55399 ymax: 53.42959
+    ## Bounding box:  xmin: 7.460223 ymin: 48.01906 xmax: 14.19563 ymax: 53.39013
     ## Geodetic CRS:  WGS 84
     ##                         geometry  date_raw  link_date link_date_end
-    ## 1 POLYGON ((12.1765 53.37603,...  2019-7-1 2019-07-01    2019-07-01
-    ## 2 POLYGON ((11.66142 50.71301... 2019-8-31 2019-08-31    2019-08-31
-    ## 3 POLYGON ((9.527877 52.19278... 2019-8-17 2019-08-17    2019-08-17
-    ## 4 POLYGON ((12.55399 52.67861... 2019-7-18 2019-07-18    2019-07-18
-    ## 5 POLYGON ((8.244973 48.08512... 2019-8-10 2019-08-10    2019-08-10
-    ## 6 POLYGON ((10.51061 49.60912...  2019-7-9 2019-07-09    2019-07-09
+    ## 1 POLYGON ((11.47029 53.33652...  2019-7-1 2019-07-01    2019-07-01
+    ## 2 POLYGON ((9.5949 48.83703, ... 2019-8-31 2019-08-31    2019-08-31
+    ## 3 POLYGON ((14.19563 51.20297... 2019-8-17 2019-08-17    2019-08-17
+    ## 4 POLYGON ((7.639886 49.35936... 2019-7-18 2019-07-18    2019-07-18
+    ## 5 POLYGON ((8.252682 48.74295... 2019-8-10 2019-08-10    2019-08-10
+    ## 6 POLYGON ((9.508703 48.07912...  2019-7-9 2019-07-09    2019-07-09
     ##   time_span_seq focal_value
-    ## 1    2019-07-01    296.6702
-    ## 2    2019-08-31    302.5078
-    ## 3    2019-08-17    294.6295
-    ## 4    2019-07-18    297.4707
-    ## 5    2019-08-10    295.1409
-    ## 6    2019-07-09    292.0959
+    ## 1    2019-07-01    297.0100
+    ## 2    2019-08-31    301.8491
+    ## 3    2019-08-17    297.4763
+    ## 4    2019-07-18    298.9077
+    ## 5    2019-08-10    297.4221
+    ## 6    2019-07-09    292.3762
 
 ``` r
 ggplot(data = dataset_out) +
