@@ -4,11 +4,12 @@ Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repost
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://choosealicense.com/licenses/mit/)
 [![Last-changedate](https://img.shields.io/badge/last%20change-2025--03--09-yellowgreen.svg)](/commits/master)
 [![R-CMD-check.yaml](https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15041278.svg)](https://doi.org/10.5281/zenodo.15041278)
 <!-- 
 [![pkgcheck](https://github.com/denabel/gxc/workflows/pkgcheck/badge.svg)](https://github.com/denabel/gxc/actions?query=workflow%3Apkgcheck)
 -->
 
-# gxc: Easy access to Earth observation data 🌐
+# gxc: Easy access to Earth observation data 🌏
 
 ## Description
 
@@ -435,22 +436,22 @@ head(dataset_out)
     ## Simple feature collection with 6 features and 5 fields
     ## Geometry type: POLYGON
     ## Dimension:     XY
-    ## Bounding box:  xmin: 7.460223 ymin: 48.01906 xmax: 14.19563 ymax: 53.39013
+    ## Bounding box:  xmin: 10.73858 ymin: 48.8622 xmax: 13.16109 ymax: 52.20002
     ## Geodetic CRS:  WGS 84
     ##                         geometry  date_raw  link_date link_date_end
-    ## 1 POLYGON ((11.47029 53.33652...  2019-7-1 2019-07-01    2019-07-01
-    ## 2 POLYGON ((9.5949 48.83703, ... 2019-8-31 2019-08-31    2019-08-31
-    ## 3 POLYGON ((14.19563 51.20297... 2019-8-17 2019-08-17    2019-08-17
-    ## 4 POLYGON ((7.639886 49.35936... 2019-7-18 2019-07-18    2019-07-18
-    ## 5 POLYGON ((8.252682 48.74295... 2019-8-10 2019-08-10    2019-08-10
-    ## 6 POLYGON ((9.508703 48.07912...  2019-7-9 2019-07-09    2019-07-09
+    ## 1 POLYGON ((13.16109 52.14493...  2019-7-1 2019-07-01    2019-07-01
+    ## 2 POLYGON ((10.91824 49.92235... 2019-8-31 2019-08-31    2019-08-31
+    ## 3 POLYGON ((12.73914 48.92126... 2019-8-17 2019-08-17    2019-08-17
+    ## 4 POLYGON ((11.88063 51.62152... 2019-7-18 2019-07-18    2019-07-18
+    ## 5 POLYGON ((12.49195 50.45327... 2019-8-10 2019-08-10    2019-08-10
+    ## 6 POLYGON ((10.94053 49.07367...  2019-7-9 2019-07-09    2019-07-09
     ##   time_span_seq focal_value
-    ## 1    2019-07-01    297.0100
-    ## 2    2019-08-31    301.8491
-    ## 3    2019-08-17    297.4763
-    ## 4    2019-07-18    298.9077
-    ## 5    2019-08-10    297.4221
-    ## 6    2019-07-09    292.3762
+    ## 1    2019-07-01    301.0862
+    ## 2    2019-08-31    302.7224
+    ## 3    2019-08-17    297.3008
+    ## 4    2019-07-18    297.8667
+    ## 5    2019-08-10    295.1606
+    ## 6    2019-07-09    291.2434
 
 ``` r
 ggplot(data = dataset_out) +
