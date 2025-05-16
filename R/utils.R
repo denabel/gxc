@@ -384,6 +384,9 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   orig_units <- terra::units(raster)
   orig_varnames <- terra::varnames(raster)
 
+  # Clean raster metadata from illegal characters
+  raster <- metags_sanitize(raster)
+
   # Create a temporary file path for the updated raster file
   temp_file <- file.path(path, paste0("temp_", basename(file_path)))
 
@@ -400,6 +403,22 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
   return(raster)
 }
+
+
+#' Function to sanitize the metadata of a SpatRaster, i.e., remove all metags
+#' that contain disallowed characters.
+#' @param raster A SpatRaster
+#' @returns A SpatRaster
+#' @noRd
+metags_sanitize <- function(raster) {
+  meta <- metags(raster)
+  empty <- meta
+  empty[, 2] <- ""
+  metags(raster) <- empty
+  metags(raster) <- meta[grepl("^[A-Za-z0-9_-]$", meta$value), ]
+  raster
+}
+
 
 # Data extraction helpers -------------------------------------------------
 
