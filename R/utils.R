@@ -1,148 +1,34 @@
-# R/utils.R
-
-
-# Valid input checks ------------------------------------------------------
-
-# Allowed catalogues
-allowed_catalogues_monthly <- c(
-  "reanalysis-era5-land-monthly-means",
-  "reanalysis-era5-single-levels-monthly-means"
-)
-
-allowed_catalogues_daily <- c(
-  "derived-era5-land-daily-statistics",
-  "derived-era5-single-levels-daily-statistics"
-)
-
-# Allowed indicators
-allowed_indicators_by_catalogue <- list(
-  "reanalysis-era5-land-monthly-means" = c("2m_temperature",
-                                           "total_precipitation",
-                                           "10m_u_component_of_wind",
-                                           "10m_v_component_of_wind",
-                                           #"10m_wind_speed", # does not exist in catalogue
-                                           "leaf_area_index_high_vegetation",
-                                           "leaf_area_index_low_vegetation",
-                                           #"snow_cover", # time stamp first day of NEXT month, if by_hour, then LAST day of focal month
-                                           "snowfall"
-  ),
-  "reanalysis-era5-single-levels-monthly-means" = c("2m_temperature",
-                                                    #"total_precipitation", # time stamp last day of previous month, if by_hour, time stamp one hour earlier
-                                                    "10m_u_component_of_wind",
-                                                    "10m_v_component_of_wind",
-                                                    "10m_wind_speed",
-                                                    #"instantaneous_10m_wind_gust", # time stamp last day of previous month, but if by_hour, time stamp correct
-                                                    #"downward_uv_radiation_at_the_surface", # time stamp last day of previous month, if by_hour, time stamp one hour earlier
-                                                    "total_cloud_cover",
-                                                    #"k_index", # Time stamp LAST day of focal month (e.g. 2014-08-31) when requested August 2014
-                                                    "leaf_area_index_high_vegetation",
-                                                    "leaf_area_index_low_vegetation"
-                                                    #"snowfall" # time stamp last day of previous month
-  ),
-  "derived-era5-land-daily-statistics" = c("2m_temperature"
-                                           #"snow_cover",
-                                           #"10m_u_component_of_wind",
-                                           #"10m_v_component_of_wind",
-                                           #"leaf_area_index_high_vegetation",
-                                           #"leaf_area_index_low_vegetation"
-  ),
-  "derived-era5-single-levels-daily-statistics" = c("2m_temperature"
-                                                    #"total_precipitation",
-                                                    #"10m_u_component_of_wind",
-                                                    #"10m_v_component_of_wind",
-                                                    #"10m_wind_speed",
-                                                    #"instantaneous_10m_wind_gust",
-                                                    #"downward_uv_radiation_at_the_surface",
-                                                    #"total_cloud_cover",
-                                                    #"k_index",
-                                                    #"leaf_area_index_high_vegetation",
-                                                    #"leaf_area_index_low_vegetation"
-                                                    #"snowfall"
+with_cli <- function(expr, .envir = parent.frame()) {
+  withCallingHandlers(
+    expr,
+    message = function(m) cli::cli_inform(conditionMessage(m), .envir = .envir),
+    warning = function(w) cli::cli_warn(conditionMessage(w), .envir = .envir),
+    error = function(e) cli::cli_abort(conditionMessage(e), .envir = .envir)
   )
-)
-
-
-# Allowed input hours
-allowed_hours <- sprintf("%02d:00", 0:23)
-
-# Allowed statistic
-allowed_statistic <- c("daily_mean",
-                       "daily_maximum",
-                       "daily_minimum")
-
-# Allowed time-zone
-allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
-
-# Check allowed values functions
-#' @noRd
-.check_valid_catalogue <- function(catalogue, temp_res = "monthly") {
-  allowed_catalogues <- if(temp_res == "monthly") {
-    allowed_catalogues_monthly
-  } else if(temp_res == "daily") {
-    allowed_catalogues_daily
-  } else {
-    stop("Invalid temporal resolution. Choose either 'monthly' or 'daily'.")
-  }
-
-  if (!catalogue %in% allowed_catalogues) {
-    stop(
-      paste0(
-        "Invalid 'catalogue' argument. Please choose one of: ",
-        paste(allowed_catalogues, collapse = ", ")
-      ), call. = FALSE
-    )
-  }
 }
 
-#' @noRd
-.check_valid_indicator <- function(indicator, catalogue) {
-  # Get the allowed indicators for the given catalogue
-  indicators_for_catalogue <- allowed_indicators_by_catalogue[[catalogue]]
 
-  if (!indicator %in% indicators_for_catalogue) {
-    stop(
-      paste0(
-        "Invalid 'indicator' for the chosen catalogue '", catalogue, "'.\n",
-        "Please choose one of: ", paste(indicators_for_catalogue, collapse = ", ")
-      ), call. = FALSE
-    )
-  }
+dquote <- function(x) {
+  dQuote(x, q = FALSE)
 }
 
-#' @noRd
-.check_valid_by_hour <- function(by_hour) {
-  # Allowed by_hour values: FALSE or one of the allowed_hours vector
-  if (!isFALSE(by_hour) && !by_hour %in% allowed_hours) {
-    stop(
-      paste0(
-        "Invalid 'by_hour' argument. Please choose either FALSE or one of: ",
-        paste(allowed_hours, collapse = ", ")
-      ), call. = FALSE
-    )
-  }
+
+obj_name <- function(x, env = parent.frame()) {
+  deparse(substitute(x, env))
 }
 
-#' @noRd
-.check_valid_statistic <- function(statistic) {
-  if (!statistic %in% allowed_statistic)  {
-    stop(
-      paste0(
-        "Invalid 'statistic' argument. Please choose one of: ",
-        paste(allowed_statistic, collapse = ", ")
-      ), call. = FALSE
-    )
-  }
+
+days <- function(x = 1) {
+  as.difftime(x, units = "days")
 }
 
-#' @noRd
-.check_valid_time_zone <- function(time_zone) {
-  if (!time_zone %in% allowed_time_zone)  {
-    stop(
-      paste0(
-        "Invalid 'time_zone' argument. Please choose one between utc-12:00 and utc+14:00."
-      ), call. = FALSE
-    )
-  }
+
+date_component <- function(x, unit = c("year", "month", "day")) {
+  unit <- switch(unit, month = "mon", day = "mday", unit)
+  add <- switch(unit, year = 1900, mon = 1, 0)
+  tz <- attr(x, "tzone") %||% ""
+  x <- as.POSIXlt(x, tz = tz)[, unit] + add
+  as.character(sort(unique(x)))
 }
 
 
@@ -176,44 +62,6 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   )
 
   # Return data and extent
-  list(data_sf = data, extent = extent)
-}
-
-#' @title Helper function for preparing an sf dataset of points with buffering
-#' @noRd
-.prep_points <- function(data, buffer = 0) {
-  # Check that data is an sf object
-  if (!inherits(data, "sf")) {
-    stop("Data must be a sf object.")
-  }
-
-  # If buffering is needed, reproject to a metric CRS, apply buffer,
-  # then reproject to WGS84.
-  if (buffer > 0) {
-    message("Reprojecting data to metric CRS for buffering.")
-    data_metric <- sf::st_transform(data, crs = 3857)  # Metric CRS (meters)
-    data_metric <- sf::st_buffer(data_metric, dist = buffer * 1000)
-    message("Transforming data to WGS84 (EPSG:4326) for further processing.")
-    data <- sf::st_transform(data_metric, crs = 4326)  # Back to WGS84
-  } else {
-    # Otherwise, ensure data is in WGS84.
-    if (sf::st_crs(data)$epsg != 4326) {
-      message("Transforming data to WGS84 (EPSG:4326) for further processing.")
-      data <- sf::st_transform(data, crs = 4326)
-    }
-  }
-
-  # Extract bounding box
-  box <- sf::st_bbox(data)
-
-  # Create extent in order: north, west, south, east
-  extent <- c(
-    ceiling(box$ymax),
-    floor(box$xmin),
-    floor(box$ymin),
-    ceiling(box$xmax)
-  )
-
   list(data_sf = data, extent = extent)
 }
 
