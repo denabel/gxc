@@ -5,15 +5,15 @@
 \title{Link Spatial Points with Copernicus Earth Observation Daily Indicators}
 \usage{
 point_link_daily(
+  .data,
   indicator,
-  data,
-  date_var,
+  date_var = "date",
   time_span = 0,
   time_lag = 0,
   buffer = 0,
   baseline = FALSE,
-  order = "ymd",
-  path = "./data/raw",
+  time_fmt = "\%Y-\%m-\%d",
+  path = tempdir(),
   catalogue = "derived-era5-land-daily-statistics",
   statistic = "daily_mean",
   time_zone = "utc+00:00",
@@ -23,10 +23,10 @@ point_link_daily(
 )
 }
 \arguments{
+\item{.data}{An \code{sf} object containing the spatial data (polygons or points).}
+
 \item{indicator}{Character string specifying the indicator to download (e.g., "2m_temperature").
 Allowed indicators differ by catalogue. See the \strong{Details} section for available indicators.}
-
-\item{data}{An \code{sf} object containing the spatial data (polygons or points).}
 
 \item{date_var}{Character string specifying the name of the date variable in \code{data}.}
 
@@ -42,8 +42,6 @@ around each point for aggregated extraction.}
 \item{baseline}{Either \code{FALSE} (default) or a character vector of length 2 specifying the baseline
 period in years. For example, \code{baseline = c("1980", "2010")} uses the years 1980 to 2010 as the baseline.
 If \code{FALSE}, no baseline calculation is performed.}
-
-\item{order}{Character string specifying the date format for parsing \code{date_var} (default is \code{"ymd"}).}
 
 \item{path}{Character string specifying the directory path where data will be downloaded and/or stored
 (default is \code{"./data/raw"}).}
@@ -64,6 +62,8 @@ Default is \code{FALSE} (i.e. sequential execution).}
 
 \item{chunk_size}{Integer specifying the number of observations per chunk when parallelizing.
 Default is \code{50}.}
+
+\item{order}{Character string specifying the date format for parsing \code{date_var} (default is \code{"ymd"}).}
 }
 \value{
 An \code{sf} object with the original spatial data and appended climate indicator values. If a baseline
@@ -107,46 +107,21 @@ library(dplyr)
 # Create sample point data (sf object)
 pts <- data.frame(lon = c(13.4, 11.6, 9.9),
                   lat = c(52.5, 51.3, 50.1),
-                  date_column = c("2014-08-01", "2014-08-01", "2014-08-01"))
+                  date = c("2014-08-01", "2014-08-01", "2014-08-01"))
 pts_sf <- st_as_sf(pts, coords = c("lon", "lat"), crs = 4326)
 
 # Example: Direct extraction (buffer = 0)
-result1 <- point_link_daily(
-  indicator = "2m_temperature",
-  data = pts_sf,
-  date_var = "date_column",
-  time_span = 0,
-  time_lag = 0,
-  buffer = 0,
-  baseline = FALSE,
-  order = "ymd",
-  path = "./data/raw",
-  catalogue = "derived-era5-land-daily-statistics",
-  statistic = "daily_mean",
-  time_zone = "utc+00:00",
-  keep_raw = FALSE
-)
+result1 <- point_link_daily(pts_sf, indicator = "2m_temperature")
 
 # Example: Aggregated extraction with a 5 km buffer
 result2 <- point_link_daily(
+  pts_sf,
   indicator = "2m_temperature",
-  data = pts_sf,
-  date_var = "date_column",
-  time_span = 0,
-  time_lag = 0,
   buffer = 5,
-  baseline = c("1980", "2010"),
-  order = "ymd",
-  path = "./data/raw",
-  catalogue = "derived-era5-land-daily-statistics",
-  statistic = "daily_mean",
-  time_zone = "utc+00:00",
-  keep_raw = TRUE
+  baseline = c("1980", "2010")
 )
 
-# View the results:
+# View the results
 head(result1)
-head(result2)
-}
-
+head(result2)}
 }

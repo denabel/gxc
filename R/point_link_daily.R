@@ -8,7 +8,7 @@
 #' the mean value over the buffer is extracted. If a baseline period is provided (e.g., `baseline = c("1980", "2010")`),
 #' baseline daily statistics are downloaded for the specified period and appended as a separate attribute.
 #'
-#' @param data An `sf` object containing the spatial data (polygons or points).
+#' @param .data An `sf` object containing the spatial data (polygons or points).
 #' @param indicator Character string specifying the indicator to download (e.g., "2m_temperature").
 #'   Allowed indicators differ by catalogue. See the **Details** section for available indicators.
 #' @param date_var Character string specifying the name of the date variable in `data`.
@@ -29,7 +29,7 @@
 #' @param statistic Character string specifying the type of daily statistic to download.
 #'   Options are `"daily_mean"` (default), `"daily_maximum"`, and `"daily_minimum"`.
 #' @param time_zone Character string specifying the time zone to use (default is `"utc+00:00"`).
-#' @param keep_raw Logical value indicating whether to keep the downloaded raw `.grib` files.
+#' @param cache Logical value indicating whether to keep the downloaded raw `.grib` files.
 #'   If `FALSE`, the files are deleted after processing (default is `FALSE`).
 #' @param parallel Logical indicating whether to use parallel processing with chunking.
 #'   Default is `FALSE` (i.e. sequential execution).
@@ -68,72 +68,48 @@
 #' # Create sample point data (sf object)
 #' pts <- data.frame(lon = c(13.4, 11.6, 9.9),
 #'                   lat = c(52.5, 51.3, 50.1),
-#'                   date_column = c("2014-08-01", "2014-08-01", "2014-08-01"))
+#'                   date = c("2014-08-01", "2014-08-01", "2014-08-01"))
 #' pts_sf <- st_as_sf(pts, coords = c("lon", "lat"), crs = 4326)
 #'
 #' # Example: Direct extraction (buffer = 0)
-#' result1 <- point_link_daily(
-#'   indicator = "2m_temperature",
-#'   data = pts_sf,
-#'   date_var = "date_column",
-#'   time_span = 0,
-#'   time_lag = 0,
-#'   buffer = 0,
-#'   baseline = FALSE,
-#'   order = "ymd",
-#'   path = "./data/raw",
-#'   catalogue = "derived-era5-land-daily-statistics",
-#'   statistic = "daily_mean",
-#'   time_zone = "utc+00:00",
-#'   keep_raw = FALSE
-#' )
+#' result1 <- point_link_daily(pts_sf, indicator = "2m_temperature")
 #'
 #' # Example: Aggregated extraction with a 5 km buffer
 #' result2 <- point_link_daily(
+#'   pts_sf,
 #'   indicator = "2m_temperature",
-#'   data = pts_sf,
-#'   date_var = "date_column",
-#'   time_span = 0,
-#'   time_lag = 0,
 #'   buffer = 5,
-#'   baseline = c("1980", "2010"),
-#'   order = "ymd",
-#'   path = "./data/raw",
-#'   catalogue = "derived-era5-land-daily-statistics",
-#'   statistic = "daily_mean",
-#'   time_zone = "utc+00:00",
-#'   keep_raw = TRUE
+#'   baseline = c("1980", "2010")
 #' )
 #'
-#' # View the results:
+#' # View the results
 #' head(result1)
-#' head(result2)
-#' }
-#'
+#' head(result2)}
 #' @export
-
 point_link_daily <- function(
     .data,
     indicator,
-    date_var,
+    date_var = "date",
     time_span = 0,
     time_lag = 0,
     buffer = 0,
     baseline = FALSE,
-    order = "ymd",
-    path = "./data/raw",
+    time_fmt = "%Y-%m-%d",
+    path = tempdir(),
     catalogue = "derived-era5-land-daily-statistics",
     statistic = "daily_mean",
     time_zone = "utc+00:00",
-    keep_raw = FALSE,
+    cache = TRUE,
     parallel = FALSE,
-    chunk_size = 50
+    chunk_size = 50,
+    verbose = TRUE
 ) {
   # Validate catalogue, indicator choice, statistic, and time-zone
   .check_valid_catalogue(catalogue, temp_res = "daily")
   .check_valid_indicator(indicator, catalogue)
   .check_valid_statistic(statistic)
   .check_valid_time_zone(time_zone)
+  .check_column(.data, date_var)
   .check_api_key("ecmwfr")
 
   # Prep data and create extent
@@ -162,52 +138,60 @@ point_link_daily <- function(
   days <- date_component(unlist(prepared$time_span_seq), "day")
 
   # Download data from API
-  focal_path <- .make_request_daily(indicator, catalogue, extent, years,
-                                    months, days, path, prefix = "focal",
-                                    statistic = statistic, time_zone = time_zone)
-  p(amount = 1, message = "Download complete")
+  focal_path <- .make_request_daily(
+    indicator,
+    catalogue = catalogue,
+    extent = extent,
+    years = years,
+    months = months,
+    days = days,
+    path = path,
+    prefix = "focal",
+    statistic = statistic,
+    time_zone = time_zone,
+    verbose = verbose
+  )
 
-  # Load raster file
   raster <- terra::rast(focal_path)
 
   # Add timestamp to raster file
-  raster <- .raster_timestamp(raster, days, months, years, path, focal_path)
+  raster <- .raster_timestamp(raster, days, months, years, path)
 
   # Check CRS of both datasets and adjust if necessary
-  if(!identical(crs(data_sf), terra::crs(raster))) {
-    data_sf <- data_sf |>
-      st_transform(crs=st_crs(raster))
+  if (!identical(terra::crs(prepared), terra::crs(raster))) {
+    prepared <- sf::st_transform(prepared, crs = terra::crs(raster))
   }
+
+  info("Extracting focal value from output", level = "step")
 
   # Extract focal values
   raster_values <- .focal_extract(raster,
                                   focal_path,
-                                  data_sf,
+                                  prepared,
                                   time_span = time_span,
                                   parallel = parallel,
                                   chunk_size = chunk_size
   )
 
   # Create new variable in dataframe
-  data_sf$focal_value <- unlist(raster_values)
-  p(amount = 1, message = "Focal extraction complete")
+  prepared$focal_value <- unlist(raster_values)
 
   # Check baseline argument
   # If no baseline requested, transform back to longitude and latitude and
   # export final output
-  if(isFALSE(baseline)){
-    data_sf <- sf::st_transform(data_sf, crs = 4326)
+  if (isFALSE(baseline)) {
+    info("Baseline skipped.")
+    prepared <- sf::st_transform(prepared, crs = 4326)
 
-    # Remove files if keep_raw = FALSE
-    if (!keep_raw) {
+    # Remove files if cache = FALSE
+    if (!cache) {
       file.remove(focal_path)
-      message("Raw file has been removed.")
+      info("Raw file has been removed.")
     } else {
-      message("Raw file has been stored at: ", focal_path)
+      info("Raw file has been stored at {.file {focal_path}}")
     }
-    p(amount = 1, message = "Baseline skipped")
-    p(amount = 0)
-    return(data_sf)
+
+    return(prepared)
 
   } else if (is.vector(baseline) && length(baseline) == 2) {
 
@@ -216,8 +200,8 @@ point_link_daily <- function(
     max_year <- baseline[2]
 
     # Translate baseline years into sequence
-    min_baseline <- parse_date_time(paste0(min_year, "-01-01"), order="ymd")
-    max_baseline <- parse_date_time(paste0(max_year, "-01-01"), order="ymd")
+    min_baseline <- parse_date_time(paste0(min_year, "-01-01"), order = "ymd")
+    max_baseline <- parse_date_time(paste0(max_year, "-01-01"), order = "ymd")
     baseline_years <- seq(min_baseline, max_baseline, by = "1 year")
     baseline_years <- format(baseline_years, "%Y")
 
@@ -237,12 +221,12 @@ point_link_daily <- function(
                                          baseline_years, path, baseline_path)
 
     # Extract values from raster for each observation and add to dataframe
-    if(length(unique(data_sf$link_date)) == 1){
+    if (length(unique(prepared$link_date)) == 1) {
       # All observations have the same link date
       baseline_raster <- terra::app(baseline_raster, mean)
       baseline_values <- terra::extract(
         baseline_raster,
-        data_sf,
+        prepared,
         fun = mean,
         na.rm = TRUE,
         ID = FALSE
@@ -254,14 +238,14 @@ point_link_daily <- function(
         baseline_dates <- as.Date(terra::time(baseline_raster))
         baseline_df <- data.frame(
           layer_index = seq_along(baseline_dates),
-          month = month(baseline_dates),
-          day = day(baseline_dates)
+          month = lubridate::month(baseline_dates),
+          day = lubridate::day(baseline_dates)
         )
 
-        baseline_values <- lapply(seq_len(nrow(data_sf)), function(i) {
-          if (!is.na(data_sf[i,]$link_date)) {
+        baseline_values <- lapply(seq_len(nrow(prepared)), function(i) {
+          if (!is.na(prepared[i,]$link_date)) {
 
-            target_dates <- as.Date(ymd(unlist(data_sf[i,]$time_span_seq)))
+            target_dates <- as.Date(ymd(unlist(prepared[i,]$time_span_seq)))
             # "month-day" identifier for the target and baseline dates
             target_md <- paste(month(target_dates), day(target_dates), sep = "-")
             baseline_md <- paste(baseline_df$month, baseline_df$day, sep = "-")
@@ -274,7 +258,7 @@ point_link_daily <- function(
                                         na.rm = TRUE)
             terra::extract(
               raster_subset,
-              data_sf[i,],
+              prepared[i,],
               fun = mean,
               na.rm = TRUE,
               ID = FALSE
@@ -286,21 +270,21 @@ point_link_daily <- function(
         baseline_values <- unlist(baseline_values, recursive = FALSE)
       } else {
         # Parallelization approach
-        chunks <- split(seq_len(nrow(data_sf)),
-                        ceiling(seq_len(nrow(data_sf)) / chunk_size))
+        chunks <- split(seq_len(nrow(prepared)),
+                        ceiling(seq_len(nrow(prepared)) / chunk_size))
 
-        baseline_values_list <- future_lapply(chunks, function(idx) {
+        baseline_values_list <- future.apply::future_lapply(chunks, function(idx) {
           local_baseline_raster <- terra::rast(baseline_path)
           baseline_dates <- as.Date(terra::time(local_baseline_raster))
           baseline_df <- data.frame(
             layer_index = seq_along(baseline_dates),
-            month = month(baseline_dates),
-            day = day(baseline_dates)
+            month = lubridate::month(baseline_dates),
+            day = lubridate::day(baseline_dates)
           )
 
           sapply(idx, function(i) {
-            if (!is.na(data_sf[i,]$link_date)) {
-              target_dates <- as.Date(ymd(unlist(data_sf[i,]$time_span_seq)))
+            if (!is.na(prepared[i,]$link_date)) {
+              target_dates <- as.Date(ymd(unlist(prepared[i,]$time_span_seq)))
               target_md <- paste(month(target_dates), day(target_dates), sep = "-")
               baseline_md <- paste(baseline_df$month, baseline_df$day, sep = "-")
               match_idx <- baseline_df$layer_index[baseline_md %in% target_md]
@@ -311,7 +295,7 @@ point_link_daily <- function(
                                           na.rm = TRUE)
               terra::extract(
                 raster_subset,
-                data_sf[i,],
+                prepared[i,],
                 fun = mean,
                 na.rm = TRUE,
                 ID = FALSE
@@ -327,27 +311,25 @@ point_link_daily <- function(
     }
 
     # Add variable to dataframe
-    data_sf$baseline_value <- unlist(baseline_values)
+    prepared$baseline_value <- unlist(baseline_values)
 
     # Calculate absolute deviation between focal and baseline values
-    data_sf <- data_sf |>
-      mutate(
+    prepared <- prepared |>
+      dplyr::mutate(
         deviation = focal_value - baseline_value
       )
 
     # Transform back to longitude and latitude WGS84
-    data_sf <- st_transform(data_sf, crs = 4326)
-    p(amount = 1, message = "Baseline complete")
-    p(amount = 0)
-    # Remove files if keep_raw = FALSE
-    if (!keep_raw) {
+    prepared <- sf::st_transform(prepared, crs = 4326)
+    # Remove files if cache = FALSE
+    if (!cache) {
       file.remove(focal_path)
       file.remove(baseline_path)
-      message("Raw files have been removed.")
+      info("Raw file removed.")
     } else {
-      message("Raw files have been stored in: ", path)
+      info("Raw file cached in {.file {path}}")
     }
-    return(data_sf)
+    return(prepared)
 
   } else {
     stop("Baseline argument must be either FALSE or a vector of length 2 specifying min and max baseline years.")

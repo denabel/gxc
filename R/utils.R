@@ -1,3 +1,26 @@
+info <- function(text,
+                 ...,
+                 level = "info",
+                 verbose = NULL,
+                 .envir = parent.frame()) {
+  verbose <- verbose %||% get0("verbose", envir = .envir, ifnotfound = TRUE)
+  if (!verbose) {
+    return()
+  }
+
+  fun <- switch(
+    level,
+    info = cli::cli_alert_info,
+    warning = cli::cli_alert_warning,
+    danger = cli::cli_alert_danger,
+    success = cli::cli_alert_success,
+    step = cli::cli_progress_step
+  )
+
+  fun(text, ..., .envir = .envir)
+}
+
+
 with_cli <- function(expr, .envir = parent.frame()) {
   withCallingHandlers(
     expr,
@@ -93,105 +116,6 @@ date_component <- function(x, unit = c("year", "month", "day")) {
 }
 
 
-# Data retrieval helpers --------------------------------------------------
-
-#' @title Internal helper function to request monthly data from C3S
-#'
-#' @description This function requests monthly-averaged reanalysis data for
-#' a specified indicator, catalogue, time period, and spatial extent.
-#'
-#' @param indicator Character string specifying the indicator to download.
-#' @param catalogue Character string specifying which catalogue to use.
-#' @param extent Numeric vector specifying the bounding box area (N,W,S,E).
-#' @param years Character vector of years for which data should be retrieved.
-#' @param months Character vector of months for which data should be retrieved.
-#' @param path Character string specifying the directory path where data will be stored.
-#' @param prefix Character string specifying a prefix for the target filename (e.g., "focal" or "baseline").
-#'
-#' @return A character string with the path to the downloaded file.
-#'
-#' @importFrom ecmwfr wf_request
-#' @noRd
-.make_request_monthly <- function(indicator, catalogue, extent, years, months,
-                                  path, prefix,
-                                  product_type = "monthly_averaged_reanalysis",
-                                  request_time = "00:00") {
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp, ".grib")
-
-  request <- list(
-    data_format = "grib",
-    download_format = "unarchived",
-    variable = indicator,
-    product_type = product_type,
-    time = request_time,
-    year = years,
-    month = months,
-    area = extent,
-    dataset_short_name = catalogue,
-    target = file_name
-  )
-
-  file_path <- ecmwfr::wf_request(
-    request = request,
-    transfer = TRUE,
-    path = path,
-    verbose = FALSE
-  )
-
-  return(file_path)
-}
-
-
-#' @title Internal helper function to request daily data from C3S
-#'
-#' @description This function requests daily-averaged reanalysis data for
-#' a specified indicator, catalogue, time period, and spatial extent.
-#'
-#' @param indicator Character string specifying the indicator to download.
-#' @param catalogue Character string specifying which catalogue to use.
-#' @param extent Numeric vector specifying the bounding box area (N,W,S,E).
-#' @param years Character vector of years for which data should be retrieved.
-#' @param months Character vector of months for which data should be retrieved.
-#' @param days Character vector of days for which data should be retrieved.
-#' @param path Character string specifying the directory path where data will be stored.
-#' @param prefix Character string specifying a prefix for the target filename (e.g., "focal" or "baseline").
-#'
-#' @return A character string with the path to the downloaded file.
-#'
-#' @importFrom ecmwfr wf_request
-#' @noRd
-.make_request_daily <- function(indicator, catalogue, extent, years, months, days,
-                                path, prefix, statistic = "daily_mean",
-                                time_zone = "utc+00:00") {
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp)
-
-  request <- list(
-    variable = indicator,
-    product_type = "reanalysis",
-    year = years,
-    month = months,
-    day = days,
-    daily_statistic = statistic,
-    time_zone = time_zone,
-    frequency = "1_hourly",
-    area = extent,
-    dataset_short_name = catalogue,
-    target = file_name
-  )
-
-  file_path <- ecmwfr::wf_request(
-    request = request,
-    transfer = TRUE,
-    path = path,
-    verbose = FALSE
-  )
-
-  return(file_path)
-}
-
-
 # Raster processing helpers -----------------------------------------------
 
 #' Process raster file to add timestamp and update the stored file
@@ -206,12 +130,12 @@ date_component <- function(x, unit = c("year", "month", "day")) {
 #' @param months Vector of months (numeric or character).
 #' @param years Vector of years (numeric or character).
 #' @param path Directory where the raster file is stored.
-#' @param file_path Full file path to the raster file that will be replaced.
 #'
 #' @return The input SpatRaster with its time dimension updated. On disk, the original
 #'         file is replaced by the new file with time information.
 #' @noRd
-.raster_timestamp <- function(raster, days, months, years, path, file_path) {
+.raster_timestamp <- function(raster, days, months, years, path) {
+  file_path <- terra::sources(raster)
 
   # Build a vector of valid date strings
   valid_date_strings <- expand_grid(
@@ -248,8 +172,7 @@ date_component <- function(x, unit = c("year", "month", "day")) {
   # Replace original file with temporary file
   file.remove(file_path)
   file.rename(temp_file, file_path)
-
-  return(raster)
+  raster
 }
 
 
@@ -259,11 +182,18 @@ date_component <- function(x, unit = c("year", "month", "day")) {
 #' @returns A SpatRaster
 #' @noRd
 metags_sanitize <- function(raster) {
-  meta <- metags(raster)
+  meta <- terra::metags(raster)
   empty <- meta
-  empty[, 2] <- ""
-  metags(raster) <- empty
-  metags(raster) <- meta[grepl("^[A-Za-z0-9_-]$", meta$value), ]
+
+  if (utils::packageVersion("terra") > "1.8-42") {
+    empty[, 2] <- ""
+    terra::metags(raster) <- empty
+    terra::metags(raster) <- meta[grepl("^[A-Za-z0-9._-]*$", meta$value), ]
+  } else {
+    terra::metags(raster) <- NULL
+    terra::metags(raster) <- meta[grepl("^[A-Za-z0-9._-]*$", meta)]
+  }
+
   raster
 }
 

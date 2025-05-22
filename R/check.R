@@ -162,6 +162,14 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
 .check_class <- function(x, cls, name = obj_name(x)) {
   if (!inherits(x, cls)) {
-    cli::cli_abort("`{x}` must of class {.cls {cls}}.")
+    cli::cli_abort("`{name}` must of class {.cls {cls}}.")
+  }
+}
+
+
+.check_column <- function(x, col, name = obj_name(x)) {
+  .check_class(x, "data.frame", name = name)
+  if (!all(col %in% names(x))) {
+    cli::cli_abort("`{name}` must contain {cli::qty(col)} column{?s} {.val {col}}.")
   }
 }

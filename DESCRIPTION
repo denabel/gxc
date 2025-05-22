@@ -18,17 +18,12 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports: 
-  dplyr,
   ecmwfr,
   future.apply,
   keyring,
-  lubridate,
   progressr,
-  rlang,  
   sf,
-  terra,
-  tibble,
-  tidyr
+  terra
 Suggests: 
     knitr,
     rmarkdown,
