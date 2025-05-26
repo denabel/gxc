@@ -1,12 +1,16 @@
 #' Link Spatial Points with Copernicus Earth Observation Daily Indicators
 #'
-#' Downloads and processes Copernicus Earth observation data (ERA5) based on daily temporal parameters,
-#' and extracts the relevant daily climate indicator values for the provided spatial points. The function
-#' constructs daily time sequences based on a specified date variable and time adjustments (time_lag and time_span),
-#' downloads the corresponding daily statistics (e.g., daily mean, maximum, or minimum), and links these values to
-#' the spatial points. An optional spatial buffer (in kilometers) can be specified so that instead of a direct cell match,
-#' the mean value over the buffer is extracted. If a baseline period is provided (e.g., `baseline = c("1980", "2010")`),
-#' baseline daily statistics are downloaded for the specified period and appended as a separate attribute.
+#' @description Downloads and processes Copernicus Earth observation data (ERA5)
+#' based on daily temporal parameters, and extracts the relevant daily climate
+#' indicator values for the provided spatial points. The function constructs
+#' daily time sequences based on a specified date variable and time adjustments
+#' (time_lag and time_span), downloads the corresponding daily statistics
+#' (e.g., daily mean, maximum, or minimum), and links these values to the
+#' spatial points. An optional spatial buffer (in kilometers) can be specified
+#' so that instead of a direct cell match, the mean value over the buffer is
+#' extracted. If a baseline period is provided (e.g., `baseline = c("1980",
+#' "2010")`), baseline daily statistics are downloaded for the specified period
+#' and appended as a separate attribute.
 #'
 #' @param .data An `sf` object containing the spatial data (polygons or points).
 #' @param indicator Character string specifying the indicator to download (e.g., "2m_temperature").
@@ -22,17 +26,24 @@
 #' @param buffer Numeric value specifying the buffer radius (in kilometers) to be applied around each point.
 #'   The default is `0`, corresponding to a direct cell match; values greater than 0 generate a spatial buffer
 #'   around each point for aggregated extraction.
-#' @param path Character string specifying the directory path where data will be downloaded and/or stored
-#'   (default is `"./data/raw"`).
 #' @param catalogue Character string specifying which ERA5 catalogue to use.
 #'   Options are `"derived-era5-land-daily-statistics"` (default) or `"derived-era5-single-levels-daily-statistics"`.
 #' @param statistic Character string specifying the type of daily statistic to download.
 #'   Options are `"daily_mean"` (default), `"daily_maximum"`, and `"daily_minimum"`.
 #' @param time_zone Character string specifying the time zone to use (default is `"utc+00:00"`).
-#' @param cache Logical value indicating whether to keep the downloaded raw `.grib` files.
-#'   If `FALSE`, the files are deleted after processing (default is `FALSE`).
-#' @param parallel Logical indicating whether to use parallel processing with chunking.
-#'   Default is `FALSE` (i.e. sequential execution).
+#' @param cache Logical value indicating whether to keep the downloaded
+#'   `.grib` files and restore them when downloading the same file again.
+#'   Enabling caching can speed up functions calls significantly when working
+#'   with the same files repeatedly. See the **Caching** section for details. If
+#'   `FALSE`, removes the raw files after processing.
+#' @param path Character string specifying the directory path where data will
+#'   be downloaded and cached. If `NULL`, the directory depends on whether
+#'   caching is enabled. If `cache = FALSE`, files are stored in a temporary
+#'   directory (`tempdir()`), otherwise they are stored in the user directory
+#'   (`tools::R_user_dir()`). Defaults to \code{NULL}.
+#' @param parallel Logical indicating whether to use parallel processing with
+#'   chunking. See section **Parallel processing** for details. Default is
+#'   `FALSE` (i.e. sequential execution).
 #' @param chunk_size Integer specifying the number of observations per chunk when parallelizing.
 #'   Default is `50`.
 #'
@@ -46,9 +57,10 @@
 #' is computed. If a baseline period is provided (e.g., `baseline = c("1980", "2010")`), baseline daily statistics are downloaded for the
 #' specified period and appended as a new attribute. Parallel processing via `future.apply::future_lapply` is supported.
 #'
-#' **Note:** Users must have a CDS account and have their API key configured for `ecmwfr`.
+#' @note Users must have a CDS account and have their API key configured for
+#' `ecmwfr`.
 #'
-#' **Parallel Processing:**
+#' @section Parallel processing:
 #' This function can use parallel processing with chunking via
 #' `future.apply::future_lapply` when `parallel = TRUE`. If `parallel = FALSE`,
 #' the function runs sequentially. When `parallel = TRUE`, set your parallel
@@ -66,9 +78,11 @@
 #' library(dplyr)
 #'
 #' # Create sample point data (sf object)
-#' pts <- data.frame(lon = c(13.4, 11.6, 9.9),
-#'                   lat = c(52.5, 51.3, 50.1),
-#'                   date = c("2014-08-01", "2014-08-01", "2014-08-01"))
+#' pts <- data.frame(
+#'   lon = c(13.4, 11.6, 9.9),
+#'   lat = c(52.5, 51.3, 50.1),
+#'   date = c("2014-08-01", "2014-08-01", "2014-08-01")
+#' )
 #' pts_sf <- st_as_sf(pts, coords = c("lon", "lat"), crs = 4326)
 #'
 #' # Example: Direct extraction (buffer = 0)
@@ -86,24 +100,22 @@
 #' head(result1)
 #' head(result2)}
 #' @export
-point_link_daily <- function(
-    .data,
-    indicator,
-    date_var = "date",
-    time_span = 0,
-    time_lag = 0,
-    buffer = 0,
-    baseline = FALSE,
-    time_fmt = "%Y-%m-%d",
-    path = tempdir(),
-    catalogue = "derived-era5-land-daily-statistics",
-    statistic = "daily_mean",
-    time_zone = "utc+00:00",
-    cache = TRUE,
-    parallel = FALSE,
-    chunk_size = 50,
-    verbose = TRUE
-) {
+point_link_daily <- function(.data,
+                             indicator,
+                             date_var = "date",
+                             time_span = 0,
+                             time_lag = 0,
+                             buffer = 0,
+                             baseline = FALSE,
+                             time_fmt = "%Y-%m-%d",
+                             catalogue = "derived-era5-land-daily-statistics",
+                             statistic = "daily_mean",
+                             time_zone = "utc+00:00",
+                             cache = TRUE,
+                             path = NULL,
+                             parallel = FALSE,
+                             chunk_size = 50,
+                             verbose = TRUE) {
   # Validate catalogue, indicator choice, statistic, and time-zone
   .check_valid_catalogue(catalogue, temp_res = "daily")
   .check_valid_indicator(indicator, catalogue)
@@ -111,27 +123,17 @@ point_link_daily <- function(
   .check_valid_time_zone(time_zone)
   .check_column(.data, date_var)
   .check_api_key("ecmwfr")
+  path <- path %||% .default_download_dir(cache, service = "ecmwfr")
 
   # Prep data and create extent
   prepared <- .prep_points(.data, buffer)
-  extent <- .get_extent(.data)
-
-  # Transform date-variable and extract relevant time points
-  prepared$link_date <- prepared[[date_var]]
-  if (!inherits(prepared$link_date, "POSIXct")) {
-    prepared$link_date <- as.POSIXct(prepared$link_date)
-  }
-
-  prepared$link_date <- prepared$link_date - days(1)
-  prepared$link_date_end <- prepared$link_date - days(time_span)
-
-  prepared$time_span_seq <- Map(
-    prepared$link_date_end,
-    prepared$link_date,
-    f = function(end, start) {
-      format(seq(end, start, by = "1 day"), "%Y-%m-%d")
-    }
+  prepared <- .add_timelag(
+    prepared,
+    date_var = date_var,
+    time_span = time_span,
+    time_lag = time_lag
   )
+  extent <- .get_extent(.data)
 
   years <- date_component(unlist(prepared$time_span_seq), "year")
   months <- date_component(unlist(prepared$time_span_seq), "month")
@@ -162,15 +164,21 @@ point_link_daily <- function(
     prepared <- sf::st_transform(prepared, crs = terra::crs(raster))
   }
 
-  info("Extracting focal value from output", level = "step")
+  info(
+    "Extracting values from raster",
+    msg_done = "Extracted values from raster.",
+    msg_failed = "Failed to extract values from raster.",
+    level = "step"
+  )
 
   # Extract focal values
-  raster_values <- .focal_extract(raster,
-                                  focal_path,
-                                  prepared,
-                                  time_span = time_span,
-                                  parallel = parallel,
-                                  chunk_size = chunk_size
+  raster_values <- .focal_extract(
+    raster,
+    focal_path,
+    prepared,
+    time_span = time_span,
+    parallel = parallel,
+    chunk_size = chunk_size
   )
 
   # Create new variable in dataframe
@@ -198,27 +206,35 @@ point_link_daily <- function(
     # Extract minimum and maximum baseline years
     min_year <- baseline[1]
     max_year <- baseline[2]
-
-    # Translate baseline years into sequence
-    min_baseline <- parse_date_time(paste0(min_year, "-01-01"), order = "ymd")
-    max_baseline <- parse_date_time(paste0(max_year, "-01-01"), order = "ymd")
-    baseline_years <- seq(min_baseline, max_baseline, by = "1 year")
+    min_bl <- as.POSIXct(sprintf("%s-01-01", min_year))
+    max_bl <- as.POSIXct(sprintf("%s-01-01", max_year))
+    baseline_years <- seq(min_bl, max_bl, by = "1 year")
     baseline_years <- format(baseline_years, "%Y")
 
+    baseline_path <- .make_request_daily(
+      indicator,
+      catalogue,
+      extent,
+      baseline_years,
+      months,
+      days,
+      path,
+      prefix = "baseline",
+      statistic = statistic,
+      time_zone = time_zone,
+      verbose = verbose
+    )
 
-    # Download data from API
-    baseline_path <- .make_request_daily(indicator, catalogue, extent,
-                                         baseline_years, months, days, path,
-                                         prefix = "baseline",
-                                         statistic = statistic,
-                                         time_zone = time_zone)
-
-    # Load data
     baseline_raster <- terra::rast(baseline_path)
 
     # Add timestamp to raster file
-    baseline_raster <- .raster_timestamp(baseline_raster, days, months,
-                                         baseline_years, path, baseline_path)
+    baseline_raster <- .raster_timestamp(
+      baseline_raster,
+      days = days,
+      months = months,
+      years = baseline_years,
+      path = path
+    )
 
     # Extract values from raster for each observation and add to dataframe
     if (length(unique(prepared$link_date)) == 1) {

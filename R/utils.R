@@ -1,3 +1,14 @@
+#' Dispatch function that displays a message using cli functions only if
+#' verbosity is enabled. If not explicitly provided, the function reads
+#' a `verbose` object from the parent frame.
+#' @param text A text to display
+#' @param ... Arguments passed to cli functions
+#' @param level info, warning, danger, success or step. Corresponds to
+#' respective cli functions
+#' @param verbose If FALSE, does nothing.
+#' @param .envir Environment from which to detect `verbose`
+#' @returns Nothing.
+#' @noRd
 info <- function(text,
                  ...,
                  level = "info",
@@ -5,7 +16,7 @@ info <- function(text,
                  .envir = parent.frame()) {
   verbose <- verbose %||% get0("verbose", envir = .envir, ifnotfound = TRUE)
   if (!verbose) {
-    return()
+    return(invisible(NULL))
   }
 
   fun <- switch(
@@ -21,31 +32,59 @@ info <- function(text,
 }
 
 
+#' Catches messages, warnings, and error from an expression and dispatches
+#' them through their cli equivalents, effectively showing classic conditions
+#' as cli conditions.
+#' @param expr An expression
+#' @param .envir Environment in which to evaluate error messages
+#' @returns Value of expr
+#' @noRd
 with_cli <- function(expr, .envir = parent.frame()) {
   withCallingHandlers(
     expr,
-    message = function(m) cli::cli_inform(conditionMessage(m), .envir = .envir),
-    warning = function(w) cli::cli_warn(conditionMessage(w), .envir = .envir),
+    message = function(m) {
+      cli::cli_inform(conditionMessage(m), .envir = .envir)
+      invokeRestart("muffleMessage")
+    },
+    warning = function(w) {
+      cli::cli_warn(conditionMessage(w), .envir = .envir)
+      invokeRestart("muffleWarning")
+    },
     error = function(e) cli::cli_abort(conditionMessage(e), .envir = .envir)
   )
 }
 
 
+#' Wrapper around dQuote that doesnt use fancy quotes
+#' @return A string
+#' @noRd
 dquote <- function(x) {
   dQuote(x, q = FALSE)
 }
 
 
+#' Wrapper around deparse(substitute())
+#' @return A language object
+#' @noRd
 obj_name <- function(x, env = parent.frame()) {
   deparse(substitute(x, env))
 }
 
 
+#' Base equivalent of lubridate::days()
+#' @param x Number of days
+#' @returns Difftime object
+#' @noRd
 days <- function(x = 1) {
   as.difftime(x, units = "days")
 }
 
 
+#' Extracts year, month, or day from a time object
+#' @param x A time object
+#' @param unit year, month or day
+#' @returns A string
+#' @noRd
 date_component <- function(x, unit = c("year", "month", "day")) {
   unit <- switch(unit, month = "mon", day = "mday", unit)
   add <- switch(unit, year = 1900, mon = 1, 0)
@@ -135,22 +174,28 @@ date_component <- function(x, unit = c("year", "month", "day")) {
 #'         file is replaced by the new file with time information.
 #' @noRd
 .raster_timestamp <- function(raster, days, months, years, path) {
+  terra::time(raster) <- terra::depth(raster)
+  terra::depth(raster) <- NULL
   file_path <- terra::sources(raster)
 
   # Build a vector of valid date strings
-  valid_date_strings <- expand_grid(
+  valid_dates <- expand_grid(
     day = as.numeric(days),
     month = as.numeric(months),
     year = as.numeric(years)
-  ) |>
-    mutate(date = make_date(year, month, day)) |>
-    filter(!is.na(date)) |>
-    arrange(date) |>
-    dplyr::pull(date) |>
-    format("%Y-%m-%d")
+  )
+
+  valid_dates <- as.Date(sprintf(
+    "%04d-%02d-%02d",
+    valid_dates$year,
+    valid_dates$month,
+    valid_dates$day
+  ))
+
+  valid_dates <- format(sort(valid_dates), "%Y-%m-%d")
 
   # Assign the date vector as the raster's time dimension
-  terra::time(raster) <- as.Date(valid_date_strings)
+  terra::time(raster) <- as.Date(valid_dates)
 
   # Extract the original variable names and units from the raster
   orig_units <- terra::units(raster)
@@ -163,11 +208,13 @@ date_component <- function(x, unit = c("year", "month", "day")) {
   temp_file <- file.path(path, paste0("temp_", basename(file_path)))
 
   # Write the raster to the temporary file (NetCDF format)
-  terra::writeCDF(raster,
-                  filename = temp_file,
-                  varname = orig_varnames,
-                  unit = orig_units,
-                  overwrite = TRUE)
+  terra::writeCDF(
+    raster,
+    filename = temp_file,
+    varname = orig_varnames,
+    unit = orig_units,
+    overwrite = TRUE
+  )
 
   # Replace original file with temporary file
   file.remove(file_path)
@@ -207,10 +254,16 @@ metags_sanitize <- function(raster) {
                            data_sf,
                            time_span = 0,
                            parallel = FALSE,
-                           chunk_size = 50
-                           ) {
+                           chunk_size = 50) {
+  if (parallel) {
+    chunks <- split(
+      seq_len(nrow(data_sf)),
+      ceiling(seq_len(nrow(data_sf)) / chunk_size)
+    )
+  }
+
   # Extract values from raster for each observation and add to dataframe
-  if(length(unique(data_sf$link_date)) == 1 & time_span == 0){
+  if (length(unique(data_sf$link_date)) == 1 && time_span == 0) {
     # All observations have the same link date and direct link to focal month
     raster_values <- terra::extract(
       raster,
@@ -219,110 +272,33 @@ metags_sanitize <- function(raster) {
       na.rm = TRUE,
       ID = FALSE
     )
-  } else if (length(unique(data_sf$link_date)) > 1 & time_span == 0){
+  } else if (length(unique(data_sf$link_date)) > 1 && time_span == 0) {
     # All observations have different link dates and direct link to focal month
     if (!parallel) {
-      # Sequential approach
-      raster_dates <- as.Date(terra::time(raster))
-      raster_values <- lapply(seq_len(nrow(data_sf)), function(i) {
-        if (!is.na(data_sf[i,]$link_date)) {
-          target_date <- data_sf[i,]$link_date
-          layer_index <- which(raster_dates == target_date)
-          if (length(layer_index) == 0) return(NA)
-          terra::extract(
-            raster[[layer_index]],
-            data_sf[i,],
-            fun = mean,
-            na.rm = TRUE,
-            ID = FALSE
-          )
-        } else {
-          NA
-        }
-      })
-      raster_values <- unlist(raster_values, recursive = FALSE)
+      raster_values <- .focal_extract_impl(raster, data_sf)
     } else {
-      # Parallelization approach
-      chunks <- split(seq_len(nrow(data_sf)),
-                      ceiling(seq_len(nrow(data_sf)) / chunk_size))
-
-      raster_values_list <- future.apply::future_lapply(chunks, function(idx) {
-        local_raster <- terra::rast(focal_path)
-        local_dates <- as.Date(terra::time(local_raster))
-
-        sapply(idx, function(i) {
-          if (!is.na(data_sf[i,]$link_date)) {
-            target_date <- data_sf[i,]$link_date
-            layer_index <- which(local_dates == target_date)
-            if(length(layer_index) == 0) return(NA)
-            terra::extract(
-              local_raster[[layer_index]],
-              data_sf[i,],
-              fun = mean,
-              na.rm = TRUE,
-              ID = FALSE
-            )
-          } else {
-            NA
-          }
-        })
-      }, future.seed = TRUE)
-
-      raster_values <- unlist(raster_values_list, recursive = FALSE)
+      raster_values <- future.apply::future_lapply(
+        function(chunk) .focal_extract_impl(focal_path, data_sf, idx = chunk),
+        future.seed = TRUE
+      )
+      raster_values <- unlist(raster_values, recursive = FALSE)
     }
 
-  } else if (length(unique(data_sf$link_date)) >= 1 & time_span > 0){
+  } else if (length(unique(data_sf$link_date)) >= 1 & time_span > 0) {
     # All observations have different link dates and mean calculation of focal months
     if (!parallel) {
-      # Sequential approach
-      raster_dates <- as.Date(terra::time(raster))
-      raster_values <- lapply(seq_len(nrow(data_sf)), function(i) {
-        if (!is.na(data_sf[i,]$link_date)) {
-          target_dates <- lubridate::ymd(unlist(data_sf[i,]$time_span_seq))
-          layer_index <- which(raster_dates %in% target_dates)
-          if (length(layer_index) == 0) return(NA)
-          raster_subset <- terra::app(raster[[layer_index]], mean)
-          terra::extract(
-            raster_subset,
-            data_sf[i,],
-            fun = mean,
-            na.rm = TRUE,
-            ID = FALSE
-          )
-        } else {
-          NA
-        }
-      })
-      raster_values <- unlist(raster_values, recursive = FALSE)
+      raster_values <- .focal_extract_impl(raster, data_sf, agg = TRUE)
     } else {
-      # Parallel approach with chunking
-      chunks <- split(seq_len(nrow(data_sf)),
-                      ceiling(seq_len(nrow(data_sf)) / chunk_size))
-
-      raster_values_list <- future.apply::future_lapply(chunks, function(idx) {
-        local_raster <- terra::rast(focal_path)
-        local_dates <- as.Date(terra::time(local_raster))
-
-        sapply(idx, function(i) {
-          if (!is.na(data_sf[i,]$link_date)) {
-            target_dates <- lubridate::ymd(unlist(data_sf[i,]$time_span_seq))
-            layer_index <- which(local_dates %in% target_dates)
-            if(length(layer_index) == 0) return(NA)
-            raster_subset <- terra::app(local_raster[[layer_index]], mean)
-            terra::extract(
-              raster_subset,
-              data_sf[i,],
-              fun = mean,
-              na.rm = TRUE,
-              ID = FALSE
-            )
-          } else {
-            NA
-          }
-        })
-      }, future.seed = TRUE)
-
-      raster_values <- unlist(raster_values_list, recursive = FALSE)
+      raster_values <- future.apply::future_lapply(
+        function(chunk) .focal_extract_impl(
+          focal_path,
+          data_sf,
+          idx = chunk,
+          agg = TRUE
+        ),
+        future.seed = TRUE
+      )
+      raster_values <- unlist(raster_values, recursive = FALSE)
     }
   }
 }
@@ -336,8 +312,7 @@ metags_sanitize <- function(raster) {
                                 time_span = 0,
                                 parallel = FALSE,
                                 chunk_size = 50,
-                                method = "bilinear"
-                                ) {
+                                method = "bilinear") {
   # Get focal raster dates
   raster_dates <- as.Date(terra::time(raster))
 
@@ -381,3 +356,40 @@ metags_sanitize <- function(raster) {
   }
 }
 
+
+#' Low-level extraction function
+#' @param raster SpatRaster of path to a raster file. For parallelization,
+#' a path must be provided.
+#' @param vector An sf dataframe containing polygons or points and a column
+#' `link_date`.
+#' @param idx A vector of indices in `vector` to extract. Only necessary
+#' for parallelized runs.
+#' @returns A named list.
+#' @noRd
+.focal_extract_impl <- function(raster, vector, idx = NULL, agg = FALSE) {
+  if (is.character(raster)) {
+    raster <- terra::rast(raster)
+  }
+
+  dates <- terra::time(raster)
+
+  vals <- lapply(seq_len(nrow(vector)), function(i) {
+    vector_sliced <- vector[i, ]
+    if (agg) {
+      lyr_idx <- which(dates %in% vector_sliced$time_span_seq)
+      raster <- terra::app(raster[[lyr_idx]], mean)
+    } else {
+      lyr_idx <- which(dates == vector_sliced$link_date)
+    }
+
+    terra::extract(
+      raster[[lyr_idx]],
+      vector_sliced,
+      fun = mean,
+      na.rm = TRUE,
+      ID = FALSE
+    )
+  })
+
+  unlist(vals, recursive = FALSE)
+}

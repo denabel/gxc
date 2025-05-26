@@ -22,3 +22,24 @@
   box <- sf::st_bbox(.data)
   c(ceiling(box$ymax), floor(box$xmin), floor(box$ymin), ceiling(box$xmax))
 }
+
+
+.add_timelag <- function(.data, date_var = "date", time_span = 0, time_lag = 0) {
+  prepared$link_date <- prepared[[date_var]]
+  if (!inherits(prepared$link_date, "POSIXct")) {
+    prepared$link_date <- as.POSIXct(prepared$link_date)
+  }
+
+  prepared$link_date <- prepared$link_date - days(time_lag)
+  prepared$link_date_end <- prepared$link_date - days(time_span)
+
+  prepared$time_span_seq <- Map(
+    prepared$link_date_end,
+    prepared$link_date,
+    f = function(end, start) {
+      format(seq(end, start, by = "1 day"), "%Y-%m-%d")
+    }
+  )
+
+  prepared
+}

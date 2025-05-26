@@ -13,13 +13,14 @@ point_link_daily(
   buffer = 0,
   baseline = FALSE,
   time_fmt = "\%Y-\%m-\%d",
-  path = tempdir(),
   catalogue = "derived-era5-land-daily-statistics",
   statistic = "daily_mean",
   time_zone = "utc+00:00",
-  keep_raw = FALSE,
+  cache = TRUE,
+  path = NULL,
   parallel = FALSE,
-  chunk_size = 50
+  chunk_size = 50,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -43,9 +44,6 @@ around each point for aggregated extraction.}
 period in years. For example, \code{baseline = c("1980", "2010")} uses the years 1980 to 2010 as the baseline.
 If \code{FALSE}, no baseline calculation is performed.}
 
-\item{path}{Character string specifying the directory path where data will be downloaded and/or stored
-(default is \code{"./data/raw"}).}
-
 \item{catalogue}{Character string specifying which ERA5 catalogue to use.
 Options are \code{"derived-era5-land-daily-statistics"} (default) or \code{"derived-era5-single-levels-daily-statistics"}.}
 
@@ -54,11 +52,21 @@ Options are \code{"daily_mean"} (default), \code{"daily_maximum"}, and \code{"da
 
 \item{time_zone}{Character string specifying the time zone to use (default is \code{"utc+00:00"}).}
 
-\item{keep_raw}{Logical value indicating whether to keep the downloaded raw \code{.grib} files.
-If \code{FALSE}, the files are deleted after processing (default is \code{FALSE}).}
+\item{cache}{Logical value indicating whether to keep the downloaded
+\code{.grib} files and restore them when downloading the same file again.
+Enabling caching can speed up functions calls significantly when working
+with the same files repeatedly. See the \strong{Caching} section for details. If
+\code{FALSE}, removes the raw files after processing.}
 
-\item{parallel}{Logical indicating whether to use parallel processing with chunking.
-Default is \code{FALSE} (i.e. sequential execution).}
+\item{path}{Character string specifying the directory path where data will
+be downloaded and cached. If \code{NULL}, the directory depends on whether
+caching is enabled. If \code{cache = FALSE}, files are stored in a temporary
+directory (\code{tempdir()}), otherwise they are stored in the user directory
+(\code{tools::R_user_dir()}). Defaults to \code{NULL}.}
+
+\item{parallel}{Logical indicating whether to use parallel processing with
+chunking. See section \strong{Parallel processing} for details. Default is
+\code{FALSE} (i.e. sequential execution).}
 
 \item{chunk_size}{Integer specifying the number of observations per chunk when parallelizing.
 Default is \code{50}.}
@@ -70,13 +78,16 @@ An \code{sf} object with the original spatial data and appended climate indicato
 period is specified, additional columns for baseline values and deviations are included.
 }
 \description{
-Downloads and processes Copernicus Earth observation data (ERA5) based on daily temporal parameters,
-and extracts the relevant daily climate indicator values for the provided spatial points. The function
-constructs daily time sequences based on a specified date variable and time adjustments (time_lag and time_span),
-downloads the corresponding daily statistics (e.g., daily mean, maximum, or minimum), and links these values to
-the spatial points. An optional spatial buffer (in kilometers) can be specified so that instead of a direct cell match,
-the mean value over the buffer is extracted. If a baseline period is provided (e.g., \code{baseline = c("1980", "2010")}),
-baseline daily statistics are downloaded for the specified period and appended as a separate attribute.
+Downloads and processes Copernicus Earth observation data (ERA5)
+based on daily temporal parameters, and extracts the relevant daily climate
+indicator values for the provided spatial points. The function constructs
+daily time sequences based on a specified date variable and time adjustments
+(time_lag and time_span), downloads the corresponding daily statistics
+(e.g., daily mean, maximum, or minimum), and links these values to the
+spatial points. An optional spatial buffer (in kilometers) can be specified
+so that instead of a direct cell match, the mean value over the buffer is
+extracted. If a baseline period is provided (e.g., \code{baseline = c("1980", "2010")}), baseline daily statistics are downloaded for the specified period
+and appended as a separate attribute.
 }
 \details{
 This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 daily reanalysis data for a specified
@@ -87,10 +98,13 @@ corresponding daily statistics (e.g., daily mean, maximum, or minimum) and extra
 specified, the value from the directly underlying raster cell is extracted; if a buffer is specified, the mean value over the buffer area
 is computed. If a baseline period is provided (e.g., \code{baseline = c("1980", "2010")}), baseline daily statistics are downloaded for the
 specified period and appended as a new attribute. Parallel processing via \code{future.apply::future_lapply} is supported.
+}
+\note{
+Users must have a CDS account and have their API key configured for
+\code{ecmwfr}.
+}
+\section{Parallel processing}{
 
-\strong{Note:} Users must have a CDS account and have their API key configured for \code{ecmwfr}.
-
-\strong{Parallel Processing:}
 This function can use parallel processing with chunking via
 \code{future.apply::future_lapply} when \code{parallel = TRUE}. If \code{parallel = FALSE},
 the function runs sequentially. When \code{parallel = TRUE}, set your parallel
@@ -99,15 +113,18 @@ before calling this function. If no plan is set before but \code{parallel = TRUE
 the function will run sequentially through the chunks, which will most
 likely increase duration.
 }
+
 \examples{
 \dontrun{
 library(sf)
 library(dplyr)
 
 # Create sample point data (sf object)
-pts <- data.frame(lon = c(13.4, 11.6, 9.9),
-                  lat = c(52.5, 51.3, 50.1),
-                  date = c("2014-08-01", "2014-08-01", "2014-08-01"))
+pts <- data.frame(
+  lon = c(13.4, 11.6, 9.9),
+  lat = c(52.5, 51.3, 50.1),
+  date = c("2014-08-01", "2014-08-01", "2014-08-01")
+)
 pts_sf <- st_as_sf(pts, coords = c("lon", "lat"), crs = 4326)
 
 # Example: Direct extraction (buffer = 0)

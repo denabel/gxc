@@ -1,30 +1,70 @@
-gxc_cache <- new.env(parent = emptyenv())
+.cache_get <- function(cache = NULL, service = "ecmwfr") {
+  cache <- cache %||% .default_download_dir(cache = TRUE, service)
+  index_path <- file.path(cache, "index.rds")
 
-
-cache_restore <- function(request) {
-  request$target <- NULL
-  prev_req <- get0("requests", envir = gxc_cache)
-  is_dup <- vapply(
-    prev_req,
-    function(prev) identical(request, prev$request),
-    FUN.VALUE = logical(1)
-  )
-
-  if (any(is_dup)) {
-    path <- prev_req[is_dup][[1]]$path
-
-    if (file.exists(path)) {
-      path
-    }
+  if (file.exists(index_path)) {
+    readRDS(index_path)
+  } else {
+    list()
   }
 }
 
 
-cache_store <- function(path, request) {
+.cache_prune <- function(cache = NULL, service = NULL) {
+  cache <- cache %||% .default_download_dir(cache = TRUE, service = service)
+  unlink(cache, recursive = TRUE)
+}
+
+
+.cache_restore <- function(request, cache = NULL, service = "ecmwfr") {
   request$target <- NULL
-  request <- list(path = path, request = request)
-  prev_reqs <- get0("requests", envir = gxc_cache)
-  assign("requests", c(list(request), prev_reqs), envir = gxc_cache)
+  request$service <- service
+  cache <- cache %||% .default_download_dir(cache = TRUE, service)
+  hash <- rlang::hash(request)
+  index <- .cache_get(cache, service = service)
+  cached_path <- index[[hash]]
+
+  if (!is.null(cached_path) && !file.exists(cached_path)) {
+    cli::cli_warn(c(
+      "!" = "A matching file has been found in the cache but it is corrupt.",
+      "i" = "Will clean the cache and redownload instead."
+    ))
+
+    index[[hash]] <- NULL
+    return(NULL)
+  }
+
+  cached_path
+}
+
+
+.cache_store <- function(path, request, cache = NULL, service = "ecmwfr") {
+  request$target <- NULL
+  request$service <- service
+  cache <- cache %||% .default_download_dir(cache = TRUE, service)
+  hash <- rlang::hash(request)
+  entry <- list(normalizePath(path))
+  names(entry) <- hash
+  index <- .cache_get(cache, service = service)
+  index <- c(index, entry)
+  index_path <- file.path(cache, "index.rds")
+  saveRDS(index, index_path)
+}
+
+
+.default_download_dir <- function(cache, service = NULL) {
+  dir <- if (cache) {
+    tools::R_user_dir("gxc", which = "data")
+  } else {
+    tempdir()
+  }
+
+  if (!is.null(service)) {
+    dir <- file.path(dir, service)
+  }
+
+  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+  dir
 }
 
 
@@ -71,7 +111,7 @@ cache_store <- function(path, request) {
     target = file_name
   )
 
-  restored <- cache_restore(request)
+  restored <- .cache_restore(request)
   if (!is.null(restored)) {
     return(restored)
   }
@@ -82,7 +122,8 @@ cache_store <- function(path, request) {
     path = path,
     verbose = FALSE
   )
-  cache_store(data_path, request)
+
+  .cache_store(data_path, request)
   data_path
 }
 
@@ -119,11 +160,6 @@ cache_store <- function(path, request) {
   timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
   file_name <- paste0(indicator, "_", prefix, "_", timestamp)
 
-  restored <- cache_restore(request)
-  if (!is.null(restored)) {
-    return(restored)
-  }
-
   request <- list(
     variable = indicator,
     product_type = "reanalysis",
@@ -138,18 +174,30 @@ cache_store <- function(path, request) {
     target = file_name
   )
 
+  restored <- .cache_restore(request, cache = path, service = "ecmwfr")
+  if (!is.null(restored)) {
+    info("Restoring file {.val {basename(restored)}} from cache.")
+    return(restored)
+  }
+
   info(
-    "Downloading data from ECMWF...",
+    "Downloading {prefix} data from ECMWF...",
     msg_done = "Successfully downloaded data from ECMWF.",
     msg_failed = "Failed to download data from ECMWF.",
     level = "step"
   )
+
   data_path <- ecmwfr::wf_request(
     request = request,
     transfer = TRUE,
     path = path,
     verbose = FALSE
   )
-  cache_store(data_path, request)
+
+  if (cache) {
+    info("Storing file {.val {basename(data_path)}} in cache.")
+    .cache_store(data_path, request, cache = path, service = "ecmwfr")
+  }
+
   data_path
 }
