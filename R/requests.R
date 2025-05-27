@@ -90,6 +90,7 @@
                                   extent,
                                   years,
                                   months,
+                                  cache,
                                   path,
                                   prefix,
                                   product_type = "monthly_averaged_reanalysis",
@@ -152,6 +153,7 @@
                                 years,
                                 months,
                                 days,
+                                cache,
                                 path,
                                 prefix,
                                 statistic = "daily_mean",
@@ -176,7 +178,13 @@
 
   restored <- .cache_restore(request, cache = path, service = "ecmwfr")
   if (!is.null(restored)) {
-    info("Restoring file {.val {basename(restored)}} from cache.")
+    file <- basename(restored)
+    info(
+      "Restoring file {.val {file}} from cache...",
+      msg_done = "Restored file {.val {file}} from cache.",
+      msg_failed = "Failed to restore file {.val {file}} from cache.",
+      level = "step"
+    )
     return(restored)
   }
 

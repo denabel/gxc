@@ -125,6 +125,13 @@ point_link_daily <- function(.data,
   .check_api_key("ecmwfr")
   path <- path %||% .default_download_dir(cache, service = "ecmwfr")
 
+  if (!isFALSE(baseline) && length(baseline) != 2) {
+    cli::cli_abort(paste(
+      "Argument `baseline` must be either FALSE or a vector of length 2",
+      "specifying minimum and maximum baseline years."
+    ))
+  }
+
   # Prep data and create extent
   prepared <- .prep_points(.data, buffer)
   prepared <- .add_timelag(
@@ -140,21 +147,22 @@ point_link_daily <- function(.data,
   days <- date_component(unlist(prepared$time_span_seq), "day")
 
   # Download data from API
-  focal_path <- .make_request_daily(
+  obs_path <- .make_request_daily(
     indicator,
     catalogue = catalogue,
     extent = extent,
     years = years,
     months = months,
     days = days,
+    cache = cache,
     path = path,
-    prefix = "focal",
+    prefix = "observation",
     statistic = statistic,
     time_zone = time_zone,
     verbose = verbose
   )
 
-  raster <- terra::rast(focal_path)
+  raster <- terra::rast(obs_path)
 
   # Add timestamp to raster file
   raster <- .raster_timestamp(raster, days, months, years, path)
@@ -174,7 +182,7 @@ point_link_daily <- function(.data,
   # Extract focal values
   raster_values <- .focal_extract(
     raster,
-    focal_path,
+    obs_path,
     prepared,
     time_span = time_span,
     parallel = parallel,
@@ -182,26 +190,12 @@ point_link_daily <- function(.data,
   )
 
   # Create new variable in dataframe
-  prepared$focal_value <- unlist(raster_values)
+  prepared$link_value <- unlist(raster_values)
 
   # Check baseline argument
   # If no baseline requested, transform back to longitude and latitude and
   # export final output
-  if (isFALSE(baseline)) {
-    info("Baseline skipped.")
-    prepared <- sf::st_transform(prepared, crs = 4326)
-
-    # Remove files if cache = FALSE
-    if (!cache) {
-      file.remove(focal_path)
-      info("Raw file has been removed.")
-    } else {
-      info("Raw file has been stored at {.file {focal_path}}")
-    }
-
-    return(prepared)
-
-  } else if (is.vector(baseline) && length(baseline) == 2) {
+  if (!isFALSE(baseline) && length(baseline) == 2) {
 
     # Extract minimum and maximum baseline years
     min_year <- baseline[1]
@@ -218,7 +212,8 @@ point_link_daily <- function(.data,
       baseline_years,
       months,
       days,
-      path,
+      cache = cache,
+      path = path,
       prefix = "baseline",
       statistic = statistic,
       time_zone = time_zone,
@@ -248,7 +243,7 @@ point_link_daily <- function(.data,
         ID = FALSE
       )
     } else {
-      # All observations have different link dates and mean calculation of focal months
+      # All observations have different link dates and mean calculation of months
       if (!parallel) {
         # Sequential approach
         baseline_dates <- as.Date(terra::time(baseline_raster))
@@ -329,25 +324,16 @@ point_link_daily <- function(.data,
     # Add variable to dataframe
     prepared$baseline_value <- unlist(baseline_values)
 
-    # Calculate absolute deviation between focal and baseline values
-    prepared <- prepared |>
-      dplyr::mutate(
-        deviation = focal_value - baseline_value
-      )
+    # Calculate absolute deviation between observation and baseline values
+    prepared$deviation <- prepared$link_value - prepared$baseline_value
 
-    # Transform back to longitude and latitude WGS84
-    prepared <- sf::st_transform(prepared, crs = 4326)
-    # Remove files if cache = FALSE
-    if (!cache) {
-      file.remove(focal_path)
-      file.remove(baseline_path)
-      info("Raw file removed.")
-    } else {
-      info("Raw file cached in {.file {path}}")
-    }
-    return(prepared)
-
-  } else {
-    stop("Baseline argument must be either FALSE or a vector of length 2 specifying min and max baseline years.")
   }
+
+  prepared <- sf::st_transform(prepared, crs = 4326)
+
+  if (!cache) {
+    file.remove(obs_path)
+  }
+
+  prepared
 }
