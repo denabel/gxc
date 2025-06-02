@@ -119,6 +119,16 @@ grid_link_daily <- function(
     parallel = FALSE,
     chunk_size = 50
 ) {
+  .check_valid_catalogue(catalogue, temp_res = "daily")
+  .check_valid_indicator(indicator, catalogue)
+  .check_valid_statistic(statistic)
+  .check_valid_time_zone(time_zone)
+  .check_baseline(baseline)
+  .check_column(.data, date_var)
+  .check_api_key("ecmwfr")
+  path <- path %||% .default_download_dir(cache, service = "ecmwfr")
+
+
   with_progress({
     p <- progressor(steps = 4)
 
@@ -160,7 +170,7 @@ grid_link_daily <- function(
     p(amount = 1, message = "Preprocessing complete")
 
     # Download data from API
-    focal_path <- .make_request_daily(indicator, catalogue, extent, years,
+    focal_path <- .request_daily_temp(indicator, catalogue, extent, years,
                                       months, days, path, prefix = "focal",
                                       statistic = statistic, time_zone = time_zone)
     p(amount = 1, message = "Download complete")
@@ -178,7 +188,7 @@ grid_link_daily <- function(
     }
 
     # Extract focal values
-    raster_values <- .focal_extract_grid(raster,
+    raster_values <- .toi_extract_grid(raster,
                                          data_sf,
                                          grid_df,
                                          time_span = time_span,
@@ -226,7 +236,7 @@ grid_link_daily <- function(
 
 
       # Download data from API
-      baseline_path <- .make_request_daily(indicator, catalogue, extent,
+      baseline_path <- .request_daily_temp(indicator, catalogue, extent,
                                            baseline_years, months, days, path,
                                            prefix = "baseline",
                                            statistic = statistic,

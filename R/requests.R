@@ -12,7 +12,8 @@
 
 .cache_prune <- function(cache = NULL, service = NULL) {
   cache <- cache %||% .default_download_dir(cache = TRUE, service = service)
-  unlink(cache, recursive = TRUE)
+  index <- .cache_get(cache = cache, service = service)
+  for (file in index) unlink(path)
 }
 
 
@@ -96,36 +97,17 @@
                                   product_type = "monthly_averaged_reanalysis",
                                   request_time = "00:00",
                                   verbose = NULL) {
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp, ".grib")
-
-  request <- list(
+  .wmfcs_request(
+    indicator = indicator,
     data_format = "grib",
     download_format = "unarchived",
-    variable = indicator,
     product_type = product_type,
     time = request_time,
     year = years,
     month = months,
     area = extent,
-    dataset_short_name = catalogue,
-    target = file_name
+    datset_short_name = catalogue
   )
-
-  restored <- .cache_restore(request)
-  if (!is.null(restored)) {
-    return(restored)
-  }
-
-  data_path <- ecmwfr::wf_request(
-    request = request,
-    transfer = TRUE,
-    path = path,
-    verbose = FALSE
-  )
-
-  .cache_store(data_path, request)
-  data_path
 }
 
 
@@ -147,7 +129,7 @@
 #'
 #' @importFrom ecmwfr wf_request
 #' @noRd
-.make_request_daily <- function(indicator,
+.request_daily_temp <- function(indicator,
                                 catalogue,
                                 extent,
                                 years,
@@ -159,11 +141,8 @@
                                 statistic = "daily_mean",
                                 time_zone = "utc+00:00",
                                 verbose = NULL) {
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp)
-
-  request <- list(
-    variable = indicator,
+  .wmfcs_request(
+    indicator = indicator,
     product_type = "reanalysis",
     year = years,
     month = months,
@@ -173,8 +152,24 @@
     frequency = "1_hourly",
     area = extent,
     dataset_short_name = catalogue,
-    target = file_name
+    cache = cache,
+    path = path,
+    prefix = prefix,
+    verbose = verbose
   )
+}
+
+
+.wmfcs_request <- function(indicator,
+                           ...,
+                           cache = FALSE,
+                           path = tempdir(),
+                           prefix = "toi",
+                           verbose = TRUE) {
+  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
+  file_name <- paste0(indicator, "_", prefix, "_", timestamp)
+
+  request <- list(variable = indicator, ..., target = file_name)
 
   restored <- .cache_restore(request, cache = path, service = "ecmwfr")
   if (!is.null(restored)) {
@@ -195,9 +190,10 @@
     level = "step"
   )
 
+
   data_path <- ecmwfr::wf_request(
     request = request,
-    transfer = TRUE,
+    transfer = FALSE,
     path = path,
     verbose = FALSE
   )

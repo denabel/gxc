@@ -176,13 +176,13 @@ grid_link_monthly <- function(
     }
 
     # Extract focal values
-    raster_values <- .focal_extract_grid(raster,
-                                         data_sf,
-                                         grid_df,
-                                         time_span = time_span,
-                                         parallel = parallel,
-                                         chunk_size = chunk_size,
-                                         method = method
+    raster_values <- .toi_extract_grid(raster,
+                                       data_sf,
+                                       grid_df,
+                                       time_span = time_span,
+                                       parallel = parallel,
+                                       chunk_size = chunk_size,
+                                       method = method
     )
 
     # Add as attribute to input grid

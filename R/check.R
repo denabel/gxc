@@ -160,6 +160,19 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 }
 
 
+.check_baseline <- function(baseline) {
+  if (!isFALSE(baseline) && !length(baseline) == 2) {
+    cli::cli_abort(c(
+      "Invalid `baseline` argument.",
+      "i" = paste(
+        "Must be either FALSE or a length-2 vector giving",
+        "a range of years to compare your observations to."
+      )
+    ))
+  }
+}
+
+
 .check_class <- function(x, cls, name = obj_name(x)) {
   if (!inherits(x, cls)) {
     cli::cli_abort("`{name}` must of class {.cls {cls}}.")
@@ -171,5 +184,12 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   .check_class(x, "data.frame", name = name)
   if (!all(col %in% names(x))) {
     cli::cli_abort("`{name}` must contain {cli::qty(col)} column{?s} {.val {col}}.")
+  }
+}
+
+
+.check_terra_time <- function(x, name = obj_name(x)) {
+  if (all(is.na(terra::time(x)))) {
+    cli::cli_abort("`{name}` must contain a time dimension (`terra::time()`).")
   }
 }

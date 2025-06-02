@@ -260,7 +260,7 @@ poly_link_monthly <- function(
     }
 
     # Extract focal values
-    raster_values <- .focal_extract(raster,
+    raster_values <- .toi_extract(raster,
                                     focal_path,
                                     data_sf,
                                     time_span = time_span,

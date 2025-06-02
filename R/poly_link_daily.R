@@ -196,7 +196,7 @@ poly_link_daily <- function(
     p(amount = 1, message = "Preprocessing complete")
 
     # Download data from API
-    focal_path <- .make_request_daily(indicator, catalogue, extent, years,
+    focal_path <- .request_daily_temp(indicator, catalogue, extent, years,
                                       months, days, path, prefix = "focal",
                                       statistic = statistic, time_zone = time_zone)
     p(amount = 1, message = "Download complete")
@@ -214,7 +214,7 @@ poly_link_daily <- function(
     }
 
     # Extract focal values
-    raster_values <- .focal_extract(raster,
+    raster_values <- .toi_extract(raster,
                                     focal_path,
                                     data_sf,
                                     time_span = time_span,
@@ -257,7 +257,7 @@ poly_link_daily <- function(
 
 
       # Download data from API
-      baseline_path <- .make_request_daily(indicator, catalogue, extent,
+      baseline_path <- .request_daily_temp(indicator, catalogue, extent,
                                            baseline_years, months, days, path,
                                            prefix = "baseline",
                                            statistic = statistic,
