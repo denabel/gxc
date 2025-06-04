@@ -185,14 +185,11 @@ link_daily.sf <- function(.data,
   raster <- terra::rast(obs_path)
 
   # Add timestamp to raster file
-  raster <- .raster_timestamp(raster, days, months, years, path)
+  raster <- raster_timestamp(raster, days, months, years, path)
 
   # Check CRS of both datasets and adjust if necessary
-  if (!identical(terra::crs(prepared), terra::crs(raster))) {
-    info(
-      "Transforming input data to match the CRS of the indicator dataset",
-      level = "warning"
-    )
+  crs <- terra::crs(prepared)
+  if (!identical(crs, terra::crs(raster))) {
     prepared <- sf::st_transform(prepared, crs = terra::crs(raster))
   }
 
@@ -214,11 +211,8 @@ link_daily.sf <- function(.data,
   )
 
   # Create new variable in dataframe
-  prepared$link_value <- unlist(raster_values)
+  prepared$.linked <- unlist(raster_values)
 
-  # Check baseline argument
-  # If no baseline requested, transform back to longitude and latitude and
-  # export final output
   if (!isFALSE(baseline)) {
     prepared <- .add_baseline(
       prepared,
@@ -238,7 +232,7 @@ link_daily.sf <- function(.data,
     )
   }
 
-  prepared <- sf::st_transform(prepared, crs = 4326)
+  prepared <- sf::st_transform(prepared, crs = crs)
 
   if (!cache) {
     unlink(obs_path)
@@ -260,7 +254,7 @@ link_daily.SpatRaster <- function(.data,
                                   baseline = FALSE,
                                   method = "bilinear",
                                   catalogue = "derived-era5-land-daily-statistics",
-                                  tatistic = "daily_mean",
+                                  statistic = "daily_mean",
                                   time_zone = "utc+00:00",
                                   cache = TRUE,
                                   path = NULL,
@@ -308,12 +302,12 @@ link_daily.SpatRaster <- function(.data,
   raster <- terra::rast(obs_path)
 
   # Add timestamp to raster file
-  raster <- .raster_timestamp(raster, days, months, years, path)
+  raster <- raster_timestamp(raster, days, months, years)
 
   # Check CRS of both datasets and adjust if necessary
   if (!identical(terra::crs(.data), terra::crs(raster))) {
     info("Reprojecting indicator raster to match input data", level = "warning")
-    prepared <- sf::st_transform(raster, crs = terra::crs(.data))
+    raster <- sf::st_transform(raster, crs = terra::crs(.data))
   }
 
   info(
@@ -323,18 +317,47 @@ link_daily.SpatRaster <- function(.data,
     level = "step"
   )
 
-  # Extract focal values
-  raster_values <- .toi_extract_grid(
-    raster,
+  # Extract toi values
+  extracted <- .toi_extract_grid(
     .data,
+    raster,
     temporals,
-    time_span = time_span,
+    agg = time_span > 0,
     parallel = parallel,
     chunk_size = chunk_size,
     method = method
   )
 
-  .data <- c(.data, linked = raster_values)
+  names(extracted) <- ".linked"
+  .data <- c(.data, extracted, warn = FALSE)
+
+  if (!isFALSE(baseline)) {
+    .data <- .add_baseline(
+      .data,
+      baseline = baseline,
+      indicator = indicator,
+      temporals = temporals,
+      days = days,
+      months = months,
+      extent = extent,
+      time_span = time_span,
+      catalogue = catalogue,
+      statistic = statistic,
+      time_zone = time_zone,
+      cache = cache,
+      path = path,
+      parallel = parallel,
+      chunk_size = chunk_size,
+      verbose = verbose
+    )
+  }
+
+  if (!cache) {
+    unlink(obs_path)
+    unlink(baseline_path)
+  }
+
+  .data
 }
 
 
