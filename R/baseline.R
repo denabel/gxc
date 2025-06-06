@@ -1,16 +1,22 @@
 add_baseline <- function(.data, baseline) {
   lnk <- make_lnk(.data, baseline = baseline)
   check_lnk(lnk, "baseline")
-  .add_baseline(
-    .data,
-    baseline = baseline,
+
+  request_args <- list(
     indicator = lnk %>>% "indicator",
     days = lnk %>>% "days",
     months = lnk %>>% "months",
     extent = lnk %>>% "extent",
     catalogue = lnk %>>% "catalogue",
     statistic = lnk %>>% "statistic",
-    time_zone = lnk %>>% "time_zone",
+    time_zone = lnk %>>% "time_zone"
+  )
+
+  .add_baseline(
+    .data,
+    baseline = baseline,
+    request_args = request_args,
+    requester = lnk %>>% "requester",
     cache = lnk %>>% "cache",
     path = lnk %>>% "path",
     parallel = lnk %>>% "parallel",
@@ -22,14 +28,9 @@ add_baseline <- function(.data, baseline) {
 
 .add_baseline <- function(.data,
                           baseline,
-                          indicator,
-                          days,
-                          months,
-                          extent,
+                          requester,
+                          request_args,
                           ...,
-                          catalogue = "derived-era5-land-daily-statistics",
-                          statistic = "daily_mean",
-                          time_zone = "utc+00:00",
                           cache = TRUE,
                           path = NULL,
                           parallel = FALSE,
@@ -40,30 +41,25 @@ add_baseline <- function(.data, baseline) {
   years <- make_dates(seq(min_year, max_year), months = 1, days = 1)
   years <- format(years, "%Y")
 
-  baseline_path <- .request_daily_temp(
-    indicator,
-    catalogue,
-    extent,
-    years,
-    months,
-    days,
+  request_args <- c(
+    request_args,
     cache = cache,
     path = path,
     prefix = "baseline",
-    statistic = statistic,
-    time_zone = time_zone,
     verbose = verbose
   )
-
+  baseline_path <- do.call(requester, request_args)
   baseline_raster <- terra::rast(baseline_path)
 
   # Add timestamp to raster file
-  baseline_raster <- raster_timestamp(
-    baseline_raster,
-    days = days,
-    months = months,
-    years = years
-  )
+  if (!inherits(terra::time(baseline_raster), "POSIXt")) {
+    baseline_raster <- raster_timestamp(
+      baseline_raster,
+      days = days,
+      months = months,
+      years = years
+    )
+  }
 
   # Extract values from raster for each observation and add to dataframe
   if (is_sf(.data)) {

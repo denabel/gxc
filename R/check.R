@@ -79,7 +79,7 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 .check_valid_catalogue <- function(catalogue, temp_res = "monthly") {
   allowed_catalogues <- switch(
     temp_res,
-    monthly = allowed_catalogues_daily,
+    monthly = allowed_catalogues_monthly,
     daily = allowed_catalogues_daily,
     cli::cli_abort(c(
       "Invalid temporal resolution",

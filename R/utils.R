@@ -223,6 +223,17 @@ is_sf <- function(x) {
 }
 
 
+#' Given a file, makes sure that it and its directory exists. If not,
+#' creates it.
+#' @param file A file path.
+#' @returns Nothing relevant.
+#' @noRd
+ensure_file <- function(file) {
+  dir.create(dirname(file), recursive = TRUE, showWarnings = FALSE)
+  file.create(file, showWarnings = FALSE)
+}
+
+
 local_cdf <- function(raster,
                       path = tempfile(fileext = ".nc"),
                       .envir = parent.frame()) {

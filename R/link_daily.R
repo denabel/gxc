@@ -1,6 +1,6 @@
-#' Link Spatial Points with Copernicus Earth Observation Daily Indicators
+#' Link with ERA5 daily indicators
 #'
-#' @description Augments spatio-temporal data with indicators from the
+#' @description Augments spatio-temporal data with daily indicators from the
 #' Copernicus earth observation database (ERA5).
 #' The function performs the following pre-/post-processing steps:
 #'
@@ -9,28 +9,40 @@
 #'  \item{Compute space adjustments (spatial buffers)}
 #'  \item{Download daily statistics from Copernicus database}
 #'  \item{Link raster statistics back to input}
-#'  \item{Optionially, add comparative statistics based on a baseline period}
+#'  \item{Optionally, add comparative statistics based on a baseline period}
 #' }
 #'
+#' This function interfaces the daily means of ERA5 indicators. For monthly
+#' means see \code{\link{link_monthly}}.
+#'
 #' @param .data An `sf` object containing the spatial data (polygons or points).
-#' @param indicator Character string specifying the indicator to download (e.g., "2m_temperature").
-#'   Allowed indicators differ by catalogue. See the **Details** section for available indicators.
+#' @param indicator Character string specifying the indicator to download
+#'   (e.g., `"2m_temperature"`). Allowed indicators differ by catalogue. See
+#'   the **Details** section for available indicators.
 #' @param date_var Character string specifying the name of the date variable in `data`.
-#' @param time_span Integer specifying the time span in days for averaging the climate indicator values prior to linking
-#'   with the spatial data (default is `0`).
-#' @param time_lag Integer specifying the time lag in days to shift the `date_var` backward (default is `0`).
-#' @param baseline Either `FALSE` (default) or a character vector of length 2 specifying the baseline
-#'   period in years. For example, `baseline = c("1980", "2010")` uses the years 1980 to 2010 as the baseline.
+#' @param time_span Integer specifying the time span in days for averaging the
+#'   climate indicator values prior to linking with the spatial data (default
+#'   is `0`).
+#' @param time_lag Integer specifying the time lag in days to shift the
+#'   `date_var` backward (default is `0`).
+#' @param baseline Either `FALSE` (default) or a character vector of length 2
+#'   specifying the baseline period in years. For example,
+#'   `baseline = c("1980", "2010")` uses the years 1980 to 2010 as the baseline.
 #'   If `FALSE`, no baseline calculation is performed.
-#' @param order Character string specifying the date format for parsing `date_var` (default is `"ymd"`).
-#' @param buffer Numeric value specifying the buffer radius (in kilometers) to be applied around each point.
-#'   The default is `0`, corresponding to a direct cell match; values greater than 0 generate a spatial buffer
+#' @param buffer Numeric value specifying the buffer radius (in kilometers) to
+#'   be applied around each geometry. The default is `0`, corresponding to a
+#'   direct cell match; values greater than 0 generate a spatial buffer
 #'   around each point for aggregated extraction.
 #' @param catalogue Character string specifying which ERA5 catalogue to use.
-#'   Options are `"derived-era5-land-daily-statistics"` (default) or `"derived-era5-single-levels-daily-statistics"`.
-#' @param statistic Character string specifying the type of daily statistic to download.
-#'   Options are `"daily_mean"` (default), `"daily_maximum"`, and `"daily_minimum"`.
-#' @param time_zone Character string specifying the time zone to use (default is `"utc+00:00"`).
+#'   Options are `"derived-era5-land-daily-statistics"` (default) or
+#'   `"derived-era5-single-levels-daily-statistics"`. The first is a good
+#'   default for land surface processes while the latter includes data from
+#'   both land and oceans.
+#' @param statistic Character string specifying the type of daily statistic to
+#'   download. Options are `"daily_mean"` (default), `"daily_maximum"`, and
+#'   `"daily_minimum"`.
+#' @param time_zone Character string specifying the time zone to use (default
+#'   is `"utc+00:00"`).
 #' @param cache Logical value indicating whether to keep the downloaded
 #'   files and restore them when downloading the same file again.
 #'   Enabling caching can speed up functions calls significantly when working
@@ -54,29 +66,49 @@
 #'   `link_daily.sf`.
 #'
 #' @details
-#' This function interacts with the Copernicus Climate Data Store (CDS) API to download ERA5 daily reanalysis data for a specified
-#' climate indicator and time period based on daily temporal resolution. The input spatial points (an sf object) are first optionally
-#' buffered (if `buffer > 0`), then processed to determine the geographic extent. The time dimension is adjusted using the specified
-#' `time_lag` and `time_span` (both in days) to create daily time sequences based on the given `date_var`. The function downloads the
-#' corresponding daily statistics (e.g., daily mean, maximum, or minimum) and extracts these values for each point. When no buffer is
-#' specified, the value from the directly underlying raster cell is extracted; if a buffer is specified, the mean value over the buffer area
-#' is computed. If a baseline period is provided (e.g., `baseline = c("1980", "2010")`), baseline daily statistics are downloaded for the
-#' specified period and appended as a new attribute. Parallel processing via `future.apply::future_lapply` is supported.
+#' This function interacts with the Copernicus Climate Data Store (CDS) API to
+#' download ERA5 daily reanalysis data for a specified climate indicator and
+#' time period based on daily temporal resolution. The input spatial points
+#' (an sf object) are first optionally buffered (if `buffer > 0`), then
+#' processed to determine the geographic extent. The time dimension is adjusted
+#' using the specified `time_lag` and `time_span` (both in days) to create
+#' daily time sequences based on the given `date_var`. The function downloads
+#' the corresponding daily statistics (e.g., daily mean, maximum, or minimum)
+#' and extracts these values for each point. When no buffer is specified, the
+#' value from the directly underlying raster cell is extracted; if a buffer is
+#' specified, the mean value over the buffer area is computed. If a baseline
+#' period is provided (e.g., `baseline = c("1980", "2010")`), baseline daily
+#' statistics are downloaded for the specified period and appended as a new
+#' attribute.
+#'
+#' The following indicators are currently supported:
+#'
+#' `r rd_indicators("link_daily")`
 #'
 #' @note Users must have a CDS account and have their API key configured for
 #' `ecmwfr`.
 #'
 #' @section Parallel processing:
 #' This function can use parallel processing with chunking via
-#' `future.apply::future_lapply` when `parallel = TRUE`. If `parallel = FALSE`,
-#' the function runs sequentially. When `parallel = TRUE`, set your parallel
-#' plan (for example, using `future::plan(multisession, workers = 6)`)
+#' \code{\link[future.apply]{future_lapply}} when `parallel = TRUE`. If
+#' `parallel = FALSE`, the function runs sequentially. When `parallel = TRUE`,
+#' set your parallel plan (for example, using
+#' \code{\link[future]{plan}(multisession, workers = 6)})
 #' before calling this function. If no plan is set before but `parallel = TRUE`,
 #' the function will run sequentially through the chunks, which will most
 #' likely increase duration.
 #'
-#' @return An `sf` object with the original spatial data and appended climate indicator values. If a baseline
-#' period is specified, additional columns for baseline values and deviations are included.
+#' @return An object of the input class (i.e. if `.data` is an sf dataframe,
+#' the function returns an sf dataframe) with the original data and appended
+#' climate indicator values. If a baseline period is specified, additional
+#' data for baseline values and deviations are included. The output contains
+#' the following columns / layers:
+#'
+#' \itemize{
+#'  \item{`.linked`: Linked climate indicator value}
+#'  \item{`.baseline`: Linked baseline indicator value (if applicable)}
+#'  \item{`.deviation`: Difference between `.linked` and `.baseline` (if applicable)}
+#' }
 #'
 #' @export
 #'
@@ -105,7 +137,17 @@
 #'
 #' # View the results
 #' head(result1)
-#' head(result2)}
+#' head(result2)
+#'
+#' # The input can also be raster
+#' germany_bbox <- c(xmin = 5, xmax = 16, ymin = 47, ymax = 55) # approximate extent
+#' grid <- rast(
+#'   xmin = germany_bbox["xmin"], xmax = germany_bbox["xmax"],
+#'   ymin = germany_bbox["ymin"], ymax = germany_bbox["ymax"]
+#' )
+#' terra::time(grid) <- as.Date("2014-08-01")
+#'
+#' link_daily(grid, indicator = "2m_temperature")}
 link_daily <- function(.data,
                        indicator,
                        ...,
@@ -127,9 +169,8 @@ link_daily.sf <- function(.data,
                           time_lag = 0,
                           buffer = 0,
                           baseline = FALSE,
-                          time_fmt = "%Y-%m-%d",
                           catalogue = "derived-era5-land-daily-statistics",
-                          tatistic = "daily_mean",
+                          statistic = "daily_mean",
                           time_zone = "utc+00:00",
                           cache = TRUE,
                           path = NULL,
@@ -145,7 +186,7 @@ link_daily.sf <- function(.data,
   .check_api_key("ecmwfr")
   path <- path %||% .default_download_dir(cache, service = "ecmwfr")
 
-  if (chunk_size > nrow(.data)) {
+  if (chunk_size > nrow(.data) && isTRUE(parallel)) {
     info("Chunk size is higher than number of input rows. Disabling parallelization.")
     parallel <- FALSE
   }
@@ -167,7 +208,7 @@ link_daily.sf <- function(.data,
   days <- num_keys(day(span))
 
   # Download data from API
-  obs_path <- .request_daily_temp(
+  obs_path <- .request_era5_daily(
     indicator,
     catalogue = catalogue,
     extent = extent,
@@ -185,7 +226,7 @@ link_daily.sf <- function(.data,
   raster <- terra::rast(obs_path)
 
   # Add timestamp to raster file
-  raster <- raster_timestamp(raster, days, months, years, path)
+  raster <- raster_timestamp(raster, days, months, years)
 
   # Check CRS of both datasets and adjust if necessary
   crs <- terra::crs(prepared)
@@ -202,9 +243,9 @@ link_daily.sf <- function(.data,
 
   # Extract focal values
   raster_values <- .toi_extract(
+    prepared,
     raster,
     obs_path,
-    prepared,
     time_span = time_span,
     parallel = parallel,
     chunk_size = chunk_size
@@ -217,13 +258,16 @@ link_daily.sf <- function(.data,
     prepared <- .add_baseline(
       prepared,
       baseline = baseline,
-      indicator = indicator,
-      days = days,
-      months = months,
-      extent = extent,
-      catalogue = catalogue,
-      statistic = statistic,
-      time_zone = time_zone,
+      requester = .request_era5_daily,
+      request_args = list(
+        indicator = indicator,
+        days = days,
+        months = months,
+        extent = extent,
+        catalogue = catalogue,
+        statistic = statistic,
+        time_zone = time_zone
+      ),
       cache = cache,
       path = path,
       parallel = parallel,
@@ -232,13 +276,13 @@ link_daily.sf <- function(.data,
     )
   }
 
-  prepared <- sf::st_transform(prepared, crs = crs)
-
   if (!cache) {
     unlink(obs_path)
     unlink(baseline_path)
   }
 
+  # cleanup
+  prepared <- sf::st_transform(prepared, crs = crs)
   prepared[c("link_date", "link_date_end", "time_span_seq")] <- NULL
   prepared <- move_to_back(prepared, attr(prepared, "sf_column"))
   as_sf_tibble(prepared)
@@ -259,7 +303,7 @@ link_daily.SpatRaster <- function(.data,
                                   cache = TRUE,
                                   path = NULL,
                                   parallel = FALSE,
-                                  chunk_size = 50,
+                                  chunk_size = 5000,
                                   verbose = TRUE) {
   .check_valid_catalogue(catalogue, temp_res = "daily")
   .check_valid_indicator(indicator, catalogue)
@@ -284,7 +328,7 @@ link_daily.SpatRaster <- function(.data,
   days <- num_keys(day(span))
 
   # Download data from API
-  obs_path <- .request_daily_temp(
+  obs_path <- .request_era5_daily(
     indicator,
     catalogue = catalogue,
     extent = extent,

@@ -85,14 +85,15 @@
 #'
 #' @importFrom ecmwfr wf_request
 #' @noRd
-.make_request_monthly <- function(indicator,
+.request_era5_monthly <- function(indicator,
                                   catalogue,
                                   extent,
                                   years,
                                   months,
-                                  cache,
-                                  path,
-                                  prefix,
+                                  days,
+                                  cache = FALSE,
+                                  path = NULL,
+                                  prefix = "observation",
                                   product_type = "monthly_averaged_reanalysis",
                                   request_time = "00:00",
                                   verbose = NULL) {
@@ -105,7 +106,11 @@
     year = years,
     month = months,
     area = extent,
-    datset_short_name = catalogue
+    dataset_short_name = catalogue,
+    cache = cache,
+    path = path,
+    prefix = prefix,
+    verbose = verbose
   )
 }
 
@@ -128,15 +133,15 @@
 #'
 #' @importFrom ecmwfr wf_request
 #' @noRd
-.request_daily_temp <- function(indicator,
+.request_era5_daily <- function(indicator,
                                 catalogue,
                                 extent,
                                 years,
                                 months,
                                 days,
-                                cache,
-                                path,
-                                prefix,
+                                cache = FALSE,
+                                path = NULL,
+                                prefix = "observation",
                                 statistic = "daily_mean",
                                 time_zone = "utc+00:00",
                                 verbose = NULL) {
@@ -240,13 +245,14 @@ ecmwf_stream <- function(url, path, key, total = NULL, progress = TRUE) {
 
   out <- raw()
   while (!httr2::resp_stream_is_complete(stream)) {
-    chunk <- httr2::resp_stream_raw(stream, 16)
+    chunk <- httr2::resp_stream_raw(stream, 64)
     inc <- length(chunk)
     cli::cli_progress_update(inc)
     out <- c(out, chunk)
   }
 
   file <- file.path(path, basename(url))
+  ensure_file(file)
   writeBin(out, file)
   file
 }

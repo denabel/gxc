@@ -16,7 +16,8 @@
 .transform_time <- function(.data,
                             date_var = "date",
                             time_span = 0,
-                            time_lag = 0) {
+                            time_lag = 0,
+                            by = "1 day") {
   if (is_sf(.data)) {
     .data$link_date <- .data[[date_var]]
   } else if (is_terra(.data)) {
@@ -33,7 +34,7 @@
     .data$link_date_end,
     .data$link_date,
     f = function(end, start) {
-      format(seq(end, start, by = "1 day"), "%Y-%m-%d")
+      format(seq(end, start, by = by), "%Y-%m-%d")
     }
   )
 
