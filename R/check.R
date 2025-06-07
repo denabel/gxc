@@ -160,6 +160,14 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 }
 
 
+.check_parallel <- function(parallel) {
+  if (parallel) {
+    rlang::check_installed("future.apply", "for parallel processing.")
+    rlang::check_installed("ncdf4", "to write raster files during parallel processing.")
+  }
+}
+
+
 .check_baseline <- function(baseline) {
   if (!isFALSE(baseline) && !length(baseline) == 2) {
     cli::cli_abort(c(

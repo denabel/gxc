@@ -23,16 +23,17 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports:
     cli,
+    rlang,
     ecmwfr,
-    future.apply,
     keyring,
-    progressr,
     sf,
     terra
 Suggests:
     knitr,
     rmarkdown,
     testthat (>= 3.0.0),
-    stars
+    stars,
+    ncdf4,
+    future.apply,
 VignetteBuilder: knitr
 Config/testthat/edition: 3
