@@ -91,6 +91,26 @@ obj_name <- function(x, env = parent.frame()) {
 }
 
 
+#' Wrapper around as.Date that tries more formats: ISO 8601, US format,
+#' European format, European format with dots, full month name (Month Day, Year),
+#' abbreviated month name (Mon Day, Year), day-abbreviated month-year, and
+#' Year/Month/day
+#' @param x Object coercible to date
+#' @param try_formats Formats to try
+#' @returns A date
+#' @noRd
+as_date <- function(x, try_formats = c("%Y-%m-%d",
+                                       "%m/%d/%Y",
+                                       "%d/%m/%Y",
+                                       "%B %d, %Y",
+                                       "%b %d, %Y",
+                                       "%d-%b-%Y",
+                                       "%Y/%m/%d",
+                                       "%d.%m.%Y")) {
+  as.Date(x, tryFormats = try_formats)
+}
+
+
 #' Base equivalent of lubridate::days()
 #' @param x Number of days
 #' @returns Difftime object
@@ -303,4 +323,11 @@ metags_sanitize <- function(raster) {
   }
 
   raster
+}
+
+
+fail_if_test <- function() {
+  if (isTRUE(getOption("__gxc_fail_on_request__", FALSE))) {
+    stop("Code has ben run in a test where this code should not be running!")
+  }
 }

@@ -24,10 +24,7 @@
     .data <- data.frame(link_date = terra::time(.data))
   }
 
-  if (!inherits(.data$link_date, "POSIXct")) {
-    .data$link_date <- as.POSIXct(.data$link_date)
-  }
-
+  .data$link_date <- as_date(.data$link_date)
   .data$link_date <- .data$link_date - days(time_lag)
   .data$link_date_end <- .data$link_date - days(time_span)
   .data$time_span_seq <- Map(
