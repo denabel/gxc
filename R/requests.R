@@ -1,54 +1,78 @@
-.cache_get <- function(cache = NULL, service = "ecmwfr") {
+new_cache <- function(cache = NULL, service = "ecmwfr") {
   cache <- cache %||% .default_download_dir(cache = TRUE, service)
-  index_path <- file.path(cache, "index.rds")
 
-  if (file.exists(index_path)) {
-    readRDS(index_path)
-  } else {
-    list()
-  }
-}
+  .get <- function() {
+    index_path <- file.path(cache, "index.rds")
 
-
-.cache_prune <- function(cache = NULL, service = NULL) {
-  cache <- cache %||% .default_download_dir(cache = TRUE, service = service)
-  unlink(cache, recursive = TRUE, force = TRUE)
-}
-
-
-.cache_restore <- function(request, cache = NULL, service = "ecmwfr") {
-  request$target <- NULL
-  request$service <- service
-  cache <- cache %||% .default_download_dir(cache = TRUE, service)
-  hash <- rlang::hash(request)
-  index <- .cache_get(cache, service = service)
-  cached_path <- index[[hash]]
-
-  if (!is.null(cached_path) && !file.exists(cached_path)) {
-    cli::cli_warn(c(
-      "!" = "A matching file has been found in the cache but it is corrupt.",
-      "i" = "Will clean the cache and redownload instead."
-    ))
-
-    index[[hash]] <- NULL
-    return(NULL)
+    if (file.exists(index_path)) {
+      readRDS(index_path)
+    } else {
+      list()
+    }
   }
 
-  cached_path
-}
+  .prune <- function() {
+    unlink(cache, recursive = TRUE, force = TRUE)
+  }
 
+  .pop <- function(n = 1) {
+    index <- .get()
+    len <- length(index)
+    to_pop <- index[seq(len - n, len)]
+    for (file in to_pop) unlink(file)
+    index <- index[!names(index) %in% names(to_pop)]
+    .write(index)
+  }
 
-.cache_store <- function(path, request, cache = NULL, service = "ecmwfr") {
-  request$target <- NULL
-  request$service <- service
-  cache <- cache %||% .default_download_dir(cache = TRUE, service)
-  hash <- rlang::hash(request)
-  entry <- list(normalizePath(path))
-  names(entry) <- hash
-  index <- .cache_get(cache, service = service)
-  index <- c(index, entry)
-  index_path <- file.path(cache, "index.rds")
-  saveRDS(index, index_path)
+  .restore <- function(request) {
+    request$target <- NULL
+    request$service <- service
+    hash <- rlang::hash(request)
+    index <- .get()
+    cached_path <- index[[hash]]
+
+    if (!is.null(cached_path) && !file.exists(cached_path)) {
+      cli::cli_warn(c(
+        "!" = "A matching file has been found in the cache but it is corrupt.",
+        "i" = "Will clean the cache and redownload instead."
+      ))
+
+      index[[hash]] <- NULL
+      return(NULL)
+    }
+
+    cached_path
+  }
+
+  .store <- function(path, request) {
+    request$target <- NULL
+    request$service <- service
+    hash <- rlang::hash(request)
+    entry <- list(normalizePath(path))
+    names(entry) <- hash
+    index <- .get()
+    index <- c(index, entry)
+    index_path <- file.path(cache, "index.rds")
+    saveRDS(index, index_path)
+  }
+
+  .write <- function(index) {
+    index_path <- file.path(cache, "index.rds")
+    saveRDS(index, index_path)
+  }
+
+  structure(
+    class = "gxc_cache",
+    list(
+      path = cache,
+      get = .get,
+      write = .write,
+      prune = .prune,
+      pop = .pop,
+      store = .store,
+      restore = .restore
+    )
+  )
 }
 
 
@@ -175,7 +199,8 @@
 
   request <- list(variable = indicator, ..., target = file_name)
 
-  restored <- .cache_restore(request, cache = path, service = "ecmwfr")
+  cache <- new_cache(path, service = "ecmwfr")
+  restored <- cache$restore(request)
   if (!is.null(restored)) {
     file <- basename(restored)
     info(
@@ -206,7 +231,7 @@
 
   if (cache) {
     info("Storing file {.val {basename(data_path)}} in cache.")
-    .cache_store(data_path, request, cache = path, service = "ecmwfr")
+    cache$store(data_path, request)
   }
 
   data_path
@@ -251,14 +276,14 @@ ecmwf_stream <- function(url, path, key, total = NULL, progress = TRUE) {
     out <- c(out, chunk)
   }
 
-  file <- file.path(path, basename(url))
-  ensure_file(file)
-  writeBin(out, file)
-  file
+  ensure_file(path)
+  writeBin(out, path)
+  path
 }
 
 
 ecmwf_download <- function(url, path, progress = TRUE) {
+  fail_if_test()
   key <- ecmwfr::wf_get_key()
 
   throttle <- getOption("gxc_throttle", 10)
