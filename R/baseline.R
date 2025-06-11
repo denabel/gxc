@@ -49,16 +49,16 @@ add_baseline <- function(.data, baseline) {
     prefix = "baseline",
     verbose = verbose
   )
-  baseline_path <- do.call(requester, request_args)
-  baseline_raster <- terra::rast(baseline_path)
+  path <- do.call(requester, request_args)
+  raster <- terra::rast(path)
 
   # Add timestamp to raster file
-  if (!inherits(terra::time(baseline_raster), "POSIXt")) {
+  if (!inherits(terra::time(raster), "POSIXt")) {
     months <- request_args$months
     days <- request_args$days
 
-    baseline_raster <- raster_timestamp(
-      baseline_raster,
+    raster <- raster_timestamp(
+      raster,
       days = days,
       months = months,
       years = years
@@ -69,8 +69,8 @@ add_baseline <- function(.data, baseline) {
   if (is_sf(.data)) {
     baseline <- .toi_extract_baseline(
       .data,
-      baseline_raster,
-      baseline_path,
+      raster,
+      path,
       ...,
       parallel = parallel,
       chunk_size = chunk_size
@@ -81,8 +81,8 @@ add_baseline <- function(.data, baseline) {
   } else {
     baseline <- .toi_extract_grid_baseline(
       .data,
-      baseline_raster,
-      baseline_path,
+      raster,
+      path,
       ...,
       parallel = parallel,
       chunk_size = chunk_size

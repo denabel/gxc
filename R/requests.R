@@ -1,4 +1,4 @@
-new_cache <- function(cache = NULL, service = "ecmwfr") {
+new_stash <- function(cache = NULL, service = "ecmwfr") {
   cache <- cache %||% .default_download_dir(cache = TRUE, service)
 
   .get <- function() {
@@ -18,7 +18,7 @@ new_cache <- function(cache = NULL, service = "ecmwfr") {
   .pop <- function(n = 1) {
     index <- .get()
     len <- length(index)
-    to_pop <- index[seq(len - n, len)]
+    to_pop <- index[seq(len - (n - 1), len)]
     for (file in to_pop) unlink(file)
     index <- index[!names(index) %in% names(to_pop)]
     .write(index)
@@ -62,7 +62,7 @@ new_cache <- function(cache = NULL, service = "ecmwfr") {
   }
 
   structure(
-    class = "gxc_cache",
+    class = "gxc_stash",
     list(
       path = cache,
       get = .get,
@@ -199,8 +199,8 @@ new_cache <- function(cache = NULL, service = "ecmwfr") {
 
   request <- list(variable = indicator, ..., target = file_name)
 
-  cache <- new_cache(path, service = "ecmwfr")
-  restored <- cache$restore(request)
+  stash <- new_stash(path, service = "ecmwfr")
+  restored <- stash$restore(request)
   if (!is.null(restored)) {
     file <- basename(restored)
     info(
@@ -231,7 +231,7 @@ new_cache <- function(cache = NULL, service = "ecmwfr") {
 
   if (cache) {
     info("Storing file {.val {basename(data_path)}} in cache.")
-    cache$store(data_path, request)
+    stash$store(data_path, request)
   }
 
   data_path

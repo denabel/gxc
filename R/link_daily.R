@@ -232,6 +232,7 @@ link_daily.sf <- function(.data,
   # Check CRS of both datasets and adjust if necessary
   crs <- terra::crs(prepared)
   if (!identical(crs, terra::crs(raster))) {
+    browser()
     prepared <- sf::st_transform(prepared, crs = terra::crs(raster))
   }
 
@@ -353,7 +354,7 @@ link_daily.SpatRaster <- function(.data,
   # Check CRS of both datasets and adjust if necessary
   if (!identical(terra::crs(.data), terra::crs(raster))) {
     info("Reprojecting indicator raster to match input data", level = "warning")
-    raster <- sf::st_transform(raster, crs = terra::crs(.data))
+    raster <- terra::project(raster, y = .data)
   }
 
   info(
