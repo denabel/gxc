@@ -125,10 +125,10 @@
 #' pts_sf <- st_as_sf(pts, coords = c("lon", "lat"), crs = 4326)
 #'
 #' # Example: Direct extraction (buffer = 0)
-#' result1 <- point_link_daily(pts_sf, indicator = "2m_temperature")
+#' result1 <- link_daily(pts_sf, indicator = "2m_temperature")
 #'
 #' # Example: Aggregated extraction with a 5 km buffer
-#' result2 <- point_link_daily(
+#' result2 <- link_daily(
 #'   pts_sf,
 #'   indicator = "2m_temperature",
 #'   buffer = 5,

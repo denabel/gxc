@@ -65,10 +65,10 @@
 #' pts_sf <- st_as_sf(pts, coords = c("lon", "lat"), crs = 4326)
 #'
 #' # Example 1: Direct extraction (buffer = 0)
-#' result1 <- point_link_monthly(pts_sf, indicator = "2m_temperature")
+#' result1 <- link_monthly(pts_sf, indicator = "2m_temperature")
 #'
 #' # Example 2: Aggregated extraction with a 5 km buffer and a baseline period
-#' result2 <- point_link_monthly(
+#' result2 <- link_monthly(
 #'   pts_sf,
 #'   indicator = "2m_temperature",
 #'   buffer = 5,
