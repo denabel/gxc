@@ -38,8 +38,9 @@ add_baseline <- function(.data, baseline) {
                           verbose = TRUE) {
   min_year <- baseline[1]
   max_year <- baseline[2]
-  years <- make_dates(seq(min_year, max_year), months = 1, days = 1)
-  years <- format(years, "%Y")
+  dates <- make_dates(seq(min_year, max_year), months = 1, days = 1)
+  years <- format(dates, "%Y")
+  request_args$years <- years
 
   request_args <- c(
     request_args,
@@ -53,6 +54,9 @@ add_baseline <- function(.data, baseline) {
 
   # Add timestamp to raster file
   if (!inherits(terra::time(baseline_raster), "POSIXt")) {
+    months <- request_args$months
+    days <- request_args$days
+
     baseline_raster <- raster_timestamp(
       baseline_raster,
       days = days,
