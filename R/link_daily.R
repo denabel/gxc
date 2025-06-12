@@ -232,7 +232,6 @@ link_daily.sf <- function(.data,
   # Check CRS of both datasets and adjust if necessary
   crs <- terra::crs(prepared)
   if (!identical(crs, terra::crs(raster))) {
-    browser()
     prepared <- sf::st_transform(prepared, crs = terra::crs(raster))
   }
 

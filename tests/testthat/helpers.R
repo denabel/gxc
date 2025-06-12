@@ -1,5 +1,5 @@
 test_geom <- function() {
-  sf::st_sfc(sf::st_point(c(13.4, 50)), sf::st_point(c(13.5, 51)))
+  sf::st_sfc(sf::st_point(c(13, 50)), sf::st_point(c(14, 51)))
 }
 
 

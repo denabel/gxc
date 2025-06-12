@@ -219,15 +219,12 @@ new_stash <- function(cache = NULL, service = "ecmwfr") {
     level = "step"
   )
 
-  req <- ecmwfr::wf_request(
+  data_path <- ecmwfr::wf_request(
     request = request,
-    transfer = FALSE,
+    transfer = TRUE,
     path = path,
     verbose = FALSE
   )
-
-  file_path <- file.path(path, file_name)
-  data_path <- ecmwf_download(req$get_url(), path = file_path, progress = verbose)
 
   if (cache) {
     info("Storing file {.val {basename(data_path)}} in cache.")
@@ -235,83 +232,4 @@ new_stash <- function(cache = NULL, service = "ecmwfr") {
   }
 
   data_path
-}
-
-
-ecmwf_get <- function(url, key) {
-  req <- httr2::request(url)
-  req <- httr2::req_headers(req, `PRIVATE-TOKEN` = key)
-  req <- httr2::req_retry(
-    req,
-    is_transient = function(resp)
-      httr2::resp_status(resp) %in% c(429, 500, 503),
-    max_tries = 3
-  )
-  resp <- httr2::req_perform(req)
-  httr2::resp_body_json(resp)
-}
-
-
-ecmwf_stream <- function(url, path, key, total = NULL, progress = TRUE) {
-  req <- httr2::request(url)
-  req <- httr2::req_headers(req, `PRIVATE-TOKEN` = key)
-  stream <- httr2::req_perform_connection(req, blocking = FALSE)
-  on.exit(close(stream))
-
-  if (progress) {
-    cli::cli_progress_bar(
-      total = total,
-      format = paste(
-        "Downloading {cli::pb_bar} {cli::pb_current_bytes}/{cli::pb_total_bytes} ",
-        "[{cli::ansi_trimws(cli::pb_rate_bytes)}]"
-      )
-    )
-  }
-
-  out <- raw()
-  while (!httr2::resp_stream_is_complete(stream)) {
-    chunk <- httr2::resp_stream_raw(stream, 64)
-    inc <- length(chunk)
-    cli::cli_progress_update(inc)
-    out <- c(out, chunk)
-  }
-
-  ensure_file(path)
-  writeBin(out, path)
-  path
-}
-
-
-ecmwf_download <- function(url, path, progress = TRUE) {
-  fail_if_test()
-  key <- ecmwfr::wf_get_key()
-
-  throttle <- getOption("gxc_throttle", 10)
-  timeout <- getOption("gxc_timeout", 3600)
-  start <- Sys.time()
-  status <- ecmwf_get(url, key = key)
-  while (!identical(status$status, "successful")) {
-    if ((Sys.time() - start) > timeout) {
-      cli::cli_abort(c(
-        "Download timeout reached ({timeout} s).",
-        "i" = "You can increase the timeout using `options(gxc_timeout = ...)`."
-      ))
-    }
-
-    Sys.sleep(throttle)
-    status <- ecmwf_get(url, key = key)
-  }
-
-  is_result <- vapply(
-    status$links,
-    function(x) identical(x$rel, "results"),
-    FUN.VALUE = logical(1)
-  )
-  res_url <- status$links[is_result][[1]]$href
-  results <- ecmwf_get(res_url, key = key)
-
-  asset <- results$asset$value
-  size <- asset$`file:size`
-  file <- asset$href
-  ecmwf_stream(file, path, key = key, total = size, progress = progress)
 }
