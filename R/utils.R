@@ -71,7 +71,11 @@ dquote <- function(x) {
 #' @returns An sf tibble
 #' @noRd
 as_sf_tibble <- function(x) {
-  sf::st_as_sf(tibble::as_tibble(x))
+  if (rlang::is_installed("tibble")) {
+    sf::st_as_sf(tibble::as_tibble(x))
+  } else {
+    sf::st_as_sf(x)
+  }
 }
 
 

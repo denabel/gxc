@@ -275,7 +275,6 @@ link_daily.sf <- function(.data,
 
   if (!cache) {
     unlink(obs_path)
-    unlink(baseline_path)
   }
 
   # cleanup
@@ -314,7 +313,6 @@ link_daily.SpatRaster <- function(.data,
 
   temporals <- .transform_time(
     .data,
-    date_var = date_var,
     time_span = time_span,
     time_lag = time_lag
   )
@@ -393,7 +391,6 @@ link_daily.SpatRaster <- function(.data,
 
   if (!cache) {
     unlink(obs_path)
-    unlink(baseline_path)
   }
 
   .data

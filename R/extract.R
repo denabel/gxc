@@ -136,7 +136,7 @@
   dates <- as_date(terra::time(raster))
 
   if (parallel) {
-    chunks <- terra::split(.data, ceiling(ncell(.data) / chunk_size))
+    chunks <- terra::split(.data, ceiling(terra::ncell(.data) / chunk_size))
   }
 
   # Times cannot vary across grids because SpatRasters do not support it

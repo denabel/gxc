@@ -43,6 +43,7 @@ link_monthly(
   time_span = 0,
   time_lag = 0,
   baseline = FALSE,
+  method = "bilinear",
   catalogue = "reanalysis-era5-land-monthly-means",
   by_hour = FALSE,
   cache = TRUE,

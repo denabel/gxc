@@ -209,7 +209,6 @@ link_monthly.sf <- function(.data,
 
   if (!cache) {
     unlink(obs_path)
-    unlink(baseline_path)
   }
 
   # cleanup
@@ -246,7 +245,6 @@ link_monthly.SpatRaster <- function(.data,
 
   temporals <- .transform_time(
     .data,
-    date_var = date_var,
     time_span = time_span,
     time_lag = time_lag,
     by = "1 month"
@@ -329,7 +327,6 @@ link_monthly.SpatRaster <- function(.data,
 
   if (!cache) {
     unlink(obs_path)
-    unlink(baseline_path)
   }
 
   .data

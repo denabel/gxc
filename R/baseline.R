@@ -1,6 +1,6 @@
 add_baseline <- function(.data, baseline) {
-  lnk <- make_lnk(.data, baseline = baseline)
-  check_lnk(lnk, "baseline")
+  lnk <- .make_lnk(.data, baseline = baseline)
+  .check_lnk(lnk, "baseline")
 
   request_args <- list(
     indicator = lnk %>>% "indicator",
@@ -94,6 +94,10 @@ add_baseline <- function(.data, baseline) {
     deviation <- .data[[".linked"]] - .data[[".baseline"]]
     names(deviation) <- ".deviation"
     .data <- c(.data, deviation)
+  }
+
+  if (!cache) {
+    unlink(path)
   }
 
   .data
