@@ -1,81 +1,3 @@
-new_stash <- function(cache = NULL, service = "ecmwfr") {
-  cache <- cache %||% .default_download_dir(cache = TRUE, service)
-
-  .get <- function() {
-    index_path <- file.path(cache, "index.rds")
-
-    if (file.exists(index_path)) {
-      readRDS(index_path)
-    } else {
-      list()
-    }
-  }
-
-  .prune <- function() {
-    unlink(cache, recursive = TRUE, force = TRUE)
-  }
-
-  .pop <- function(n = 1) {
-    index <- .get()
-    len <- length(index)
-    to_pop <- index[seq(len - (n - 1), len)]
-    for (file in to_pop) unlink(file)
-    index <- index[!names(index) %in% names(to_pop)]
-    .write(index)
-  }
-
-  .restore <- function(request) {
-    request$target <- NULL
-    request$service <- service
-    hash <- rlang::hash(request)
-    index <- .get()
-    cached_path <- index[[hash]]
-
-    if (!is.null(cached_path) && !file.exists(cached_path)) {
-      cli::cli_warn(c(
-        "!" = "A matching file has been found in the cache but it is corrupt.",
-        "i" = "Will clean the cache and redownload instead."
-      ))
-
-      index[[hash]] <- NULL
-      return(NULL)
-    }
-
-    cached_path
-  }
-
-  .store <- function(path, request) {
-    request$target <- NULL
-    request$service <- service
-    hash <- rlang::hash(request)
-    entry <- list(normalizePath(path))
-    names(entry) <- hash
-    index <- .get()
-    index <- c(index, entry)
-    index_path <- file.path(cache, "index.rds")
-    saveRDS(index, index_path)
-  }
-
-  .write <- function(index) {
-    index_path <- file.path(cache, "index.rds")
-    saveRDS(index, index_path)
-  }
-
-  structure(
-    class = "gxc_stash",
-    list(
-      path = cache,
-      get = .get,
-      write = .write,
-      prune = .prune,
-      pop = .pop,
-      store = .store,
-      restore = .restore
-    )
-  )
-}
-
-
 .default_download_dir <- function(cache, service = NULL) {
   dir <- if (cache) {
     tools::R_user_dir("gxc", which = "data")
@@ -219,6 +141,7 @@ new_stash <- function(cache = NULL, service = "ecmwfr") {
     level = "step"
   )
 
+  fail_if_test()
   data_path <- ecmwfr::wf_request(
     request = request,
     transfer = TRUE,

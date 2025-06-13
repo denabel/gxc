@@ -20,6 +20,37 @@ test_cache <- function(service = "ecmwfr") {
 }
 
 
+local_test_index <- function(cache, .envir = parent.frame()) {
+  stash <- new_stash(cache)
+  old <- stash$get()
+  new <- lapply(old, function(x) {
+    if (!startsWith(x, "tests/testthat")) {
+      x <- test_path(x)
+    }
+    x
+  })
+  stash$write(new)
+  do.call(
+    on.exit,
+    list(bquote({
+      stash <- .(stash)
+      stash$write(.(old))
+    })),
+    envir = .envir
+  )
+}
+
+
+reset_test_index <- function(cache) {
+  stash <- new_stash(cache)
+  old <- stash$get()
+  new <- lapply(old, function(x) {
+    gsub("tests/testthat/", "", x, fixed = TRUE)
+  })
+  stash$write(new)
+}
+
+
 fail_on_request <- function() {
   old <- do.call(options, as.list(c("__gxc_fail_on_request__" = TRUE)))
   do.call(options, list("__gxc_fail_on_forbidden__" = TRUE), envir = parent.frame())

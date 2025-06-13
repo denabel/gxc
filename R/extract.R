@@ -5,7 +5,7 @@
                                   chunk_size = 50) {
   if (length(unique(.data$link_date)) == 1) {
     # All observations have the same link date
-    baseline_raster <- terra::app(raster, mean)
+    raster <- terra::app(raster, mean)
     terra::extract(
       raster,
       .data,
