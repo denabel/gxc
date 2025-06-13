@@ -51,6 +51,7 @@ add_baseline <- function(.data, baseline) {
   )
   path <- do.call(requester, request_args)
   raster <- terra::rast(path)
+  raster <- .align_crs_raster(.data, raster)
 
   # Add timestamp to raster file
   if (!inherits(terra::time(raster), "POSIXt")) {

@@ -228,12 +228,8 @@ link_daily.sf <- function(.data,
 
   # Add timestamp to raster file
   raster <- raster_timestamp(raster, days, months, years)
-
-  # Check CRS of both datasets and adjust if necessary
   crs <- terra::crs(prepared)
-  if (!identical(crs, terra::crs(raster))) {
-    prepared <- sf::st_transform(prepared, crs = terra::crs(raster))
-  }
+  prepared <- .align_crs_vector(prepared, raster)
 
   info(
     "Extracting values from raster",
@@ -349,12 +345,7 @@ link_daily.SpatRaster <- function(.data,
 
   # Add timestamp to raster file
   raster <- raster_timestamp(raster, days, months, years)
-
-  # Check CRS of both datasets and adjust if necessary
-  if (!identical(terra::crs(.data), terra::crs(raster))) {
-    info("Reprojecting indicator raster to match input data", level = "warning")
-    raster <- terra::project(raster, y = .data)
-  }
+  raster <- .align_crs_raster(.data, raster)
 
   info(
     "Extracting values from raster",

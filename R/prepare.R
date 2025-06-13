@@ -37,3 +37,20 @@
 
   .data
 }
+
+
+.align_crs_raster <- function(x, y) {
+  if (!identical(terra::crs(x), terra::crs(y))) {
+    info("Reprojecting indicator raster to match input data", level = "warning")
+    y <- terra::project(y, y = x)
+  }
+  y
+}
+
+
+.align_crs_vector <- function(x, y) {
+  if (!identical(terra::crs(x), terra::crs(y))) {
+    x <- sf::st_transform(x, crs = terra::crs(y))
+  }
+  x
+}

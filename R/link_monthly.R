@@ -162,12 +162,8 @@ link_monthly.sf <- function(.data,
   )
 
   raster <- terra::rast(obs_path)
-
-  # Check CRS of both datasets and adjust if necessary
   crs <- terra::crs(prepared)
-  if (!identical(crs, terra::crs(raster))) {
-    prepared <- sf::st_transform(prepared, crs = terra::crs(raster))
-  }
+  prepared <- .align_crs_vector(prepared, raster)
 
   info(
     "Extracting values from raster",
@@ -221,6 +217,122 @@ link_monthly.sf <- function(.data,
   prepared[c("link_date", "link_date_end", "time_span_seq")] <- NULL
   prepared <- move_to_back(prepared, attr(prepared, "sf_column"))
   as_sf_tibble(prepared)
+}
+
+
+#' @rdname link_monthly
+#' @export
+link_monthly.SpatRaster <- function(.data,
+                                    indicator,
+                                    time_span = 0,
+                                    time_lag = 0,
+                                    baseline = FALSE,
+                                    method = "bilinear",
+                                    catalogue = "reanalysis-era5-land-monthly-means",
+                                    by_hour = FALSE,
+                                    cache = TRUE,
+                                    path = NULL,
+                                    parallel = FALSE,
+                                    chunk_size = 50,
+                                    verbose = TRUE) {
+  .check_valid_catalogue(catalogue, temp_res = "monthly")
+  .check_valid_indicator(indicator, catalogue)
+  .check_valid_by_hour(by_hour)
+  .check_baseline(baseline)
+  .check_parallel(parallel)
+  .check_terra_time(.data)
+  .check_api_key("ecmwfr")
+  path <- path %||% .default_download_dir(cache, service = "ecmwfr")
+
+  temporals <- .transform_time(
+    .data,
+    date_var = date_var,
+    time_span = time_span,
+    time_lag = time_lag,
+    by = "1 month"
+  )
+  extent <- .get_extent(.data)
+
+  span <- unlist(temporals$time_span_seq)
+  years <- num_keys(year(span))
+  months <- num_keys(month(span))
+
+  # Average across entire day or by hour
+  if (isFALSE(by_hour)) {
+    product_type <- "monthly_averaged_reanalysis"
+    request_time <- "00:00"
+  } else {
+    product_type <- "monthly_averaged_reanalysis_by_hour_of_day"
+    request_time <- by_hour
+  }
+
+  obs_path <- .request_era5_monthly(
+    indicator,
+    catalogue = catalogue,
+    extent = extent,
+    years = years,
+    months = months,
+    cache = cache,
+    path = path,
+    prefix = "observation",
+    product_type = product_type,
+    request_time = request_time,
+    verbose = verbose
+  )
+
+  raster <- terra::rast(obs_path)
+  raster <- .align_crs_raster(.data, raster)
+
+  info(
+    "Extracting values from raster",
+    msg_done = "Extracted values from raster.",
+    msg_failed = "Failed to extract values from raster.",
+    level = "step"
+  )
+
+  # Extract toi values
+  extracted <- .toi_extract_grid(
+    .data,
+    raster,
+    temporals,
+    agg = time_span > 0,
+    parallel = parallel,
+    chunk_size = chunk_size,
+    method = method
+  )
+
+  names(extracted) <- ".linked"
+  .data <- c(.data, extracted, warn = FALSE)
+
+  if (!isFALSE(baseline)) {
+    .data <- .add_baseline(
+      .data,
+      baseline = baseline,
+      temporals = temporals,
+      requester = .request_era5_monthly,
+      request_args = list(
+        indicator = indicator,
+        years = years,
+        months = months,
+        extent = extent,
+        catalogue = catalogue,
+        product_type = product_type,
+        request_time = request_time
+      ),
+      cache = cache,
+      path = path,
+      parallel = parallel,
+      chunk_size = chunk_size,
+      verbose = verbose
+    )
+  }
+
+  if (!cache) {
+    unlink(obs_path)
+    unlink(baseline_path)
+  }
+
+  .data
 }
 
 

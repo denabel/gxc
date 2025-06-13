@@ -3,6 +3,7 @@
 \name{link_monthly}
 \alias{link_monthly}
 \alias{link_monthly.sf}
+\alias{link_monthly.SpatRaster}
 \alias{link_monthly.stars}
 \alias{link_monthly.SpatVector}
 \alias{link_monthly.Spatial}
@@ -26,6 +27,21 @@ link_monthly(
   time_span = 0,
   time_lag = 0,
   buffer = 0,
+  baseline = FALSE,
+  catalogue = "reanalysis-era5-land-monthly-means",
+  by_hour = FALSE,
+  cache = TRUE,
+  path = NULL,
+  parallel = FALSE,
+  chunk_size = 50,
+  verbose = TRUE
+)
+
+\method{link_monthly}{SpatRaster}(
+  .data,
+  indicator,
+  time_span = 0,
+  time_lag = 0,
   baseline = FALSE,
   catalogue = "reanalysis-era5-land-monthly-means",
   by_hour = FALSE,
