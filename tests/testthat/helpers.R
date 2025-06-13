@@ -61,3 +61,10 @@ fail_on_request <- function() {
 go_on_request <- function() {
   options("__gxc_fail_on_request__" = NULL)
 }
+
+
+temp_file <- function(...) {
+  file <- tempfile(...)
+  file.create(file)
+  file
+}

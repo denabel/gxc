@@ -1,5 +1,6 @@
 new_stash <- function(cache = NULL, service = "ecmwfr") {
   cache <- cache %||% .default_download_dir(cache = TRUE, service)
+  dir.create(cache, showWarnings = FALSE, recursive = TRUE)
 
   .get <- function() {
     index_path <- file.path(cache, "index.rds")
@@ -59,8 +60,7 @@ new_stash <- function(cache = NULL, service = "ecmwfr") {
     names(entry) <- hash
     index <- .get()
     index <- c(index, entry)
-    index_path <- file.path(cache, "index.rds")
-    saveRDS(index, index_path)
+    .write(index)
   }
 
   .write <- function(index) {
