@@ -6,9 +6,9 @@ test_geom <- function() {
 test_era5 <- function(seq = FALSE) {
   sf::st_sf(
     date = if (seq)
-      seq(as.Date("2014-08-01"), as.Date("2014-08-02"), by = "1 day")
+      seq(as_date("2014-08-01"), as_date("2014-08-02"), by = "1 day")
     else
-      c("2014-08-01", "2014-08-01"),
+      as_date(c("2014-08-01", "2014-08-01")),
     geometry = test_geom(),
     crs = 4326
   )
