@@ -92,6 +92,10 @@ simultaneously during parallel processing. Setting this to something lower
 than \code{nrow(.data)} increases the total number of parallel processes.
 Default is \code{50}.}
 
+\item{verbose}{Logical value specifiying whether to show informative status
+updates. If \code{FALSE}, suppresses all messages signaled by the function.
+Defaults to \code{TRUE}.}
+
 \item{date_var}{Character string specifying the name of the date variable in \code{data}.}
 
 \item{time_span}{Integer specifying the time span in days for averaging the
@@ -125,6 +129,11 @@ averaged values are derived from the entire day
 hour (e.g., \code{"03:00"}), then the dataset
 \code{"monthly_averaged_reanalysis_by_hour_of_day"} is used, and only values
 from that hour of the day are included.}
+
+\item{method}{Character string specifying the resampling method to use when
+aligning the downloaded data with the grid. Options include \code{"bilinear"}
+(default), \code{"near"}, \code{"cubic"}, etc. See \code{\link[terra]{resample}} for
+details.}
 }
 \value{
 An object of the input class (i.e. if \code{.data} is an sf dataframe,

@@ -29,6 +29,10 @@
 #'   specifying the baseline period in years. For example,
 #'   `baseline = c("1980", "2010")` uses the years 1980 to 2010 as the baseline.
 #'   If `FALSE`, no baseline calculation is performed.
+#' @param method Character string specifying the resampling method to use when
+#'   aligning the downloaded data with the grid. Options include `"bilinear"`
+#'   (default), `"near"`, `"cubic"`, etc. See \code{\link[terra]{resample}} for
+#'   details.
 #' @param buffer Numeric value specifying the buffer radius (in kilometers) to
 #'   be applied around each geometry. The default is `0`, corresponding to a
 #'   direct cell match; values greater than 0 generate a spatial buffer
@@ -61,6 +65,9 @@
 #'   simultaneously during parallel processing. Setting this to something lower
 #'   than `nrow(.data)` increases the total number of parallel processes.
 #'   Default is `50`.
+#' @param verbose Logical value specifiying whether to show informative status
+#'   updates. If \code{FALSE}, suppresses all messages signaled by the function.
+#'   Defaults to \code{TRUE}.
 #' @param ... Arguments passed to methods. If `.data` is a stars object,
 #'   arguments are passed to `link_daily.SpatRaster`, otherwise to
 #'   `link_daily.sf`.
