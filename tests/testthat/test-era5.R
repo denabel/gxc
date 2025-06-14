@@ -1,3 +1,5 @@
+local_key(service = "ecmwfr")
+
 test_that("link_daily works with points", {
   fail_on_request()
   pts <- test_era5(seq = FALSE)

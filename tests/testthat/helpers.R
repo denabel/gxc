@@ -68,3 +68,23 @@ temp_file <- function(...) {
   file.create(file)
   file
 }
+
+
+local_key <- function(service = "ecmwfr", user = NULL, key = "test", .envir = parent.frame()) {
+  user <- user %||% service
+  keys <- keyring::key_list(service = service)
+  if (user %in% keys$username) {
+    return(NULL)
+  }
+  keyring::key_set_with_value(service, user = user, password = key)
+  do.call(
+    on.exit,
+    list(bquote(
+      keyring::key_delete(
+        service = .(service),
+        user = .(user)
+      )
+    )),
+    envir = .envir
+  )
+}
