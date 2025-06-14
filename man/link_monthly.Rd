@@ -23,6 +23,7 @@ link_monthly(
 \method{link_monthly}{sf}(
   .data,
   indicator,
+  ...,
   date_var = "date",
   time_span = 0,
   time_lag = 0,
@@ -40,6 +41,7 @@ link_monthly(
 \method{link_monthly}{SpatRaster}(
   .data,
   indicator,
+  ...,
   time_span = 0,
   time_lag = 0,
   baseline = FALSE,

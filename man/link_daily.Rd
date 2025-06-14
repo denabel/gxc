@@ -23,6 +23,7 @@ link_daily(
 \method{link_daily}{sf}(
   .data,
   indicator,
+  ...,
   date_var = "date",
   time_span = 0,
   time_lag = 0,
@@ -41,6 +42,7 @@ link_daily(
 \method{link_daily}{SpatRaster}(
   .data,
   indicator,
+  ...,
   time_span = 0,
   time_lag = 0,
   baseline = FALSE,
