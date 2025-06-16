@@ -201,6 +201,7 @@ link_daily.sf <- function(.data,
   }
 
   # Prep data and create extent
+  old_geom <- sf::st_geometry(.data)
   prepared <- sf::st_transform(.data, 4326)
   prepared <- sf::st_buffer(.data, buffer)
   prepared <- .transform_time(
@@ -289,6 +290,7 @@ link_daily.sf <- function(.data,
   prepared <- sf::st_transform(prepared, crs = crs)
   prepared[c("link_date", "link_date_end", "time_span_seq")] <- NULL
   prepared <- move_to_back(prepared, attr(prepared, "sf_column"))
+  sf::st_geometry(prepared) <- old_geom
   as_sf_tibble(prepared)
 }
 
