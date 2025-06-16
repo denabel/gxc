@@ -64,7 +64,7 @@ go_on_request <- function() {
 
 
 temp_file <- function(...) {
-  file <- normalizePath(tempfile(...))
+  file <- normalizePath(tempfile(...), mustWork = FALSE)
   file.create(file)
   file
 }

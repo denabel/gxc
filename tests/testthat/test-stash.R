@@ -9,7 +9,7 @@ test_that("stash can store files", {
 
   index <- stash$get()
   expect_named(index, hash)
-  expect_equal(index[[1]], file)
+  expect_equal(normalizePath(index[[1]]), normalizePath(file))
 })
 
 
