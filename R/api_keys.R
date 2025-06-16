@@ -49,7 +49,7 @@ set_api_key <- function(service = "ecmwfr", user = NULL) {
     return(key)
   }
 
-  .get_key_from_keyring()
+  .get_key_from_keyring("ecmwfr")
 }
 
 
@@ -60,7 +60,7 @@ set_api_key <- function(service = "ecmwfr", user = NULL) {
       cli::cli_abort("Cannot find credentials in the keyring file.")
     }
 
-    .unlock_keyring("ecmwfr")
+    .unlock_keyring()
   }
 
   .check_has_key(service, user = user, keyring = keyring)
@@ -94,7 +94,7 @@ set_api_key <- function(service = "ecmwfr", user = NULL) {
 }
 
 
-.unlock_keyring <- function(keyring) {
+.unlock_keyring <- function(keyring = NULL) {
   if (keyring::keyring_is_locked(keyring = keyring)) {
     cli::cli_inform("Your keyring is locked. Please unlock with your keyring password.")
     keyring::keyring_unlock(keyring = keyring)
