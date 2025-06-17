@@ -207,7 +207,7 @@
     raster <- terra::rast(raster)
   }
 
-  dates <- terra::time(raster)
+  dates <- as_date(terra::time(raster))
 
   if (baseline) {
     month <- month(dates)
@@ -218,13 +218,13 @@
     vector_sliced <- vector[i, ]
     if (agg) {
       # if a time span is specified, compute the average across
-      target_dates <- unlist(vector_sliced$time_span_seq)
+      target_dates <- as_date(unlist(vector_sliced$time_span_seq))
       lyr_idx <- which(dates %in% target_dates)
       raster <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
     } else if (baseline) {
       # for baseline calculations, compute the average across the same dates
       # of different years, e.g. 2014-01-01, 2015-01-01, ...
-      target_dates <- unlist(vector_sliced$time_span_seq)
+      target_dates <- as_date(unlist(vector_sliced$time_span_seq))
       target_md <- paste(month(target_dates), day(target_dates), sep = "-")
       baseline_md <- paste(month, day, sep = "-")
       lyr_idx <- which(baseline_md %in% target_md)

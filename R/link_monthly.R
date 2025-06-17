@@ -131,8 +131,7 @@ link_monthly.sf <- function(.data,
     prepared,
     date_var = date_var,
     time_span = time_span,
-    time_lag = time_lag,
-    by = "1 month"
+    time_lag = time_lag
   )
   extent <- .get_extent(.data)
 
