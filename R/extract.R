@@ -203,6 +203,8 @@
                               idx = NULL,
                               agg = FALSE,
                               baseline = FALSE) {
+  requireNamespace("sf", quietly = TRUE) # ensure sf is loaded
+
   if (is.character(raster)) {
     raster <- terra::rast(raster)
   }
