@@ -92,7 +92,8 @@
       raster_values <- future.apply::future_lapply(
         chunks,
         function(chunk) .toi_extract_impl(raster_path, .data, idx = chunk),
-        future.seed = TRUE
+        future.seed = TRUE,
+        future.packages = "sf"
       )
       unlist(raster_values, recursive = FALSE)
     }
@@ -110,7 +111,8 @@
           idx = chunk,
           agg = TRUE
         ),
-        future.seed = TRUE
+        future.seed = TRUE,
+        future.packages = "sf"
       )
       unlist(raster_values, recursive = FALSE)
     }
