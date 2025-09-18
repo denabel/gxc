@@ -1,0 +1,48 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: 'gxc: Easy Access to Earth Observation Data'
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Dennis
+    family-names: Abel
+    email: Dennis.Abel@gesis.org
+    affiliation: GESIS - Leibniz Institut für Sozialwissenschaften
+    orcid: 'https://orcid.org/0000-0001-6220-2511'
+  - affiliation: GESIS - Leibniz Institut für Sozialwissenschaften
+    orcid: 'https://orcid.org/0000-0001-8100-7957'
+    email: stefan.juenger@gesis.org
+    given-names: Stefan
+    family-names: Jünger
+identifiers:
+  - type: url
+    value: 'https://github.com/denabel/gxc'
+    description: GitHub Repository
+repository-code: 'https://github.com/denabel/gxc'
+abstract: >-
+  The project’s core is creating an open-source tool to link
+  time- and space-sensitive social science datasets with
+  data from Earth observation programs. Detailed
+  documentation and beginner-friendly tutorials complement
+  the tool to showcase the capability of our project. The
+  social science community is the main target group of our
+  tool. At the same time, Earth system science researchers
+  may similarly profit from integrated social science data.
+  This project supports inter- and transdisciplinary
+  research which is often made difficult because of
+  technical, disciplinary, and organizational barriers. The
+  project emphasizes research data management (RDM)
+  workflows based on FAIR Data and Open Science principles.
+  All code is written in the open-source software R and is
+  made available on this website.
+keywords:
+  - geospatial data
+  - spatial linking
+  - Earth observation
+  - inter- and transdisciplinary research
+license: MIT
+version: R package version 0.1.0
