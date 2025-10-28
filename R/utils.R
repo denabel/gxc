@@ -335,3 +335,13 @@ fail_if_test <- function() {
     stop("Code has ben run in a test where this code should not be running!")
   }
 }
+
+
+left_merge <- function(x, y, by, ...) {
+  merge(
+    x, y,
+    all.x = TRUE, all.y = FALSE,
+    sort = FALSE,
+    ...
+  )
+}

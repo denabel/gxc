@@ -36,5 +36,8 @@ Suggests:
     stars,
     ncdf4,
     future.apply,
+    ffm
+Remotes:
+    jslth/ffm
 VignetteBuilder: knitr
 Config/testthat/edition: 3
