@@ -3,10 +3,31 @@ enrich <- function(.data,
                    type = NULL,
                    country = NULL,
                    level = NULL,
+                   crs = 3035,
                    verbose = TRUE,
                    ...) {
+  if (is.character(.data)) {
+    .data <- data.frame(.data)
+    names(.data) <- ids
+  } else if (!is.data.frame(.data)) {
+    cli::cli_abort("`.data` must be a dataframe.")
+  }
+
   if (!ids %in% names(.data)) {
     cli::cli_abort("Column {.field {ids}} could not be found in `.data`.")
+  }
+
+  if (!is.null(type)) {
+    if (length(type) != 1) {
+      cli::cli_abort("Argument `type` must be of length 1.")
+    }
+
+    if (!type %in% supported_sources) {
+      cli::cli_abort(c(
+        "{type} is not (yet) a supported type of areal identifiers.",
+        "i" = "Supported types include: {supported_sources}"
+      ))
+    }
   }
 
   if (is.null(type) || identical(type, "gadm")) {
@@ -22,79 +43,133 @@ enrich <- function(.data,
   args <- switch(
     type,
     gadm = parse_gadm(conv$ids),
-    nuts = parse_gadm(conv$ids),
+    nuts = parse_nuts(conv$ids),
     lau = parse_lau(conv$ids),
-    ags = parse_lau(conv$ids),
-    cli::cli_abort("Admin type {type} is not supported (yet).")
+    ags = parse_ags(conv$ids),
+    postcode = {
+      if (!"username" %in% ...names()) {
+        cli::cli_abort(c(
+          "If `type = \"postcode\"`, the `username` argument must be provided.",
+          "i" = "You must be registered for the GeoNames ({.url https://www.geonames.org/export/web-services.html}) web service to query postcodes."
+        ))
+      }
+
+      list()
+    }
   )
 
-  if (!is.null(level)) {
-    args$level <- level
+  if (is.null(country) && "country" %in% names(args)) {
+    country <- unique(args$country)
+    info("Detected the following {cli::qty(level)}countr{?s/ies}: {country}")
+  }
+
+  if (is.null(level) && "level" %in% names(args)) {
+    level <- unique(args$level)
+    info("Detected the following {cli::qty(level)}level{?s}: {level}")
   }
 
   switch(
     type,
     gadm = {
-      for (lvl in unique(args$level)) {
+      for (lvl in level) {
         gid_col <- paste0("GID_", lvl)
-        gadm_data <-           sf::st_as_sf(geodata::gadm(
-          country %||% args$country,
+        reference <- sf::st_as_sf(geodata::gadm(
+          country,
           level = lvl,
           path = tempdir(),
-          quiet = verbose,
+          quiet = !verbose,
           ...
         ))[c(gid_col, "geometry")]
 
-        .data[args$level == lvl, ] <- left_merge(
-          .data[args$level == lvl, , drop = FALSE],
-          gadm_data,
+        merged <- left_merge(
+          .data[level == lvl, , drop = FALSE],
+          reference,
           by.x = ids,
           by.y = gid_col
         )
+        .data[level == lvl, names(merged)] <- merged
       }
     },
     nuts = {
-      for (lvl in unique(args$level)) {
-        .data[args$level == lvl, ] <- left_merge(
-          .data[args$level == lvl, , drop = FALSE],
-          giscoR::gisco_get_nuts(
-            country = country %||% args$country,
-            nuts_level = lvl,
-            nuts_id = args$nuts_id,
-            ...
-          ),
+      for (lvl in level) {
+        reference <- giscoR::gisco_get_nuts(
+          country = country,
+          nuts_level = lvl,
+          nuts_id = args$nuts_id,
+          ...
+        )
+
+        merged <- left_merge(
+          .data[level == lvl, , drop = FALSE],
+          reference,
           by.x = ids,
           by.y = "NUTS_ID"
         )
+        .data[level == lvl, names(merged)] <- merged
       }
     },
     lau = {
+      reference <- giscoR::gisco_get_lau(
+        country = country,
+        gisco_id = args$gisco_id,
+        ...
+      )
+
       .data <- left_merge(
         .data,
-        giscoR::gisco_get_lau(
-          country = country %||% args$country,
-          gisco_id = args$gisco_id,
-          ...
-        ),
+        reference,
         by.x = ids,
         by.y = "GISCO_ID"
       )
     },
     ags = {
-      for (lvl in unique(args$level)) {
-        .data[args$level == lvl, ] <- left_merge(
-          .data[args$level == lvl, , drop = FALSE],
-          ffm::bkg_admin(
-            level = lvl,
-            ags == args$ags,
-            ...
-          ),
+      for (lvl in level) {
+        reference <- ffm::bkg_admin(
+          level = lvl,
+          ags == args$ags,
+          ...
+        )
+
+        merged <- left_merge(
+          .data[level == lvl, , drop = FALSE],
+          reference,
           by.x = ids,
           by.y = "ags"
         )
+        .data[level == lvl, names(merged)] <- merged
       }
+    },
+    postcode = {
+      reference <- lapply(.data[[ids]], function(id) {
+        args <- c(list(postalcode = id, maxRows = 1), ...)
+        res <- suppressWarnings(do.call(geonames::GNpostalCodeSearch, args))
+        if (is.null(res$lng) || is.null(res$lat)) {
+          sf::st_point()
+        } else {
+          sf::st_point(as.numeric(c(res$lng, res$lat)))
+        }
+      })
+      reference <- sf::st_sf(
+        postcode = .data[[ids]],
+        geometry = sf::st_as_sfc(reference),
+        crs = 4326
+      )
+
+      .data <- left_merge(
+        .data,
+        reference,
+        by.x = ids,
+        by.y = "postcode"
+      )
     }
   )
+
+  out <- as_sf_tibble(
+    .data,
+    sf_column_name = "geometry",
+    crs = sf::st_crs(reference)
+  )
+  sf::st_transform(out, crs)
 }
 
 
@@ -119,14 +194,16 @@ convert_to_iso3 <- function(ids) {
 guess_id_type <- function(ids, iso3 = FALSE) {
   if (iso3 || all(is_gadm(ids))) {
     type <- "gadm"
-  } else if (is_short_inspire(ids)) {
+  } else if (all(is_short_inspire(ids))) {
     type <- "short_inspire"
-  } else if (is_long_inspire(ids)) {
+  } else if (all(is_long_inspire(ids))) {
     type <- "long_inspire"
   } else if (all(is_nuts(ids))) {
     type <- "nuts"
   } else if (all(is_lau(ids))) {
     type <- "lau"
+  } else if (all(is_ags(ids))) {
+    type <- "ags"
   } else {
     cli::cli_abort(c(
       "Could not automatically detect admin type.",
@@ -140,12 +217,12 @@ guess_id_type <- function(ids, iso3 = FALSE) {
 
 
 is_gadm <- function(ids) {
-  grepl("^([A-Z]{3})(\\.[0-9]{1,3}_[0-9]{1})?$", ids)
+  grepl("^([A-Z]{3})(\\.[0-9]+){1,4}_[0-9]{1}?$", ids)
 }
 
 
 is_lau <- function(ids) {
-  grepl("([A-Z]{2}_)?[0-9]+", ids)
+  grepl("[A-Z]{2}_[0-9]+", ids)
 }
 
 
@@ -154,14 +231,35 @@ is_nuts <- function(ids) {
 }
 
 
+is_short_inspire <- function(ids) {
+  grepl("[0-9]+k?mN[0-9]+E[0-9]+", ids)
+}
+
+
+is_long_inspire <- function(ids) {
+  grepl("CRS[0-9]+RES[0-9]+mN[0-9]+E[0-9]+", ids)
+}
+
+
+is_ags <- function(ids) {
+  grepl("^[0-1]([0-9]{1})?([0-9]{1})?([0-9]{2})?([0-9]{3})?", ids)
+}
+
+
 parse_gadm <- function(ids) {
   gadm <- utils::strcapture(
-    "^([A-Z]{3})(\\.[0-9]{1,3}_[0-9]{1})?$",
+    "^([A-Z]{3})(\\.[0-9]+)?(\\.[0-9]+)?(\\.[0-9]+)?(\\.[0-9]+)?_[0-9]{1}?$",
     ids,
-    proto = list(country = "", level = "")
+    proto = list(country = "", level1 = "", level2 = "", level3 = "", level4 = "")
   )
-  gadm$level <- ifelse(nzchar(gadm$level), 1, 0)
-  gadm
+
+  is_lvl <- startsWith(names(gadm), "level")
+  gadm[is_lvl] <- lapply(gadm[is_lvl], nzchar)
+
+  data.frame(
+    country = gadm$country,
+    level = do.call(psum, gadm[is_lvl])
+  )
 }
 
 
@@ -184,19 +282,46 @@ parse_nuts <- function(ids) {
 
 parse_lau <- function(ids) {
   lau <- utils::strcapture(
-    "(([A-Z]{2})_)?[0-9]+",
+    "([A-Z]{2})_[0-9]+",
     ids,
-    proto = list(pre = "", country = "")
+    proto = list(country = "")
   )
   data.frame(country = lau$country, gisco_id = ids)
 }
 
 
-is_short_inspire <- function(ids) {
-  grepl("[0-9]+k?mN[0-9]+E[0-9]+", ids)
+parse_ags <- function(ids) {
+  ids_pad <- paste0(ids, strrep("0", 8 - nchar(ids)))
+  ags_raw <- utils::strcapture(
+    "([0-9]{2})([0-9]{1})([0-9]{2})([0-9]{3})",
+    ids_pad,
+    list(lan = 0, rbz = 0, krs = 0, gem = 0)
+  )
+
+  ags <- ags_raw
+  is_city_state <- ags$lan %in% c(2, 11)
+  for (i in seq_along(ags)) {
+    ags[[i]] <- ags[[i]] > 0
+
+    if (any(is_city_state)) {
+      ags[[i]][is_city_state] <- TRUE
+    }
+  }
+
+  # Include catch-all level "sta" that is selected when all other levels
+  # are FALSE, i.e. 00000000 (Germany)
+  ags <- cbind(sta = TRUE, ags)
+
+  level <- unlist(.mapply(ags, MoreArgs = NULL, FUN = function(...) {
+    names(which.max(rev(c(...))))
+  }))
+
+  # Assign the most common level to Berlin and Hamburg
+  level[ags_raw$lan %in% c(2, 11)] <- names(which.max(table(level)))
+  data.frame(country = "DEU", level = level, ags = ids)
 }
 
 
-is_long_inspire <- function(ids) {
-  grepl("CRS[0-9]+RES[0-9]+mN[0-9]+E[0-9]+", ids)
-}
+supported_sources <- c(
+  "gadm", "naturalearth", "inspire", "nuts", "ags", "postcode"
+)

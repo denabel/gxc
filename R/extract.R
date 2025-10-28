@@ -201,7 +201,7 @@
                               vector,
                               agg = FALSE,
                               baseline = FALSE) {
-  requireNamespace("sf", quietly = TRUE) # ensure sf is loaded
+  requireNamespace("sf", quietly = TRUE)
 
   if (is.character(raster)) {
     raster <- terra::rast(raster)
