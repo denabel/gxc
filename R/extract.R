@@ -91,8 +91,9 @@
     } else {
       raster_values <- future.apply::future_lapply(
         chunks,
-        function(chunk) .toi_extract_impl(raster_path, .data, idx = chunk),
-        future.seed = TRUE
+        function(chunk) .toi_extract_impl(raster_path, .data[chunk, ]),
+        future.seed = TRUE,
+        future.packages = "sf"
       )
       unlist(raster_values, recursive = FALSE)
     }
@@ -106,11 +107,11 @@
         chunks,
         function(chunk) .toi_extract_impl(
           raster_path,
-          .data,
-          idx = chunk,
+          .data[chunk, ],
           agg = TRUE
         ),
-        future.seed = TRUE
+        future.seed = TRUE,
+        future.packages = "sf"
       )
       unlist(raster_values, recursive = FALSE)
     }
@@ -191,8 +192,6 @@
 #' a path must be provided.
 #' @param vector An sf dataframe containing polygons or points and a column
 #' `link_date`.
-#' @param idx A vector of indices in `vector` to extract. Only necessary
-#' for parallelized runs.
 #' @param agg Whether to aggregate the years in a given time span. Requires
 #' a column `time_span_seq` in `vector`.
 #' @param baseline Whether to aggregate across baseline years.
@@ -200,9 +199,10 @@
 #' @noRd
 .toi_extract_impl <- function(raster,
                               vector,
-                              idx = NULL,
                               agg = FALSE,
                               baseline = FALSE) {
+  requireNamespace("sf", quietly = TRUE) # ensure sf is loaded
+
   if (is.character(raster)) {
     raster <- terra::rast(raster)
   }
