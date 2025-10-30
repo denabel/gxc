@@ -376,15 +376,10 @@ left_merge <- function(x, y, by.x, by.y, ...) {
 }
 
 
-make_empty_geometry <- function(type) {
-  switch(
-    type,
-    POINT = sf::st_point(),
-    MULTIPOINT = sf::st_multipoint(),
-    LINESTRING = sf::st_linestring(),
-    MULTILINESTRING = sf::st_multilinestring(),
-    POLYGON = sf::st_polygon(),
-    MULTIPOLYGON = sf::st_multipolygon(),
-    GEOMETRYCOLLECTION = sf::st_geometrycollection()
-  )
+psum <- function(..., na.rm=FALSE) {
+  dat <- do.call(cbind, list(...))
+  res <- rowSums(dat, na.rm = na.rm)
+  idx_na <- !rowSums(!is.na(dat))
+  res[idx_na] <- NA
+  res
 }
