@@ -71,10 +71,15 @@ dquote <- function(x) {
 #' @returns An sf tibble
 #' @noRd
 as_sf_tibble <- function(x) {
+  sf::st_as_sf(as_df(x))
+}
+
+
+as_df <- function(x) {
   if (rlang::is_installed("tibble")) {
-    sf::st_as_sf(tibble::as_tibble(x))
+    tibble::as_tibble(x)
   } else {
-    sf::st_as_sf(x)
+    as.data.frame(x)
   }
 }
 
@@ -331,7 +336,7 @@ metags_sanitize <- function(raster) {
 
 
 fail_if_test <- function() {
-  if (isTRUE(getOption("__gxc_fail_on_request__", FALSE))) {
+  if (isTRUE(getOption(".__gxc_fail_on_request__.", FALSE))) {
     stop("Code has ben run in a test where this code should not be running!")
   }
 }
@@ -344,4 +349,14 @@ left_merge <- function(x, y, by, ...) {
     sort = FALSE,
     ...
   )
+}
+
+
+supscript <- function(x) {
+  matches <- gregexpr("(\\*\\*.+?)(?:\\s|$)", x)
+  substrings <- regmatches(x, matches)[[1]]
+  substrings <- gsub("**", "", substrings, fixed = TRUE)
+  substrings <- common::supsc(substrings)
+  regmatches(x, matches) <- list(substrings)
+  x
 }

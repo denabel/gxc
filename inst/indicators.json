@@ -1,0 +1,387 @@
+{
+  "2m_temperature": {
+    "name": "2 metre temperature",
+    "id": 167,
+    "category": "Temperature",
+    "project": "era5",
+    "data_type": "gridded",
+    "subsets": [
+      "single_levels",
+      "land"
+    ],
+    "unit": "K",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "hourly",
+      "daily",
+      "monthly"
+    ],
+    "temporal_coverage": "1950-01-01 00:00",
+    "arguments": {
+      "only_land": true,
+      "statistic": "daily_mean",
+      "time_zone": "utc+00:00"
+    }
+  },
+
+  "total_precipitation": {
+    "name": "Total precipitation",
+    "id": 228,
+    "category": "Precipitation",
+    "project": "era5",
+    "data_type": "gridded",
+    "subsets": [
+      "single_levels",
+      "land"
+    ],
+    "unit": "m",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "hourly",
+      "daily",
+      "monthly"
+    ],
+    "temporal_coverage": "1950-01-01 00:00",
+    "arguments": {
+      "only_land": true,
+      "statistic": "daily_mean",
+      "time_zone": "utc+00:00"
+    }
+    "warning": {
+      "by_hour && !only_land": "If `by_hour` and `land_only`, timestamp is one hour earlier than usual."
+    }
+  },
+
+  "10m_u_component_of_wind": {
+    "name": "10 metre U wind component",
+    "id": 165,
+    "category": "Wind",
+    "project": "era5",
+    "data_type": "gridded",
+    "subsets": [
+      "single_levels",
+      "land",
+      "pressure_levels"
+    ],
+    "unit": "m s**-1",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "hourly",
+      "daily",
+      "monthly"
+    ],
+    "temporal_coverage": "1950-01-01 00:00",
+    "arguments": {
+      "only_land": true,
+      "pressure_levels": null,
+      "statistic": "daily_mean",
+      "time_zone": "utc+00:00"
+    }
+  },
+
+  "10m_v_component_of_wind": {
+    "name": "10 metre V wind component",
+    "id": 165,
+    "category": "Wind",
+    "project": "era5",
+    "data_type": "gridded",
+    "subsets": [
+      "single_levels",
+      "land",
+      "pressure_levels"
+    ],
+    "unit": "m s**-1",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "hourly",
+      "daily",
+      "monthly"
+    ],
+    "temporal_coverage": "1950-01-01 00:00",
+    "arguments": {
+      "only_land": true,
+      "pressure_levels": null,
+      "statistic": "daily_mean",
+      "time_zone": "utc+00:00"
+    }
+  },
+
+  "leaf_area_index_high_vegetation": {
+    "name": "Leaf area index, high vegetation",
+    "id": 67,
+    "category": "Vegetation",
+    "project": "era5",
+    "data_type": "gridded",
+    "subsets": [
+      "single_levels",
+      "land"
+    ],
+    "unit": "m**2 m**-2",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "hourly",
+      "daily",
+      "monthly"
+    ],
+    "temporal_coverage": "1950-01-01 00:00",
+    "arguments": {
+      "only_land": true,
+      "statistic": "daily_mean",
+      "time_zone": "utc+00:00"
+    }
+  },
+
+  "leaf_area_index_low_vegetation": {
+    "name": "Leaf area index, low vegetation",
+    "id": 67,
+    "category": "Vegetation",
+    "project": "era5",
+    "data_type": "gridded",
+    "subsets": [
+      "single_levels",
+      "land"
+    ],
+    "unit": "m**2 m**-2",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "hourly",
+      "daily",
+      "monthly"
+    ],
+    "temporal_coverage": "1950-01-01 00:00",
+    "arguments": {
+      "only_land": true,
+      "statistic": "daily_mean",
+      "time_zone": "utc+00:00"
+    }
+  },
+
+  "snow_cover": {
+    "name": "Snow cover",
+    "id": 260038,
+    "category": "Snow",
+    "project": "era5",
+    "data_type": "gridded",
+    "subsets": [
+      "land"
+    ],
+    "unit": "%",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "hourly",
+      "daily",
+      "monthly"
+    ],
+    "temporal_coverage": "1950-01-01 00:00",
+    "arguments": {
+      "only_land": true,
+      "statistic": "daily_mean",
+      "time_zone": "utc+00:00"
+    }
+  },
+
+  "snowfall": {
+    "name": "Snowfall",
+    "id": 144,
+    "category": "Snow",
+    "project": "era5",
+    "data_type": "gridded",
+    "subsets": [
+      "land"
+    ],
+    "unit": "m to water equivalent",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "hourly",
+      "daily",
+      "monthly"
+    ],
+    "temporal_coverage": "1950-01-01 00:00",
+    "arguments": {
+      "only_land": true,
+      "statistic": "daily_mean",
+      "time_zone": "utc+00:00"
+    }
+  },
+
+  "total_cloud_cover": {
+    "name": "Total cloud cover",
+    "id": 164,
+    "category": "Clouds",
+    "project": "era5",
+    "data_type": "gridded",
+    "subsets": [
+      "land"
+    ],
+    "unit": "(0 - 1)",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "hourly",
+      "daily",
+      "monthly"
+    ],
+    "temporal_coverage": "1950-01-01 00:00",
+    "arguments": {
+      "only_land": true,
+      "statistic": "daily_mean",
+      "time_zone": "utc+00:00"
+    }
+  },
+
+
+  /* ECDE indicators */
+  "fire_weather_index": {
+    "name": "Fire weather index",
+    "category": "Extreme weather",
+    "project": "era5-ecde",
+    "data_type": "gridded",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "monthly",
+      "seasonal",
+      "yearly"
+    ],
+    "temporal_coverage": "1940-01-01"
+  },
+
+  "extreme_wind_speed_days": {
+    "name": "Extreme wind speed days",
+    "category": "Extreme weather",
+    "project": "era5-ecde",
+    "data_type": "gridded",
+    "unit": "days",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "monthly",
+      "seasonal",
+      "yearly"
+    ],
+    "temporal_coverage": "1940-01-01"
+  },
+
+  "mean_wind_speed": {
+    "name": "Mean wind speed",
+    "category": "Wind",
+    "project": "era5-ecde",
+    "data_type": "gridded",
+    "unit": "m s**-1",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "monthly",
+      "seasonal",
+      "yearly"
+    ],
+    "temporal_coverage": "1940-01-01"
+  },
+
+  "days_with_high_fire_danger": {
+    "name": "Days with high fire danger",
+    "category": "Extreme weather",
+    "project": "era5-ecde",
+    "data_type": "gridded",
+    "unit": "days",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "monthly",
+      "seasonal",
+      "yearly"
+    ],
+    "temporal_coverage": "1940-01-01"
+  },
+
+  "magnitude_of_meteorological_droughts": {
+    "name": "Magnitude of meteorological droughts",
+    "category": "Extreme weather",
+    "project": "era5-ecde",
+    "data_type": "gridded",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "yearly"
+    ],
+    "temporal_coverage": "1940-01-01"
+  },
+
+  "duration_of_meteorological_droughts": {
+    "name": "Duration of meteorological droughts",
+    "category": "Extreme weather",
+    "project": "era5-ecde",
+    "data_type": "gridded",
+    "unit": "months",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "yearly"
+    ],
+    "temporal_coverage": "1940-01-01"
+  },
+
+  "consecutive_dry_days": {
+    "name": "Consecutive dry days",
+    "category": "Extreme weather",
+    "project": "era5-ecde",
+    "data_type": "gridded",
+    "unit": "days",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "yearly"
+    ],
+    "temporal_coverage": "1940-01-01"
+  },
+
+  "frequency_of_extreme_precipitation": {
+    "name": "Frequency of extreme precipitation",
+    "category": "Extreme weather",
+    "project": "era5-ecde",
+    "data_type": "gridded",
+    "unit": "days",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "yearly"
+    ],
+    "temporal_coverage": "1940-01-01"
+  },
+
+  "extreme_precipitation_total": {
+    "name": "Total extreme precipitation",
+    "category": "Extreme weather",
+    "project": "era5-ecde",
+    "data_type": "gridded",
+    "unit": "mm",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "yearly"
+    ],
+    "temporal_coverage": "1940-01-01"
+  },
+
+  "maximum_consecutive_five_day_precipitation": {
+    "name": "Maximum consecutive five-day precipitation",
+    "category": "Extreme weather",
+    "project": "era5-ecde",
+    "data_type": "gridded",
+    "unit": "mm",
+    "spatial_resolution": "0.25° x 0.25°",
+    "spatial_coverage": "global",
+    "temporal_resolution": [
+      "yearly"
+    ],
+    "temporal_coverage": "1940-01-01"
+  }
+}

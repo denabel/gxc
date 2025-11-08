@@ -52,14 +52,14 @@ reset_test_index <- function(cache) {
 
 
 fail_on_request <- function() {
-  old <- do.call(options, as.list(c("__gxc_fail_on_request__" = TRUE)))
-  do.call(options, list("__gxc_fail_on_forbidden__" = TRUE), envir = parent.frame())
+  old <- do.call(options, as.list(c(".__gxc_fail_on_request__." = TRUE)))
+  do.call(options, list(".__gxc_fail_on_forbidden__." = TRUE), envir = parent.frame())
   do.call(on.exit, list(substitute(options(old)), add = TRUE), envir = parent.frame())
 }
 
 
 go_on_request <- function() {
-  options("__gxc_fail_on_request__" = NULL)
+  options(".__gxc_fail_on_request__." = NULL)
 }
 
 

@@ -1,3 +1,26 @@
+catalogues <- list(
+  era5 = list(
+    hourly = list(
+      default =  "reanalysis-era5-single-levels",
+      only_land = "reanalysis-era5-land",
+      pressure_levels = "reanalysis-era5-pressure-levels"
+    ),
+
+    daily = list(
+      default = "derived-era5-single-levels-daily-statistics",
+      only_land = "derived-era5-land-daily-statistics",
+      pressure_levels = "derived-era5-pressure-levels-daily-statistics"
+    ),
+
+    monthly = list(
+      default = "reanalysis-era5-single-levels-monthly-means",
+      only_land = "reanalysis-era5-land-monthly-means",
+      pressure_levels = "reanalysis-era5-pressure-levels-monthly-means"
+    )
+  )
+)
+
+
 # Allowed catalogues
 allowed_catalogues_monthly <- c(
   "reanalysis-era5-land-monthly-means",
