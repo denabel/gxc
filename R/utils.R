@@ -1,407 +1,314 @@
-# R/utils.R
+"%>>%" <- function(x, which) {
+  attr(x, which, exact = TRUE)
+}
 
 
-# Valid input checks ------------------------------------------------------
-
-# Allowed catalogues
-allowed_catalogues_monthly <- c(
-  "reanalysis-era5-land-monthly-means",
-  "reanalysis-era5-single-levels-monthly-means"
-)
-
-allowed_catalogues_daily <- c(
-  "derived-era5-land-daily-statistics",
-  "derived-era5-single-levels-daily-statistics"
-)
-
-# Allowed indicators
-allowed_indicators_by_catalogue <- list(
-  "reanalysis-era5-land-monthly-means" = c("2m_temperature",
-                                           "total_precipitation",
-                                           "10m_u_component_of_wind",
-                                           "10m_v_component_of_wind",
-                                           #"10m_wind_speed", # does not exist in catalogue
-                                           "leaf_area_index_high_vegetation",
-                                           "leaf_area_index_low_vegetation",
-                                           #"snow_cover", # time stamp first day of NEXT month, if by_hour, then LAST day of focal month
-                                           "snowfall"
-  ),
-  "reanalysis-era5-single-levels-monthly-means" = c("2m_temperature",
-                                                    #"total_precipitation", # time stamp last day of previous month, if by_hour, time stamp one hour earlier
-                                                    "10m_u_component_of_wind",
-                                                    "10m_v_component_of_wind",
-                                                    "10m_wind_speed",
-                                                    #"instantaneous_10m_wind_gust", # time stamp last day of previous month, but if by_hour, time stamp correct
-                                                    #"downward_uv_radiation_at_the_surface", # time stamp last day of previous month, if by_hour, time stamp one hour earlier
-                                                    "total_cloud_cover",
-                                                    #"k_index", # Time stamp LAST day of focal month (e.g. 2014-08-31) when requested August 2014
-                                                    "leaf_area_index_high_vegetation",
-                                                    "leaf_area_index_low_vegetation"
-                                                    #"snowfall" # time stamp last day of previous month
-  ),
-  "derived-era5-land-daily-statistics" = c("2m_temperature"
-                                           #"snow_cover",
-                                           #"10m_u_component_of_wind",
-                                           #"10m_v_component_of_wind",
-                                           #"leaf_area_index_high_vegetation",
-                                           #"leaf_area_index_low_vegetation"
-  ),
-  "derived-era5-single-levels-daily-statistics" = c("2m_temperature"
-                                                    #"total_precipitation",
-                                                    #"10m_u_component_of_wind",
-                                                    #"10m_v_component_of_wind",
-                                                    #"10m_wind_speed",
-                                                    #"instantaneous_10m_wind_gust",
-                                                    #"downward_uv_radiation_at_the_surface",
-                                                    #"total_cloud_cover",
-                                                    #"k_index",
-                                                    #"leaf_area_index_high_vegetation",
-                                                    #"leaf_area_index_low_vegetation"
-                                                    #"snowfall"
-  )
-)
-
-
-# Allowed input hours
-allowed_hours <- sprintf("%02d:00", 0:23)
-
-# Allowed statistic
-allowed_statistic <- c("daily_mean",
-                       "daily_maximum",
-                       "daily_minimum")
-
-# Allowed time-zone
-allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
-
-# Check allowed values functions
+#' Dispatch function that displays a message using cli functions only if
+#' verbosity is enabled. If not explicitly provided, the function reads
+#' a `verbose` object from the parent frame.
+#' @param ... Arguments passed to cli functions
+#' @param level info, warning, danger, success or step. Corresponds to
+#' respective cli functions
+#' @param verbose If FALSE, does nothing.
+#' @param .envir Environment from which to detect `verbose`
+#' @returns Nothing.
 #' @noRd
-.check_valid_catalogue <- function(catalogue, temp_res = "monthly") {
-  allowed_catalogues <- if(temp_res == "monthly") {
-    allowed_catalogues_monthly
-  } else if(temp_res == "daily") {
-    allowed_catalogues_daily
+info <- function(...,
+                 level = "info",
+                 verbose = NULL,
+                 .envir = parent.frame()) {
+  verbose <- verbose %||% get0("verbose", envir = .envir, ifnotfound = TRUE)
+  if (!verbose) {
+    return(invisible(NULL))
+  }
+
+  fun <- switch(
+    level,
+    info = cli::cli_alert_info,
+    warning = cli::cli_alert_warning,
+    danger = cli::cli_alert_danger,
+    success = cli::cli_alert_success,
+    step = cli::cli_progress_step,
+    update = cli::cli_progress_update
+  )
+
+  fun(..., .envir = .envir)
+}
+
+
+#' Catches messages, warnings, and error from an expression and dispatches
+#' them through their cli equivalents, effectively showing classic conditions
+#' as cli conditions.
+#' @param expr An expression
+#' @param .envir Environment in which to evaluate error messages
+#' @returns Value of expr
+#' @noRd
+with_cli <- function(expr, .envir = parent.frame()) {
+  withCallingHandlers(
+    expr,
+    message = function(m) {
+      cli::cli_inform(conditionMessage(m), .envir = .envir)
+      invokeRestart("muffleMessage")
+    },
+    warning = function(w) {
+      cli::cli_warn(conditionMessage(w), .envir = .envir)
+      invokeRestart("muffleWarning")
+    },
+    error = function(e) cli::cli_abort(conditionMessage(e), .envir = .envir)
+  )
+}
+
+
+#' Wrapper around dQuote that doesnt use fancy quotes
+#' @return A string
+#' @noRd
+dquote <- function(x) {
+  dQuote(x, q = FALSE)
+}
+
+
+#' Converts an object to an sf tibble
+#' @returns An sf tibble
+#' @noRd
+as_sf_tibble <- function(x, ...) {
+  sf::st_as_sf(as_data_frame(x), ...)
+}
+
+
+#' Converts an object to a tibble or dataframe
+#' @returns Dataframe or tibble
+#' @noRd
+as_data_frame <- function(x) {
+  if (rlang::is_installed("tibble")) {
+    tibble::as_tibble(x)
   } else {
-    stop("Invalid temporal resolution. Choose either 'monthly' or 'daily'.")
-  }
-
-  if (!catalogue %in% allowed_catalogues) {
-    stop(
-      paste0(
-        "Invalid 'catalogue' argument. Please choose one of: ",
-        paste(allowed_catalogues, collapse = ", ")
-      ), call. = FALSE
-    )
-  }
-}
-
-#' @noRd
-.check_valid_indicator <- function(indicator, catalogue) {
-  # Get the allowed indicators for the given catalogue
-  indicators_for_catalogue <- allowed_indicators_by_catalogue[[catalogue]]
-
-  if (!indicator %in% indicators_for_catalogue) {
-    stop(
-      paste0(
-        "Invalid 'indicator' for the chosen catalogue '", catalogue, "'.\n",
-        "Please choose one of: ", paste(indicators_for_catalogue, collapse = ", ")
-      ), call. = FALSE
-    )
-  }
-}
-
-#' @noRd
-.check_valid_by_hour <- function(by_hour) {
-  # Allowed by_hour values: FALSE or one of the allowed_hours vector
-  if (!isFALSE(by_hour) && !by_hour %in% allowed_hours) {
-    stop(
-      paste0(
-        "Invalid 'by_hour' argument. Please choose either FALSE or one of: ",
-        paste(allowed_hours, collapse = ", ")
-      ), call. = FALSE
-    )
-  }
-}
-
-#' @noRd
-.check_valid_statistic <- function(statistic) {
-  if (!statistic %in% allowed_statistic)  {
-    stop(
-      paste0(
-        "Invalid 'statistic' argument. Please choose one of: ",
-        paste(allowed_statistic, collapse = ", ")
-      ), call. = FALSE
-    )
-  }
-}
-
-#' @noRd
-.check_valid_time_zone <- function(time_zone) {
-  if (!time_zone %in% allowed_time_zone)  {
-    stop(
-      paste0(
-        "Invalid 'time_zone' argument. Please choose one between utc-12:00 and utc+14:00."
-      ), call. = FALSE
-    )
+    as.data.frame(x)
   }
 }
 
 
-# Spatial processing of input ---------------------------------------------
-
-#' @title Helper function for making a bbox and create the spatial extent of the
-#' sf dataset
-#' @noRd
-.prep_poly <- function(data) {
-
-  # Check sf
-  if (!inherits(data, "sf")) {
-    stop("Data must be a sf object.")
-  }
-
-  # Check CRS and transform to WGS84 if necessary
-  if (sf::st_crs(data)$epsg != 4326) {
-    message("Transforming data to WGS84 (EPSG:4326).")
-    data <- sf::st_transform(data, crs = 4326)
-  }
-
-  # Extract bounding box
-  box <- sf::st_bbox(data)
-
-  # Create extent in order: north, west, south, east
-  extent <- c(
-    ceiling(box$ymax),
-    floor(box$xmin),
-    floor(box$ymin),
-    ceiling(box$xmax)
-  )
-
-  # Return data and extent
-  list(data_sf = data, extent = extent)
+move_to_back <- function(x, column) {
+  col_value <- x[[column]]
+  x[[column]] <- NULL
+  x[[column]] <- col_value
+  x
 }
 
-#' @title Helper function for preparing an sf dataset of points with buffering
-#' @noRd
-.prep_points <- function(data, buffer = 0) {
-  # Check that data is an sf object
-  if (!inherits(data, "sf")) {
-    stop("Data must be a sf object.")
-  }
 
-  # If buffering is needed, reproject to a metric CRS, apply buffer,
-  # then reproject to WGS84.
-  if (buffer > 0) {
-    message("Reprojecting data to metric CRS for buffering.")
-    data_metric <- sf::st_transform(data, crs = 3857)  # Metric CRS (meters)
-    data_metric <- sf::st_buffer(data_metric, dist = buffer * 1000)
-    message("Transforming data to WGS84 (EPSG:4326) for further processing.")
-    data <- sf::st_transform(data_metric, crs = 4326)  # Back to WGS84
+#' Wrapper around deparse(substitute())
+#' @return A language object
+#' @noRd
+obj_name <- function(x, env = parent.frame()) {
+  deparse(substitute(x, env))
+}
+
+
+#' Wrapper around as.Date that tries more formats: ISO 8601, US format,
+#' European format, European format with dots, full month name (Month Day, Year),
+#' abbreviated month name (Mon Day, Year), day-abbreviated month-year, and
+#' Year/Month/day
+#' @param x Object coercible to date
+#' @param try_formats Formats to try
+#' @returns A date
+#' @noRd
+as_date <- function(x, try_formats = c("%Y-%m-%d",
+                                       "%m/%d/%Y",
+                                       "%d/%m/%Y",
+                                       "%B %d, %Y",
+                                       "%b %d, %Y",
+                                       "%d-%b-%Y",
+                                       "%Y/%m/%d",
+                                       "%d.%m.%Y")) {
+  as.Date(x, tryFormats = try_formats)
+}
+
+
+#' Base equivalent of lubridate::days()
+#' @param x Number of days
+#' @returns Difftime object
+#' @noRd
+days <- function(x = 1) {
+  as.difftime(x, units = "days")
+}
+
+
+#' Given a numeric value, lists its values, sorts them and returns them as
+#' strings.
+#' @param x A value that can be coerced to numeric
+#' @returns A string
+#' @noRd
+num_keys <- function(x) {
+  as.character(sort(unique(x)))
+}
+
+
+#' Extracts the year from a date.
+#' @param x A date-time object.
+#' @returns A numeric
+#' @noRd
+year <- function(x) {
+  tz <- attr(x, "tzone") %||% ""
+  as.POSIXlt(x, tz = tz)[, "year"] + 1900
+}
+
+
+#' Extracts the month from a date.
+#' @param x A date-time object.
+#' @returns A numeric
+#' @noRd
+month <- function(x) {
+  tz <- attr(x, "tzone") %||% ""
+  as.POSIXlt(x, tz = tz)[, "mon"] + 1
+}
+
+
+#' Extracts the day from a date.
+#' @param x A date-time object.
+#' @returns A numeric
+#' @noRd
+day <- function(x) {
+  tz <- attr(x, "tzone") %||% ""
+  as.POSIXlt(x, tz = tz)[, "mday"]
+}
+
+
+#' Constructs dates from their components
+#' @param years A vector of years
+#' @param months A vector of months
+#' @param days A vector of days
+#' @param unlist Whether to unlist the date vector or group it by year-month
+#' @returns A POSIXct vector
+#' @noRd
+make_dates <- function(years, months = NULL, days = NULL, unlist = TRUE) {
+  months <- months %||% 1:12
+  ymd <- expand.grid(year = years, month = months, stringsAsFactors = FALSE)
+  ymd <- ymd[order(ymd$year), ]
+
+  if (is.null(days)) {
+    ymd$day <- .mapply(dots = ymd, FUN = get_days_in_month, MoreArgs = NULL)
   } else {
-    # Otherwise, ensure data is in WGS84.
-    if (sf::st_crs(data)$epsg != 4326) {
-      message("Transforming data to WGS84 (EPSG:4326) for further processing.")
-      data <- sf::st_transform(data, crs = 4326)
-    }
+    ymd$day <- replicate(nrow(ymd), days, simplify = FALSE)
   }
 
-  # Extract bounding box
-  box <- sf::st_bbox(data)
+  dates <- .mapply(make_date, ymd, MoreArgs = NULL)
 
-  # Create extent in order: north, west, south, east
-  extent <- c(
-    ceiling(box$ymax),
-    floor(box$xmin),
-    floor(box$ymin),
-    ceiling(box$xmax)
-  )
-
-  list(data_sf = data, extent = extent)
-}
-
-
-#' @title Helper function for making a bbox and create the spatial extent of
-#' the gridded dataset
-#' @noRd
-.prep_grid <- function(data) {
-
-  # Check SpatRaster
-  if (!inherits(data, "SpatRaster")) {
-    stop("Data must be a SpatRaster object for gridded input.")
+  if (unlist) {
+    dates <- as.POSIXct(unlist(dates))
   }
 
-  # Check CRS and transform to WGS84 if necessary for gridded data
-  crs_info <- terra::crs(data, describe = TRUE)
-  if (is.null(crs_info$code) || crs_info$code != "EPSG:4326") {
-    message("Transforming raster data to WGS84 (EPSG:4326).")
-    data <- terra::project(data, "EPSG:4326")
+  dates
+}
+
+
+#' Creates a POSIXct from its year, month, and day
+#' @param year A year
+#' @param month A month
+#' @param day A day
+#' @returns POSIXct
+#' @noRd
+make_date <- function(year, month, day) {
+  as.POSIXct(sprintf(
+    "%04d-%02d-%02d",
+    as.numeric(year),
+    as.numeric(month),
+    as.numeric(day)
+  ))
+}
+
+
+#' Given a year-month, returns all its days
+#' @param year A year
+#' @param month A month
+#' @returns An integer vector
+#' @noRd
+get_days_in_month <- function(year, month) {
+  month_str <- sprintf("%02d", month)
+  first_day <- as.Date(paste(year, month_str, "01", sep = "-"))
+
+  if (month == 12) {
+    next_month_first_day <- as.Date(paste(year + 1, "01", "01", sep = "-"))
+  } else {
+    next_month_str <- sprintf("%02d", month + 1)
+    next_month_first_day <- as.Date(paste(year, next_month_str, "01", sep = "-"))
   }
 
-  # Extract extent
-  e <- terra::ext(data)
-
-  # Create an extent vector in order: north, west, south, east
-  extent <- c(ceiling(e[4]), floor(e[1]), floor(e[3]), ceiling(e[2]))
-
-  list(grid = data, extent = extent)
+  all_days <- seq(first_day, next_month_first_day - 1, by = "day")
+  as.integer(format(all_days, "%d"))
 }
 
 
-# Data retrieval helpers --------------------------------------------------
-
-#' @title Internal helper function to request monthly data from C3S
-#'
-#' @description This function requests monthly-averaged reanalysis data for
-#' a specified indicator, catalogue, time period, and spatial extent.
-#'
-#' @param indicator Character string specifying the indicator to download.
-#' @param catalogue Character string specifying which catalogue to use.
-#' @param extent Numeric vector specifying the bounding box area (N,W,S,E).
-#' @param years Character vector of years for which data should be retrieved.
-#' @param months Character vector of months for which data should be retrieved.
-#' @param path Character string specifying the directory path where data will be stored.
-#' @param prefix Character string specifying a prefix for the target filename (e.g., "focal" or "baseline").
-#'
-#' @return A character string with the path to the downloaded file.
-#'
-#' @importFrom ecmwfr wf_request
+#' Checks if an object is a SpatRaster or SpatVector
+#' @param x R object
+#' @returns TRUE or FALSE
 #' @noRd
-.make_request_monthly <- function(indicator, catalogue, extent, years, months,
-                                  path, prefix,
-                                  product_type = "monthly_averaged_reanalysis",
-                                  request_time = "00:00") {
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp, ".grib")
-
-  request <- list(
-    data_format = "grib",
-    download_format = "unarchived",
-    variable = indicator,
-    product_type = product_type,
-    time = request_time,
-    year = years,
-    month = months,
-    area = extent,
-    dataset_short_name = catalogue,
-    target = file_name
-  )
-
-  file_path <- ecmwfr::wf_request(
-    request = request,
-    transfer = TRUE,
-    path = path,
-    verbose = FALSE
-  )
-
-  return(file_path)
+is_terra <- function(x) {
+  inherits(x, c("SpatRaster", "SpatVector"))
 }
 
 
-#' @title Internal helper function to request daily data from C3S
-#'
-#' @description This function requests daily-averaged reanalysis data for
-#' a specified indicator, catalogue, time period, and spatial extent.
-#'
-#' @param indicator Character string specifying the indicator to download.
-#' @param catalogue Character string specifying which catalogue to use.
-#' @param extent Numeric vector specifying the bounding box area (N,W,S,E).
-#' @param years Character vector of years for which data should be retrieved.
-#' @param months Character vector of months for which data should be retrieved.
-#' @param days Character vector of days for which data should be retrieved.
-#' @param path Character string specifying the directory path where data will be stored.
-#' @param prefix Character string specifying a prefix for the target filename (e.g., "focal" or "baseline").
-#'
-#' @return A character string with the path to the downloaded file.
-#'
-#' @importFrom ecmwfr wf_request
+#' Checks if an object is an sf dataframe
+#' @param x R object
+#' @returns TRUE or FALSE
 #' @noRd
-.make_request_daily <- function(indicator, catalogue, extent, years, months, days,
-                                path, prefix, statistic = "daily_mean",
-                                time_zone = "utc+00:00") {
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp)
-
-  request <- list(
-    variable = indicator,
-    product_type = "reanalysis",
-    year = years,
-    month = months,
-    day = days,
-    daily_statistic = statistic,
-    time_zone = time_zone,
-    frequency = "1_hourly",
-    area = extent,
-    dataset_short_name = catalogue,
-    target = file_name
-  )
-
-  file_path <- ecmwfr::wf_request(
-    request = request,
-    transfer = TRUE,
-    path = path,
-    verbose = FALSE
-  )
-
-  return(file_path)
+is_sf <- function(x) {
+  inherits(x, "sf")
 }
 
 
-# Raster processing helpers -----------------------------------------------
+#' Given a file, makes sure that it and its directory exists. If not,
+#' creates it.
+#' @param file A file path.
+#' @returns Nothing relevant.
+#' @noRd
+ensure_file <- function(file) {
+  dir.create(dirname(file), recursive = TRUE, showWarnings = FALSE)
+  file.create(file, showWarnings = FALSE)
+}
 
-#' Process raster file to add timestamp and update the stored file
-#'
-#' This function takes a SpatRaster object and a set of days, months, and years,
-#' constructs a valid date vector, assigns it as the raster's time dimension,
-#' writes the raster to a temporary NetCDF file using terra::writeCDF, removes the
-#' original file, and renames the temporary file to the original file path.
+
+local_cdf <- function(raster,
+                      path = tempfile(fileext = ".nc"),
+                      .envir = parent.frame()) {
+  orig_units <- terra::units(raster)
+  orig_varnames <- terra::varnames(raster)
+  raster <- metags_sanitize(raster)
+
+  terra::writeCDF(
+    raster,
+    filename = path,
+    varname = orig_varnames,
+    unit = orig_units,
+    overwrite = TRUE
+  )
+
+  . <- NULL
+  do.call(
+    on.exit,
+    list(bquote(unlink(.(path))), add = TRUE),
+    envir = .envir
+  )
+
+  path
+}
+
+
+#' Given a SpatRaster this function manually assigns a timestamp based on
+#' its components (year, month, day).
 #'
 #' @param raster A SpatRaster object to be processed.
 #' @param days Vector of days (numeric or character) used to build the date vector.
 #' @param months Vector of months (numeric or character).
 #' @param years Vector of years (numeric or character).
-#' @param path Directory where the raster file is stored.
-#' @param file_path Full file path to the raster file that will be replaced.
 #'
-#' @return The input SpatRaster with its time dimension updated. On disk, the original
-#'         file is replaced by the new file with time information.
+#' @return The input SpatRaster with its time dimension updated. On disk, the
+#'   original file is replaced by the new file with time information.
 #' @noRd
-.raster_timestamp <- function(raster, days, months, years, path, file_path) {
-
-  # Build a vector of valid date strings
-  valid_date_strings <- expand_grid(
-    day = as.numeric(days),
-    month = as.numeric(months),
-    year = as.numeric(years)
-  ) |>
-    mutate(date = make_date(year, month, day)) |>
-    filter(!is.na(date)) |>
-    arrange(date) |>
-    dplyr::pull(date) |>
-    format("%Y-%m-%d")
-
-  # Assign the date vector as the raster's time dimension
-  terra::time(raster) <- as.Date(valid_date_strings)
-
-  # Extract the original variable names and units from the raster
-  orig_units <- terra::units(raster)
-  orig_varnames <- terra::varnames(raster)
-
-  # Clean raster metadata from illegal characters
-  raster <- metags_sanitize(raster)
-
-  # Create a temporary file path for the updated raster file
-  temp_file <- file.path(path, paste0("temp_", basename(file_path)))
-
-  # Write the raster to the temporary file (NetCDF format)
-  terra::writeCDF(raster,
-                  filename = temp_file,
-                  varname = orig_varnames,
-                  unit = orig_units,
-                  overwrite = TRUE)
-
-  # Replace original file with temporary file
-  file.remove(file_path)
-  file.rename(temp_file, file_path)
-
-  return(raster)
+raster_timestamp <- function(raster, days, months, years) {
+  terra::depth(raster) <- NULL
+  valid_dates <- make_dates(years, months, days)
+  valid_dates <- format(sort(valid_dates), "%Y-%m-%d")
+  terra::time(raster) <- as.Date(valid_dates)
+  raster
 }
 
 
@@ -411,195 +318,78 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 #' @returns A SpatRaster
 #' @noRd
 metags_sanitize <- function(raster) {
-  meta <- metags(raster)
-  empty <- meta
-  empty[, 2] <- ""
-  metags(raster) <- empty
-  metags(raster) <- meta[grepl("^[A-Za-z0-9_-]$", meta$value), ]
+  meta <- terra::metags(raster)
+
+  if (is.null(meta)) {
+    return(raster)
+  }
+
+  if (utils::packageVersion("terra") > "1.8-42") {
+    empty <- meta
+    empty[, 2] <- ""
+    terra::metags(raster) <- empty
+    terra::metags(raster) <- meta[grepl("^[A-Za-z0-9._-]*$", meta$value), ]
+  } else {
+    terra::metags(raster) <- NULL
+    terra::metags(raster) <- meta[grepl("^[A-Za-z0-9._-]*$", meta)]
+  }
+
   raster
 }
 
 
-# Data extraction helpers -------------------------------------------------
-
-#' Focal extraction
-#' @noRd
-.focal_extract <- function(raster,
-                           focal_path,
-                           data_sf,
-                           time_span = 0,
-                           parallel = FALSE,
-                           chunk_size = 50
-                           ) {
-  # Extract values from raster for each observation and add to dataframe
-  if(length(unique(data_sf$link_date)) == 1 & time_span == 0){
-    # All observations have the same link date and direct link to focal month
-    raster_values <- terra::extract(
-      raster,
-      data_sf,
-      fun = mean,
-      na.rm = TRUE,
-      ID = FALSE
-    )
-  } else if (length(unique(data_sf$link_date)) > 1 & time_span == 0){
-    # All observations have different link dates and direct link to focal month
-    if (!parallel) {
-      # Sequential approach
-      raster_dates <- as.Date(terra::time(raster))
-      raster_values <- lapply(seq_len(nrow(data_sf)), function(i) {
-        if (!is.na(data_sf[i,]$link_date)) {
-          target_date <- data_sf[i,]$link_date
-          layer_index <- which(raster_dates == target_date)
-          if (length(layer_index) == 0) return(NA)
-          terra::extract(
-            raster[[layer_index]],
-            data_sf[i,],
-            fun = mean,
-            na.rm = TRUE,
-            ID = FALSE
-          )
-        } else {
-          NA
-        }
-      })
-      raster_values <- unlist(raster_values, recursive = FALSE)
-    } else {
-      # Parallelization approach
-      chunks <- split(seq_len(nrow(data_sf)),
-                      ceiling(seq_len(nrow(data_sf)) / chunk_size))
-
-      raster_values_list <- future.apply::future_lapply(chunks, function(idx) {
-        local_raster <- terra::rast(focal_path)
-        local_dates <- as.Date(terra::time(local_raster))
-
-        sapply(idx, function(i) {
-          if (!is.na(data_sf[i,]$link_date)) {
-            target_date <- data_sf[i,]$link_date
-            layer_index <- which(local_dates == target_date)
-            if(length(layer_index) == 0) return(NA)
-            terra::extract(
-              local_raster[[layer_index]],
-              data_sf[i,],
-              fun = mean,
-              na.rm = TRUE,
-              ID = FALSE
-            )
-          } else {
-            NA
-          }
-        })
-      }, future.seed = TRUE)
-
-      raster_values <- unlist(raster_values_list, recursive = FALSE)
-    }
-
-  } else if (length(unique(data_sf$link_date)) >= 1 & time_span > 0){
-    # All observations have different link dates and mean calculation of focal months
-    if (!parallel) {
-      # Sequential approach
-      raster_dates <- as.Date(terra::time(raster))
-      raster_values <- lapply(seq_len(nrow(data_sf)), function(i) {
-        if (!is.na(data_sf[i,]$link_date)) {
-          target_dates <- lubridate::ymd(unlist(data_sf[i,]$time_span_seq))
-          layer_index <- which(raster_dates %in% target_dates)
-          if (length(layer_index) == 0) return(NA)
-          raster_subset <- terra::app(raster[[layer_index]], mean)
-          terra::extract(
-            raster_subset,
-            data_sf[i,],
-            fun = mean,
-            na.rm = TRUE,
-            ID = FALSE
-          )
-        } else {
-          NA
-        }
-      })
-      raster_values <- unlist(raster_values, recursive = FALSE)
-    } else {
-      # Parallel approach with chunking
-      chunks <- split(seq_len(nrow(data_sf)),
-                      ceiling(seq_len(nrow(data_sf)) / chunk_size))
-
-      raster_values_list <- future.apply::future_lapply(chunks, function(idx) {
-        local_raster <- terra::rast(focal_path)
-        local_dates <- as.Date(terra::time(local_raster))
-
-        sapply(idx, function(i) {
-          if (!is.na(data_sf[i,]$link_date)) {
-            target_dates <- lubridate::ymd(unlist(data_sf[i,]$time_span_seq))
-            layer_index <- which(local_dates %in% target_dates)
-            if(length(layer_index) == 0) return(NA)
-            raster_subset <- terra::app(local_raster[[layer_index]], mean)
-            terra::extract(
-              raster_subset,
-              data_sf[i,],
-              fun = mean,
-              na.rm = TRUE,
-              ID = FALSE
-            )
-          } else {
-            NA
-          }
-        })
-      }, future.seed = TRUE)
-
-      raster_values <- unlist(raster_values_list, recursive = FALSE)
-    }
+fail_if_test <- function() {
+  if (isTRUE(getOption(".__gxc_fail_on_request__.", FALSE))) {
+    stop("Code has ben run in a test where this code should not be running!")
   }
 }
 
 
-#' Focal extraction for gridded data input
-#' @noRd
-.focal_extract_grid <- function(raster,
-                                data_sf,
-                                grid_df,
-                                time_span = 0,
-                                parallel = FALSE,
-                                chunk_size = 50,
-                                method = "bilinear"
-                                ) {
-  # Get focal raster dates
-  raster_dates <- as.Date(terra::time(raster))
+left_merge <- function(x, y, by.x, by.y, ...) {
+  idx <- match(y[[by.y]], x[[by.x]])
+  matches <- !is.na(idx)
+  idx <- idx[matches]
+  n <- nrow(x)
 
-  if (time_span == 0) {
-    # For a single date, all grid cells share the same link_date.
-    unique_dates <- unique(grid_df$link_date)
-    if (length(unique_dates) != 1) {
-      stop("For gridded data with time_span == 0, the link_date should be unique across the grid.")
+  for (col in setdiff(names(y), by.y)) {
+    join_col <- y[[col]][matches]
+    if (inherits(join_col, "sfc")) {
+      crs <- sf::st_crs(join_col)
+      geom_col <- col
+      type <- as.character(unique(sf::st_geometry_type(join_col)))[1]
+      new_col <- replicate(n, make_empty_geometry(type), simplify = FALSE)
+      new_col <- sf::st_as_sfc(new_col)
+    } else {
+      new_col <- rep(NA, n)
     }
-    target_date <- unique_dates[1]
-    match_idx <- which(raster_dates == target_date)
-    if (length(match_idx) == 0) {
-      warning("No matching focal layer found for the target date.")
-      return(NA)
-    }
-    # Use the first matching layer
-    focal_layer <- raster[[match_idx[1]]]
 
-    # Resample the focal layer to match grid_data
-    extracted <- terra::resample(focal_layer, data_sf, method = method)
-    return(extracted)
+    new_col[idx] <- join_col
+    x[[col]] <- new_col
+  }
 
+  is_spatial <- any(vapply(x, inherits, "sfc", FUN.VALUE = logical(1)))
+  if (is_spatial) {
+    as_sf_tibble(x, crs = crs, sf_column_name = geom_col)
   } else {
-    # For time_span > 0, all grid cells share the same time_span_seq.
-    unique_seq <- unique(grid_df$time_span_seq)
-    if (length(unique_seq) != 1) {
-      stop("For gridded data with time_span > 0, all cells should share the same time_span_seq.")
-    }
-    seq_dates <- lubridate::ymd(unique_seq[[1]])
-    match_idx <- which(raster_dates %in% seq_dates)
-    if (length(match_idx) == 0) {
-      warning("No matching focal layers found for the target time span.")
-      return(NA)
-    }
-    # Compute the average of the matching layers
-    subset_avg <- terra::app(raster[[match_idx]], mean, na.rm = TRUE)
-
-    # Resample the averaged raster to grid_data
-    extracted <- terra::resample(subset_avg, data_sf, method = method)
-    return(extracted)
+    as_data_frame(x)
   }
 }
 
+
+psum <- function(..., na.rm=FALSE) {
+  dat <- do.call(cbind, list(...))
+  res <- rowSums(dat, na.rm = na.rm)
+  idx_na <- !rowSums(!is.na(dat))
+  res[idx_na] <- NA
+  res
+}
+
+
+supscript <- function(x) {
+  matches <- gregexpr("(\\*\\*.+?)(?:\\s|$)", x)
+  substrings <- regmatches(x, matches)[[1]]
+  substrings <- gsub("**", "", substrings, fixed = TRUE)
+  substrings <- common::supsc(substrings)
+  regmatches(x, matches) <- list(substrings)
+  x
+}

@@ -42,6 +42,7 @@ For Gridded Data (\code{grid_link_})
 Useful links:
 \itemize{
   \item \url{https://github.com/denabel/gxc}
+  \item \url{https://denabel.github.io/gxc_pages/}
   \item Report bugs at \url{https://github.com/denabel/gxc/issues}
 }
 
