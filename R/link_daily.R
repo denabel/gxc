@@ -210,7 +210,7 @@ link_daily.sf <- function(.data,
     time_span = time_span,
     time_lag = time_lag
   )
-  extent <- .get_extent(.data)
+  extent <- .get_extent(prepared)
 
   span <- unlist(prepared$time_span_seq)
   years <- num_keys(year(span))
