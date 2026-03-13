@@ -52,11 +52,11 @@ new_stash <- function(cache = NULL, service = "ecmwfr") {
     cached_path
   }
 
-  .store <- function(path, request) {
+  .store <- function(data_path, request) {
     request$target <- NULL
     request$service <- service
     hash <- rlang::hash(request)
-    entry <- list(normalizePath(path))
+    entry <- list(normalizePath(data_path))
     names(entry) <- hash
     index <- .get()
     index <- c(index, entry)
