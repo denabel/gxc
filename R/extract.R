@@ -32,7 +32,7 @@
         function(chunk) .toi_extract_impl(
           path,
           .data,
-          idx = chunk,
+          # idx = chunk,
           baseline = TRUE,
           baseline_fun = baseline_fun
         ),

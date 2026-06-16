@@ -186,16 +186,7 @@ computed.
 
 The following indicators are currently supported:
 
-\tabular{ll}{
-\strong{Land} \tab \strong{Single Levels}\cr
-\code{2m_temperature}                  \tab \code{2m_temperature}                 \cr
-\code{total_precipitation}             \tab \code{10m_u_component_of_wind}        \cr
-\code{10m_u_component_of_wind}         \tab \code{10m_v_component_of_wind}        \cr
-\code{10m_v_component_of_wind}         \tab \code{10m_wind_speed}                 \cr
-\code{leaf_area_index_high_vegetation} \tab \code{total_cloud_cover}              \cr
-\code{leaf_area_index_low_vegetation}  \tab \code{leaf_area_index_high_vegetation}\cr
-\code{snowfall}                        \tab \code{leaf_area_index_low_vegetation}
-}
+\verb{r rd_indicators("link_monthly")}
 }
 \note{
 Users must have a CDS account and have their API key configured for

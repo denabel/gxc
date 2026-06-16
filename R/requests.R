@@ -13,6 +13,83 @@
   dir
 }
 
+.split_request_list <- function(request) {
+  y <- request$year
+  m <- request$month
+  d <- request$day
+
+  split_idx <- rep(seq_along(m), length.out = length(d))
+
+  df <- data.frame(
+    year  = rep(y, length(d)),
+    month = m[split_idx],
+    day   = d
+  )
+
+  df_list <- split(df, list(df$year, df$month))
+
+  batch_request <- lapply(df_list, function(df_m) {
+
+    new_request <- request
+    new_request$year  <- unique(df_m$year)
+    new_request$month <- unique(df_m$month)
+    new_request$day   <- df_m$day
+
+    new_request$target <- paste(
+      new_request$target,
+      new_request$year,
+      new_request$month,
+      sep = "_"
+    )
+
+    new_request
+  })
+
+  batch_request
+}
+
+# .split_request_list <-
+#   function(request, split_elements = c("year", "month", "day")) {
+#     split_values <- lapply(split_elements, function(var) request[[var]])
+#     names(split_values) <- split_elements
+#
+#     y <- split_values$year
+#     m <- split_values$month
+#     d <- split_values$day
+#
+#     k <- max(length(m), length(d))
+#
+#     m2 <- rep(m, length.out = k)
+#     d2 <- rep(d, length.out = k)
+#
+#     ny <- length(y)
+#
+#     split_values <-
+#       data.frame(
+#         year  = rep(y, each = k),
+#         month = rep(m2, times = ny),
+#         day   = rep(d2, times = ny),
+#         stringsAsFactors = FALSE
+#       )
+#
+#     batch_request <- apply(split_values, 1, function(row) {
+#       new_request <- request
+#
+#       for (i in seq_along(split_elements)) {
+#         new_request[[split_elements[i]]] <- as.vector(row[i])
+#       }
+#
+#       new_request$target <-
+#         paste(
+#           new_request$target, new_request$year, new_request$month,
+#           new_request$day, sep = "_")
+#
+#       new_request
+#     })
+#
+#     batch_request
+#   }
+
 
 #' @title Internal helper function to request monthly data from C3S
 #'
@@ -121,8 +198,11 @@
 
   request <- list(variable = indicator, ..., target = file_name)
 
+  # request_length <- length(.split_request_list(request))
+
   stash <- new_stash(path, service = "ecmwfr")
   restored <- stash$restore(request)
+  # restored <- stash$restore(request, request_length)
   if (!is.null(restored)) {
     file <- basename(restored)
     info(
@@ -148,6 +228,62 @@
     path = path,
     verbose = FALSE
   )
+
+
+  # if (sum(lengths(list(request$year, request$month, request$day))) > 3) {
+  #   batch_request <- .split_request_list(request)
+  #
+  #   data_path <- suppressMessages(sapply(batch_request, function(i) {
+  #     ecmwfr::wf_request(
+  #       request = i,
+  #       transfer = FALSE,
+  #       path = path,
+  #       verbose = FALSE
+  #     )
+  #   }))
+  #
+  #   # year_variable <- "year"
+  #   # batch_request <- lapply(request[[year_variable]], function(year) {
+  #   #   batch_request_i <- request
+  #   #   batch_request_i[[year_variable]] <- year
+  #   #   batch_request_i$target <- paste0(batch_request_i$target, "_", year)
+  #   #   batch_request_i
+  #   # })
+  #
+  #   # data_path <- suppressMessages(ecmwfr::wf_request_batch(
+  #   #   request_list = batch_request,
+  #   #   path = path,
+  #   #   workers = 6,
+  #   #   retry = 5
+  #   # ))
+  # } else {
+  #   data_path <- ecmwfr::wf_request(
+  #     request = request,
+  #     transfer = TRUE,
+  #     path = path,
+  #     verbose = FALSE
+  #   )
+  # }
+  #
+  # data_path <- sapply(data_path, function(request) {
+  #   status <- request$get_status()
+  #
+  #   while (status != "successful") {
+  #     Sys.sleep(5)
+  #     request$update_status()
+  #     status <- request$get_status()
+  #   }
+  #
+  #   request$download()
+  #   request$get_file()
+  # })
+
+  #   ecmwfr::wf_transfer(data_path[[request]]$get_url())
+  # })
+
+  # sapply(length(data_path), function (request) {
+  #   ecmwfr::wf_transfer(data_path[[request]]$get_url())
+  # })
 
   if (cache) {
     info("Storing file {.val {basename(data_path)}} in cache.")

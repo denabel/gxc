@@ -33,6 +33,7 @@ new_stash <- function(cache = NULL, service = "ecmwfr") {
   }
 
   .restore <- function(request) {
+    # .restore <- function(request, request_length) {
     request$target <- NULL
     request$service <- service
     hash <- rlang::hash(request)
@@ -40,6 +41,17 @@ new_stash <- function(cache = NULL, service = "ecmwfr") {
     cached_path <- index[[hash]]
 
     if (!is.null(cached_path) && !file.exists(cached_path)) {
+    # if (!is.null(cached_path) && length(cached_path) != request_length) {
+    #   cli::cli_warn(c(
+    #     "!" = "Cache does not comprise all requested files.",
+    #     "i" = "Will clean the cache and redownload instead just to be sure."
+    #   ))
+    #
+    #   index[[hash]] <- NULL
+    #   return(NULL)
+    # }
+    #
+    # if (!is.null(cached_path) && !all(file.exists(cached_path))) {
       cli::cli_warn(c(
         "!" = "A matching file has been found in the cache but it is corrupt.",
         "i" = "Will clean the cache and redownload instead."

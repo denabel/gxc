@@ -184,10 +184,7 @@ attribute.
 
 The following indicators are currently supported:
 
-\tabular{ll}{
-\strong{Land} \tab \strong{Single Levels}\cr
-\code{2m_temperature} \tab \code{2m_temperature}
-}
+\verb{r rd_indicators("link_daily")}
 }
 \note{
 Users must have a CDS account and have their API key configured for
