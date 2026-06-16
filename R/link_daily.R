@@ -202,9 +202,12 @@ link_daily.sf <- function(.data,
   }
 
   # Prep data and create extent
+  # prepared <-
+  #   split(.data, .data[[date_var]]) |>
+  #   lapply(function(splitted) {
   old_geom <- sf::st_geometry(.data)
   prepared <- sf::st_transform(.data, 4326)
-  prepared <- sf::st_buffer(.data, buffer)
+  prepared <- sf::st_buffer(prepared, buffer)
   prepared <- .transform_time(
     prepared,
     date_var = date_var,
@@ -265,6 +268,7 @@ link_daily.sf <- function(.data,
     prepared <- .add_baseline(
       prepared,
       baseline = baseline,
+      baseline_fun = baseline_fun,
       requester = .request_era5_daily,
       request_args = list(
         indicator = indicator,
@@ -293,7 +297,7 @@ link_daily.sf <- function(.data,
   prepared <- move_to_back(prepared, attr(prepared, "sf_column"))
   sf::st_geometry(prepared) <- old_geom
   as_sf_tibble(prepared)
-          baseline_fun = baseline_fun,
+  # })
 }
 
 
