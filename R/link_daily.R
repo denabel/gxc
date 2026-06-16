@@ -293,6 +293,7 @@ link_daily.sf <- function(.data,
   prepared <- move_to_back(prepared, attr(prepared, "sf_column"))
   sf::st_geometry(prepared) <- old_geom
   as_sf_tibble(prepared)
+          baseline_fun = baseline_fun,
 }
 
 
