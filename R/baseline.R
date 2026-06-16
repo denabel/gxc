@@ -1,4 +1,4 @@
-add_baseline <- function(.data, baseline) {
+add_baseline <- function(.data, baseline, baseline_fun) {
   lnk <- .make_lnk(.data, baseline = baseline)
   .check_lnk(lnk, "baseline")
 
@@ -15,6 +15,7 @@ add_baseline <- function(.data, baseline) {
   .add_baseline(
     .data,
     baseline = baseline,
+    baseline_fun = baseline_fun,
     request_args = request_args,
     requester = lnk %>>% "requester",
     cache = lnk %>>% "cache",
@@ -28,6 +29,7 @@ add_baseline <- function(.data, baseline) {
 
 .add_baseline <- function(.data,
                           baseline,
+                          baseline_fun,
                           requester,
                           request_args,
                           ...,
@@ -74,7 +76,8 @@ add_baseline <- function(.data, baseline) {
       path,
       ...,
       parallel = parallel,
-      chunk_size = chunk_size
+      chunk_size = chunk_size,
+      baseline_fun = baseline_fun
     )
 
     .data$.baseline <- unlist(baseline)

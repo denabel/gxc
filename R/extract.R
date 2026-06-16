@@ -1,22 +1,26 @@
 .toi_extract_baseline <- function(.data,
                                   raster,
                                   path = NULL,
+                                  baseline_fun,
                                   parallel = FALSE,
                                   chunk_size = 50) {
-  if (length(unique(.data$link_date)) == 1) {
-    # All observations have the same link date
-    raster <- terra::app(raster, mean)
-    terra::extract(
-      raster,
-      .data,
-      fun = mean,
-      na.rm = TRUE,
-      ID = FALSE
-    )
-  } else {
+
+  # if (length(unique(.data$link_date)) == 1) {
+  #   # All observations have the same link date
+  #   raster <- terra::app(raster, mean)
+  #   terra::extract(
+  #     raster,
+  #     .data,
+  #     fun = mean,
+  #     na.rm = TRUE,
+  #     ID = FALSE
+  #   )
+  # } else {
     # All observations have different link dates and mean calculation of months
     if (!parallel) {
-      .toi_extract_impl(raster, .data, baseline = TRUE)
+      .toi_extract_impl(
+        raster, .data, baseline = TRUE, baseline_fun = baseline_fun
+        )
     } else {
       chunks <- split(
         seq_len(nrow(.data)),
@@ -29,14 +33,15 @@
           path,
           .data,
           idx = chunk,
-          baseline = TRUE
+          baseline = TRUE,
+          baseline_fun = baseline_fun
         ),
         future.seed = TRUE
       )
 
       unlist(raster_values, recursive = FALSE)
     }
-  }
+  # }
 }
 
 
@@ -66,7 +71,8 @@
                          raster_path,
                          time_span = 0,
                          parallel = FALSE,
-                         chunk_size = 50) {
+                         chunk_size = 50,
+                         baseline_fun) {
   if (parallel) {
     chunks <- split(
       seq_len(nrow(.data)),
@@ -87,11 +93,11 @@
   } else if (length(unique(.data$link_date)) > 1 && time_span == 0) {
     # All observations have different link dates and direct link to focal month
     if (!parallel) {
-      .toi_extract_impl(raster, .data)
+      .toi_extract_impl(raster, .data, baseline_fun = baseline_fun)
     } else {
       raster_values <- future.apply::future_lapply(
         chunks,
-        function(chunk) .toi_extract_impl(raster_path, .data[chunk, ]),
+        function(chunk) .toi_extract_impl(raster_path, .data[chunk, ], baseline_fun = baseline_fun),
         future.seed = TRUE,
         future.packages = "sf"
       )
@@ -101,14 +107,15 @@
   } else if (length(unique(.data$link_date)) >= 1 & time_span > 0) {
     # All observations have different link dates and mean calculation of focal months
     if (!parallel) {
-      .toi_extract_impl(raster, .data, agg = TRUE)
+      .toi_extract_impl(raster, .data, agg = TRUE, baseline_fun = baseline_fun)
     } else {
       raster_values <- future.apply::future_lapply(
         chunks,
         function(chunk) .toi_extract_impl(
           raster_path,
           .data[chunk, ],
-          agg = TRUE
+          agg = TRUE,
+          baseline_fun = baseline_fun
         ),
         future.seed = TRUE,
         future.packages = "sf"
@@ -200,6 +207,7 @@
 .toi_extract_impl <- function(raster,
                               vector,
                               agg = FALSE,
+                              baseline_fun,
                               baseline = FALSE) {
   requireNamespace("sf", quietly = TRUE)
 
@@ -228,7 +236,7 @@
       target_md <- paste(month(target_dates), day(target_dates), sep = "-")
       baseline_md <- paste(month, day, sep = "-")
       lyr_idx <- which(baseline_md %in% target_md)
-      raster <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+      raster <- terra::app(raster[[lyr_idx]], baseline_fun)
     } else {
       lyr_idx <- which(dates == vector_sliced$link_date)
       raster <- raster[[lyr_idx]]
