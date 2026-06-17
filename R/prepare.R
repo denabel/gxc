@@ -2,15 +2,44 @@
 #' @param x sf dataframe
 #' @returns A vector of length 4
 #' @noRd
-.get_extent <- function(.data) {
+.get_extent <- function(.data, grid_resolution = 0.1) {
+  .snap_to_grid <- function(x, resolution, direction = c("floor", "ceiling")) {
+    direction <- match.arg(direction)
+    if (direction == "floor") floor(x / resolution) * resolution
+    else ceiling(x / resolution) * resolution
+  }
+
   if (is_sf(.data)) {
     box <- sf::st_bbox(.data)
-    c(ceiling(box$ymax), floor(box$xmin), floor(box$ymin), ceiling(box$xmax))
+    ymax <- .snap_to_grid(box$ymax, grid_resolution, "ceiling")
+    xmin <- .snap_to_grid(box$xmin, grid_resolution, "floor")
+    ymin <- .snap_to_grid(box$ymin, grid_resolution, "floor")
+    xmax <- .snap_to_grid(box$xmax, grid_resolution, "ceiling")
+
   } else if (is_terra(.data)) {
     box <- terra::ext(.data)
-    c(ceiling(box[4]), floor(box[1]), floor(box[3]), ceiling(box[2]))
+    ymax <- .snap_to_grid(box[4], grid_resolution, "ceiling")
+    xmin <- .snap_to_grid(box[1], grid_resolution, "floor")
+    ymin <- .snap_to_grid(box[3], grid_resolution, "floor")
+    xmax <- .snap_to_grid(box[2], grid_resolution, "ceiling")
   }
+
+  # point case: bbox has no extent → one grid step in each direction
+  if (xmin >= xmax) { xmin <- xmin - grid_resolution; xmax <- xmax + grid_resolution }
+  if (ymin >= ymax) { ymin <- ymin - grid_resolution; ymax <- ymax + grid_resolution }
+
+  c(ymax, xmin, ymin, xmax)
 }
+
+# .get_extent <- function(.data) {
+#   if (is_sf(.data)) {
+#     box <- sf::st_bbox(.data)
+#     c(ceiling(box$ymax), floor(box$xmin), floor(box$ymin), ceiling(box$xmax))
+#   } else if (is_terra(.data)) {
+#     box <- terra::ext(.data)
+#     c(ceiling(box[4]), floor(box[1]), floor(box[3]), ceiling(box[2]))
+#   }
+# }
 
 
 .transform_time <- function(.data,
