@@ -201,98 +201,109 @@ link_daily.sf <- function(.data,
     parallel <- FALSE
   }
 
-  # Prep data and create extent
-  # prepared <-
-  #   split(.data, .data[[date_var]]) |>
-  #   lapply(function(splitted) {
+  # retrieve crs of original data to reproject later
+  # same for other general data specs
+  crs_data <- terra::crs(.data)
   old_geom <- sf::st_geometry(.data)
   prepared <- sf::st_transform(.data, 4326)
   prepared <- sf::st_buffer(prepared, buffer)
-  prepared <- .transform_time(
-    prepared,
-    date_var = date_var,
-    time_span = time_span,
-    time_lag = time_lag
-  )
-  extent <- .get_extent(prepared)
 
-  span <- unlist(prepared$time_span_seq)
-  years <- num_keys(year(span))
-  months <- num_keys(month(span))
-  days <- num_keys(day(span))
+  # Prep data and create extent
+  # Split by date_var
+  prepared <-
+    split(prepared, prepared[[date_var]]) |>
+    lapply(function(splitted) {
+      prepared <-
+        .transform_time(
+          splitted,
+          date_var = date_var,
+          time_span = time_span,
+          time_lag = time_lag
+        )
+      extent <- .get_extent(prepared)
 
-  # Download data from API
-  obs_path <- .request_era5_daily(
-    indicator,
-    catalogue = catalogue,
-    extent = extent,
-    years = years,
-    months = months,
-    days = days,
-    cache = cache,
-    path = path,
-    prefix = "observation",
-    statistic = statistic,
-    time_zone = time_zone,
-    verbose = verbose
-  )
+      span <- unlist(prepared$time_span_seq)
+      years <- num_keys(year(span))
+      months <- num_keys(month(span))
+      days <- num_keys(day(span))
 
-  raster <- terra::rast(obs_path)
-
-  # Add timestamp to raster file
-  raster <- raster_timestamp(raster, days, months, years)
-  crs <- terra::crs(prepared)
-  prepared <- .align_crs_vector(prepared, raster)
-
-  info(
-    "Extracting values from raster",
-    msg_done = "Extracted values from raster.",
-    msg_failed = "Failed to extract values from raster.",
-    level = "step"
-  )
-
-  # Extract focal values
-  raster_values <- .toi_extract(
-    prepared,
-    raster,
-    obs_path,
-    time_span = time_span,
-    parallel = parallel,
-    chunk_size = chunk_size
-  )
-
-  # Create new variable in dataframe
-  prepared$.linked <- unlist(raster_values)
-
-  if (!isFALSE(baseline)) {
-    prepared <- .add_baseline(
-      prepared,
-      baseline = baseline,
-      baseline_fun = baseline_fun,
-      requester = .request_era5_daily,
-      request_args = list(
-        indicator = indicator,
-        days = days,
-        months = months,
-        extent = extent,
+      # Download data from API
+      obs_path <- .request_era5_daily(
+        indicator,
         catalogue = catalogue,
+        extent = extent,
+        years = years,
+        months = months,
+        days = days,
+        cache = cache,
+        path = path,
+        prefix = "observation",
         statistic = statistic,
-        time_zone = time_zone
-      ),
-      cache = cache,
-      path = path,
-      parallel = parallel,
-      chunk_size = chunk_size,
-      verbose = verbose
-    )
-  }
+        time_zone = time_zone,
+        verbose = verbose
+      )
 
-  if (!cache) {
-    unlink(obs_path)
-  }
+      raster <- terra::rast(obs_path)
+
+      # Add timestamp to raster file
+      raster <- raster_timestamp(raster, days, months, years)
+      crs <- terra::crs(prepared)
+      prepared <- .align_crs_vector(prepared, raster)
+
+      info(
+        "Extracting values from raster",
+        msg_done = "Extracted values from raster.",
+        msg_failed = "Failed to extract values from raster.",
+        level = "step"
+      )
+
+      # Extract focal values
+      raster_values <- .toi_extract(
+        prepared,
+        raster,
+        obs_path,
+        time_span = time_span,
+        parallel = parallel,
+        chunk_size = chunk_size
+      )
+
+      # Create new variable in dataframe
+      prepared$.linked <- unlist(raster_values)
+
+      if (!isFALSE(baseline)) {
+        prepared <- .add_baseline(
+          prepared,
+          baseline = baseline,
+          baseline_fun = baseline_fun,
+          requester = .request_era5_daily,
+          request_args = list(
+            indicator = indicator,
+            days = days,
+            months = months,
+            extent = extent,
+            catalogue = catalogue,
+            statistic = statistic,
+            time_zone = time_zone
+          ),
+          cache = cache,
+          path = path,
+          parallel = parallel,
+          chunk_size = chunk_size,
+          verbose = verbose
+        )
+      }
+
+      if (!cache) {
+        unlink(obs_path)
+      }
+
+      prepared
+    })
+
+  prepared <- do.call(rbind, prepared)
 
   # cleanup
-  prepared <- sf::st_transform(prepared, crs = crs)
+  prepared <- sf::st_transform(prepared, crs = crs_data)
   prepared[c("link_date", "link_date_end", "time_span_seq")] <- NULL
   prepared <- move_to_back(prepared, attr(prepared, "sf_column"))
   sf::st_geometry(prepared) <- old_geom
