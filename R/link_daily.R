@@ -208,11 +208,23 @@ link_daily.sf <- function(.data,
   prepared <- sf::st_transform(.data, 4326)
   prepared <- sf::st_buffer(prepared, buffer)
 
-  # Prep data and create extent
+
   # Split by date_var
-  prepared <-
-    split(prepared, prepared[[date_var]]) |>
-    lapply(function(splitted) {
+  splits <- split(prepared, prepared[[date_var]])
+  n_splits <- length(splits)
+  result <- vector("list", n_splits)
+
+  for (i in seq_along(splits)) {
+    if (verbose) {
+      if (i > 1) cli::cli_text("")
+      cli::cli_rule(left = "Date {i}/{n_splits} ({splits[[i]][[date_var]][1]})")
+    }
+
+    splitted <- splits[[i]]
+
+    result[[i]] <- {
+
+      # Prep data and create extent
       prepared <-
         .transform_time(
           splitted,
@@ -298,9 +310,10 @@ link_daily.sf <- function(.data,
       }
 
       prepared
-    })
+    }
+  }
 
-  prepared <- do.call(rbind, prepared)
+  prepared <- do.call(rbind, result)
 
   # cleanup
   prepared <- sf::st_transform(prepared, crs = crs_data)
