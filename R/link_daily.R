@@ -214,6 +214,23 @@ link_daily.sf <- function(.data,
   n_splits <- length(splits)
   result <- vector("list", n_splits)
 
+  # Summary
+  if (verbose) {
+    cli::cli_rule(left = "Link with ERA5 daily indicators")
+    cli::cli_dl(c(
+      "Indicator"         = "{.val {indicator}}",
+      "Time span"         = "{.val {time_span}}",
+      "Time lag"          = "{.val {time_lag}}",
+      "Baseline"          = "{.val {if (isFALSE(baseline)) 'none' else paste0(baseline[1], '-', baseline[2])}}",
+      "Baseline function" = "{deparse(baseline_fun)}",
+      "Observations"      = "{.val {nrow(.data)} clustered across {n_splits} unique date{?s}}",
+      "Buffer"            = "{.val {buffer} m}",
+      "Caching enabled"   = "{.val {cache}}",
+      "Storage path"      = "{.path {path}}"
+    ))
+    cli::cli_text("")
+  }
+
   for (i in seq_along(splits)) {
     if (verbose) {
       if (i > 1) cli::cli_text("")
@@ -321,7 +338,6 @@ link_daily.sf <- function(.data,
   prepared <- move_to_back(prepared, attr(prepared, "sf_column"))
   sf::st_geometry(prepared) <- old_geom
   as_sf_tibble(prepared)
-  # })
 }
 
 
