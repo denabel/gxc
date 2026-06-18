@@ -169,176 +169,226 @@ link_daily <- function(.data,
 
 #' @rdname link_daily
 #' @export
-link_daily.sf <- function(.data,
-                          indicator,
-                          ...,
-                          date_var = "date",
-                          time_span = 0,
-                          time_lag = 0,
-                          buffer = 0,
-                          baseline = FALSE,
-                          baseline_fun = function (x) mean(x, na.rm = TRUE),
-                          catalogue = "derived-era5-land-daily-statistics",
-                          statistic = "daily_mean",
-                          time_zone = "utc+00:00",
-                          cache = TRUE,
-                          path = NULL,
-                          parallel = FALSE,
-                          chunk_size = 50,
-                          verbose = TRUE) {
-  .check_valid_catalogue(catalogue, temp_res = "daily")
-  .check_valid_indicator(indicator, catalogue)
-  .check_valid_statistic(statistic)
-  .check_valid_time_zone(time_zone)
-  .check_baseline(baseline)
-  .check_parallel(parallel)
-  .check_column(.data, date_var)
-  .check_api_key("ecmwfr")
-  path <- path %||% .default_download_dir(cache, service = "ecmwfr")
+link_daily.sf <-
+  function(
+    .data,
+    indicator,
+    ...,
+    date_var = "date",
+    time_span = 0,
+    time_lag = 0,
+    buffer = 0,
+    baseline = FALSE,
+    baseline_fun = c("mean", "median", "min", "max", "sd",
+                     "p05", "p10", "p20", "p80", "p90", "p95"),
+    study_fun = c("mean", "median", "min", "max", "sd",
+                  "p05", "p10", "p20", "p80", "p90", "p95"),
+    stat_wrangling = c("deviation", "sd_deviation",
+                       "count_above", "count_below"),
+    prefix = NULL,
+    catalogue = "derived-era5-land-daily-statistics",
+    statistic = "daily_mean",
+    time_zone = "utc+00:00",
+    cache = TRUE,
+    path = NULL,
+    parallel = FALSE,
+    chunk_size = 50,
+    verbose = TRUE
+  ) {
+    .check_valid_catalogue(catalogue, temp_res = "daily")
+    .check_valid_indicator(indicator, catalogue)
+    .check_valid_statistic(statistic)
+    .check_valid_time_zone(time_zone)
+    .check_baseline(baseline)
+    .check_parallel(parallel)
+    .check_column(.data, date_var)
+    .check_api_key("ecmwfr")
+    path <- path %||% .default_download_dir(cache, service = "ecmwfr")
 
-  if (chunk_size > nrow(.data) && isTRUE(parallel)) {
-    info("Chunk size is higher than number of input rows. Disabling parallelization.")
-    parallel <- FALSE
-  }
+    stat_wrangling <- match.arg(stat_wrangling)
 
-  # retrieve crs of original data to reproject later
-  # same for other general data specs
-  crs_data <- terra::crs(.data)
-  old_geom <- sf::st_geometry(.data)
-  prepared <- sf::st_transform(.data, 4326)
-  prepared <- sf::st_buffer(prepared, buffer)
+    if (stat_wrangling %in% c("count_above", "count_below") && time_span == 0) {
+      cli::cli_abort(c(
+        "{.val {stat_wrangling}} requires {.arg time_span} > 0.",
+        "i" = "With {.arg time_span = 0} there is only one focal day to compare against the baseline."
+      ))
+    }
 
+    baseline_resolved <- .resolve_baseline_fun(baseline_fun, arg = "baseline_fun")
+    baseline_fun_name <- baseline_resolved$name
+    baseline_fun      <- baseline_resolved$fun
 
-  # Split by date_var
-  splits <- split(prepared, prepared[[date_var]])
-  n_splits <- length(splits)
-  result <- vector("list", n_splits)
+    study_resolved <- .resolve_baseline_fun(study_fun, arg = "study_fun")
+    study_fun_name <- study_resolved$name
+    study_fun      <- study_resolved$fun
 
-  # Summary
-  if (verbose) {
-    cli::cli_rule(left = "Link with ERA5 daily indicators")
-    cli::cli_dl(c(
-      "Indicator"         = "{.val {indicator}}",
-      "Time span"         = "{.val {time_span}}",
-      "Time lag"          = "{.val {time_lag}}",
-      "Baseline"          = "{.val {if (isFALSE(baseline)) 'none' else paste0(baseline[1], '-', baseline[2])}}",
-      "Baseline function" = "{deparse(baseline_fun)}",
-      "Observations"      = "{.val {nrow(.data)} clustered across {n_splits} unique date{?s}}",
-      "Buffer"            = "{.val {buffer} m}",
-      "Caching enabled"   = "{.val {cache}}",
-      "Storage path"      = "{.path {path}}"
-    ))
-    cli::cli_text("")
-  }
+    if (chunk_size > nrow(.data) && isTRUE(parallel)) {
+      info("Chunk size is higher than number of input rows. Disabling parallelization.")
+      parallel <- FALSE
+    }
 
-  for (i in seq_along(splits)) {
+    crs_data <- terra::crs(.data)
+    old_geom <- sf::st_geometry(.data)
+    prepared <- sf::st_transform(.data, 4326)
+    prepared <- sf::st_buffer(prepared, buffer)
+
+    splits <- split(prepared, prepared[[date_var]])
+    n_splits <- length(splits)
+    result <- vector("list", n_splits)
+
     if (verbose) {
-      if (i > 1) cli::cli_text("")
-      cli::cli_rule(left = "Date {i}/{n_splits} ({splits[[i]][[date_var]][1]})")
+      cli::cli_rule(left = "Link with ERA5 daily indicators")
+      cli::cli_dl(c(
+        "Indicator"         = "{.val {indicator}}",
+        "Time span"         = "{.val {time_span}}",
+        "Time lag"          = "{.val {time_lag}}",
+        "Baseline"          =
+          "{.val {if (isFALSE(baseline)) 'none' else paste0(baseline[1], '-', baseline[2])}}",
+        "Baseline function" = "{.val {baseline_fun_name}}",
+        "Study function"    = "{.val {study_fun_name}}",
+        "Stat wrangling"    = "{.val {stat_wrangling}}",
+        "Prefix"            = "{.val {prefix %||% '(none)'}}",
+        "Observations"      =
+          "{.val {nrow(.data)} clustered across {n_splits} unique date{?s}}",
+        "Buffer"            = "{.val {buffer} m}",
+        "Caching enabled"   = "{.val {cache}}",
+        "Storage path"      = "{.path {path}}"
+      ))
+      cli::cli_text("")
     }
 
-    splitted <- splits[[i]]
+    for (i in seq_along(splits)) {
+      if (verbose) {
+        if (i > 1) cli::cli_text("")
+        cli::cli_rule(left = "Date {i}/{n_splits} ({splits[[i]][[date_var]][1]})")
+      }
 
-    result[[i]] <- {
+      splitted <- splits[[i]]
 
-      # Prep data and create extent
-      prepared <-
-        .transform_time(
-          splitted,
-          date_var = date_var,
-          time_span = time_span,
-          time_lag = time_lag
+      result[[i]] <- {
+        prepared <-
+          .transform_time(
+            splitted,
+            date_var  = date_var,
+            time_span = time_span,
+            time_lag  = time_lag
+          )
+        extent <- .get_extent(prepared)
+
+        span   <- sort(unique(as_date(unlist(prepared$time_span_seq))))
+        years  <- format(span, "%Y")
+        months <- format(span, "%m")
+        days   <- format(span, "%d")
+
+        obs_path <- .request_era5_daily(
+          indicator,
+          catalogue  = catalogue,
+          extent     = extent,
+          years      = years,
+          months     = months,
+          days       = days,
+          cache      = cache,
+          path       = path,
+          prefix     = "observation",
+          statistic  = statistic,
+          time_zone  = time_zone,
+          verbose    = verbose
         )
-      extent <- .get_extent(prepared)
 
-      span <- unlist(prepared$time_span_seq)
-      years <- num_keys(year(span))
-      months <- num_keys(month(span))
-      days <- num_keys(day(span))
+        raster <- terra::rast(obs_path)
+        raster <- raster_timestamp(raster, days, months, years, span = span)
+        crs    <- terra::crs(prepared)
+        prepared <- .align_crs_vector(prepared, raster)
 
-      # Download data from API
-      obs_path <- .request_era5_daily(
-        indicator,
-        catalogue = catalogue,
-        extent = extent,
-        years = years,
-        months = months,
-        days = days,
-        cache = cache,
-        path = path,
-        prefix = "observation",
-        statistic = statistic,
-        time_zone = time_zone,
-        verbose = verbose
-      )
+        info(
+          "Extracting values from raster",
+          msg_done   = "Extracted values from raster.",
+          msg_failed = "Failed to extract values from raster.",
+          level      = "step"
+        )
 
-      raster <- terra::rast(obs_path)
-
-      # Add timestamp to raster file
-      raster <- raster_timestamp(raster, days, months, years)
-      crs <- terra::crs(prepared)
-      prepared <- .align_crs_vector(prepared, raster)
-
-      info(
-        "Extracting values from raster",
-        msg_done = "Extracted values from raster.",
-        msg_failed = "Failed to extract values from raster.",
-        level = "step"
-      )
-
-      # Extract focal values
-      raster_values <- .toi_extract(
-        prepared,
-        raster,
-        obs_path,
-        time_span = time_span,
-        parallel = parallel,
-        chunk_size = chunk_size
-      )
-
-      # Create new variable in dataframe
-      prepared$.linked <- unlist(raster_values)
-
-      if (!isFALSE(baseline)) {
-        prepared <- .add_baseline(
+        raster_values <- .toi_extract(
           prepared,
-          baseline = baseline,
-          baseline_fun = baseline_fun,
-          requester = .request_era5_daily,
-          request_args = list(
-            indicator = indicator,
-            days = days,
-            months = months,
-            extent = extent,
-            catalogue = catalogue,
-            statistic = statistic,
-            time_zone = time_zone
-          ),
-          cache = cache,
-          path = path,
-          parallel = parallel,
-          chunk_size = chunk_size,
-          verbose = verbose
+          raster,
+          obs_path,
+          time_span      = time_span,
+          parallel       = parallel,
+          chunk_size     = chunk_size,
+          baseline_fun   = baseline_fun,
+          stat_wrangling = stat_wrangling
         )
-      }
 
-      if (!cache) {
-        unlink(obs_path)
-      }
+        # Write primary result columns in order
+        prepared[[.col("study", prefix)]] <- sapply(raster_values, function(x) {
+          if (is.numeric(x) && length(x) > 1) study_fun(x)
+          else if (is.data.frame(x)) x[1, 1]
+          else as.numeric(x)
+        })
+        prepared[[.col("baseline", prefix)]] <- NA_real_
+        prepared[[.col("result",   prefix)]] <- NA_real_
 
-      prepared
+        # Keep .linked for internal baseline comparison
+        prepared$.linked <- prepared[[.col("study", prefix)]]
+
+        if (!isFALSE(baseline)) {
+          prepared <- .add_baseline(
+            prepared,
+            baseline          = baseline,
+            baseline_fun      = baseline_fun,
+            baseline_fun_name = baseline_fun_name,
+            indicator         = indicator,
+            stat_wrangling    = stat_wrangling,
+            focal_values      = raster_values,
+            prefix            = prefix,
+            requester         = .request_era5_daily,
+            request_args      = list(
+              indicator  = indicator,
+              days       = days,
+              months     = months,
+              extent     = extent,
+              catalogue  = catalogue,
+              statistic  = statistic,
+              time_zone  = time_zone
+            ),
+            cache      = cache,
+            path       = path,
+            parallel   = parallel,
+            chunk_size = chunk_size,
+            verbose    = verbose
+          )
+        }
+
+        # Remove internal .linked column
+        prepared$.linked <- NULL
+
+        # Write metadata columns
+        prepared[[.col("indicator", prefix)]] <- indicator
+        prepared[[.col("unit", prefix)]] <-
+          if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator)
+        prepared[[.col("study_fun", prefix)]] <- study_fun_name
+        prepared[[.col("baseline_fun", prefix)]] <-
+          if (isFALSE(baseline)) NA_character_ else baseline_fun_name
+        prepared[[.col("baseline_years", prefix)]] <-
+          if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2])
+        prepared[[.col("time_span", prefix)]] <- time_span
+        prepared[[.col("time_lag", prefix)]] <- time_lag
+        prepared[[.col("buffer", prefix)]] <- buffer
+
+        if (!cache) {
+          unlink(obs_path)
+        }
+
+        prepared
+      }
     }
+
+    prepared <- do.call(rbind, result)
+    prepared <- sf::st_transform(prepared, crs = crs_data)
+    prepared[c("link_date", "link_date_end", "time_span_seq")] <- NULL
+    prepared <- move_to_back(prepared, attr(prepared, "sf_column"))
+    sf::st_geometry(prepared) <- old_geom
+    as_sf_tibble(prepared)
   }
-
-  prepared <- do.call(rbind, result)
-
-  # cleanup
-  prepared <- sf::st_transform(prepared, crs = crs_data)
-  prepared[c("link_date", "link_date_end", "time_span_seq")] <- NULL
-  prepared <- move_to_back(prepared, attr(prepared, "sf_column"))
-  sf::st_geometry(prepared) <- old_geom
-  as_sf_tibble(prepared)
-}
 
 
 #' @rdname link_daily

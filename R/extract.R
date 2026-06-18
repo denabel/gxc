@@ -2,46 +2,37 @@
                                   raster,
                                   path = NULL,
                                   baseline_fun,
+                                  stat_wrangling = "deviation",
+                                  focal_values = NULL,
                                   parallel = FALSE,
                                   chunk_size = 50) {
-
-  # if (length(unique(.data$link_date)) == 1) {
-  #   # All observations have the same link date
-  #   raster <- terra::app(raster, mean)
-  #   terra::extract(
-  #     raster,
-  #     .data,
-  #     fun = mean,
-  #     na.rm = TRUE,
-  #     ID = FALSE
-  #   )
-  # } else {
-    # All observations have different link dates and mean calculation of months
-    if (!parallel) {
-      .toi_extract_impl(
-        raster, .data, baseline = TRUE, baseline_fun = baseline_fun
-        )
-    } else {
-      chunks <- split(
-        seq_len(nrow(.data)),
-        ceiling(seq_len(nrow(.data)) / chunk_size)
-      )
-
-      raster_values <- future.apply::future_lapply(
-        chunks,
-        function(chunk) .toi_extract_impl(
-          path,
-          .data,
-          # idx = chunk,
-          baseline = TRUE,
-          baseline_fun = baseline_fun
-        ),
-        future.seed = TRUE
-      )
-
-      unlist(raster_values, recursive = FALSE)
-    }
-  # }
+  if (!parallel) {
+    .toi_extract_impl(
+      raster, .data,
+      baseline       = TRUE,
+      baseline_fun   = baseline_fun,
+      stat_wrangling = stat_wrangling,
+      focal_values   = focal_values
+    )
+  } else {
+    chunks <- split(
+      seq_len(nrow(.data)),
+      ceiling(seq_len(nrow(.data)) / chunk_size)
+    )
+    raster_values <- future.apply::future_lapply(
+      chunks,
+      function(chunk) .toi_extract_impl(
+        path,
+        .data[chunk, ],
+        baseline       = TRUE,
+        baseline_fun   = baseline_fun,
+        stat_wrangling = stat_wrangling,
+        focal_values   = focal_values[chunk]
+      ),
+      future.seed = TRUE
+    )
+    do.call(c, raster_values)
+  }
 }
 
 
@@ -72,7 +63,8 @@
                          time_span = 0,
                          parallel = FALSE,
                          chunk_size = 50,
-                         baseline_fun) {
+                         baseline_fun,
+                         stat_wrangling = "deviation") {
   if (parallel) {
     chunks <- split(
       seq_len(nrow(.data)),
@@ -80,47 +72,55 @@
     )
   }
 
-  # Extract values from raster for each observation and add to dataframe
   if (length(unique(.data$link_date)) == 1 && time_span == 0) {
-    # All observations have the same link date and direct link to focal month
     terra::extract(
       raster,
       .data,
-      fun = mean,
+      fun   = mean,
       na.rm = TRUE,
-      ID = FALSE
+      ID    = FALSE
     )
   } else if (length(unique(.data$link_date)) > 1 && time_span == 0) {
-    # All observations have different link dates and direct link to focal month
     if (!parallel) {
-      .toi_extract_impl(raster, .data, baseline_fun = baseline_fun)
-    } else {
-      raster_values <- future.apply::future_lapply(
-        chunks,
-        function(chunk) .toi_extract_impl(raster_path, .data[chunk, ], baseline_fun = baseline_fun),
-        future.seed = TRUE,
-        future.packages = "sf"
+      .toi_extract_impl(
+        raster, .data,
+        baseline_fun   = baseline_fun,
+        stat_wrangling = stat_wrangling
       )
-      unlist(raster_values, recursive = FALSE)
-    }
-
-  } else if (length(unique(.data$link_date)) >= 1 & time_span > 0) {
-    # All observations have different link dates and mean calculation of focal months
-    if (!parallel) {
-      .toi_extract_impl(raster, .data, agg = TRUE, baseline_fun = baseline_fun)
     } else {
       raster_values <- future.apply::future_lapply(
         chunks,
         function(chunk) .toi_extract_impl(
-          raster_path,
-          .data[chunk, ],
-          agg = TRUE,
-          baseline_fun = baseline_fun
+          raster_path, .data[chunk, ],
+          baseline_fun   = baseline_fun,
+          stat_wrangling = stat_wrangling
         ),
-        future.seed = TRUE,
+        future.seed     = TRUE,
         future.packages = "sf"
       )
-      unlist(raster_values, recursive = FALSE)
+      do.call(c, raster_values)
+    }
+  } else if (length(unique(.data$link_date)) >= 1 && time_span > 0) {
+    if (!parallel) {
+      .toi_extract_impl(
+        raster, .data,
+        agg            = TRUE,
+        baseline_fun   = baseline_fun,
+        stat_wrangling = stat_wrangling
+      )
+    } else {
+      raster_values <- future.apply::future_lapply(
+        chunks,
+        function(chunk) .toi_extract_impl(
+          raster_path, .data[chunk, ],
+          agg            = TRUE,
+          baseline_fun   = baseline_fun,
+          stat_wrangling = stat_wrangling
+        ),
+        future.seed     = TRUE,
+        future.packages = "sf"
+      )
+      do.call(c, raster_values)
     }
   }
 }
@@ -208,7 +208,9 @@
                               vector,
                               agg = FALSE,
                               baseline_fun,
-                              baseline = FALSE) {
+                              baseline = FALSE,
+                              stat_wrangling = "deviation",
+                              focal_values = NULL) {
   requireNamespace("sf", quietly = TRUE)
 
   if (is.character(raster)) {
@@ -225,18 +227,58 @@
   vals <- lapply(seq_len(nrow(vector)), function(i) {
     vector_sliced <- vector[i, ]
     if (agg) {
-      # if a time span is specified, compute the average across
       target_dates <- as_date(unlist(vector_sliced$time_span_seq))
       lyr_idx <- which(dates %in% target_dates)
-      raster <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+      if (stat_wrangling %in% c("count_above", "count_below")) {
+        # unkollabiert zurückgeben: Vektor mit einem Wert pro focal Tag
+        focal_values <- sapply(lyr_idx, function(idx) {
+          terra::extract(
+            raster[[idx]],
+            vector_sliced,
+            fun   = mean,
+            na.rm = TRUE,
+            ID    = FALSE
+          )[1, 1]
+        })
+        return(focal_values)
+      } else {
+        raster_agg <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+        return(terra::extract(
+          raster_agg,
+          vector_sliced,
+          fun   = mean,
+          na.rm = TRUE,
+          ID    = FALSE
+        ))
+      }
     } else if (baseline) {
-      # for baseline calculations, compute the average across the same dates
-      # of different years, e.g. 2014-01-01, 2015-01-01, ...
       target_dates <- as_date(unlist(vector_sliced$time_span_seq))
       target_md <- paste(month(target_dates), day(target_dates), sep = "-")
       baseline_md <- paste(month, day, sep = "-")
       lyr_idx <- which(baseline_md %in% target_md)
-      raster <- terra::app(raster[[lyr_idx]], baseline_fun)
+
+      if (length(lyr_idx) == 0) {
+        return(list(reference_stat = NA_real_, result = NA_real_))
+      }
+
+      baseline_values <- sapply(lyr_idx, function(idx) {
+        terra::extract(
+          raster[[idx]],
+          vector_sliced,
+          fun   = mean,
+          na.rm = TRUE,
+          ID    = FALSE
+        )[1, 1]
+      })
+
+      return(
+        compute_stat_wrangling(
+          baseline_values = baseline_values,
+          focal_value     = vector_sliced$.linked,
+          stat_wrangling  = stat_wrangling,
+          baseline_fun    = baseline_fun
+        )
+      )
     } else {
       lyr_idx <- which(dates == vector_sliced$link_date)
       raster <- raster[[lyr_idx]]
@@ -245,11 +287,11 @@
     terra::extract(
       raster,
       vector_sliced,
-      fun = mean,
+      fun   = mean,
       na.rm = TRUE,
-      ID = FALSE
+      ID    = FALSE
     )
   })
 
-  unlist(vals, recursive = FALSE)
+  vals
 }

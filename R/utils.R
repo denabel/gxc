@@ -322,11 +322,24 @@ local_cdf <- function(raster,
 #' @return The input SpatRaster with its time dimension updated. On disk, the
 #'   original file is replaced by the new file with time information.
 #' @noRd
-raster_timestamp <- function(raster, days, months, years) {
+raster_timestamp <- function(raster, days, months, years, span = NULL) {
   terra::depth(raster) <- NULL
-  valid_dates <- make_dates(years, months, days)
-  valid_dates <- format(sort(valid_dates), "%Y-%m-%d")
-  terra::time(raster) <- as.Date(valid_dates)
+
+  if (!is.null(span)) {
+    valid_dates <- sort(unique(as_date(span)))
+  } else {
+    valid_dates <- make_dates(years, months, days)
+    valid_dates <- as.Date(sort(valid_dates))
+  }
+
+  if (length(valid_dates) != terra::nlyr(raster)) {
+    cli::cli_abort(c(
+      "Number of dates ({length(valid_dates)}) does not match number of raster layers ({terra::nlyr(raster)}).",
+      "i" = "Expected {terra::nlyr(raster)} dates, got {length(valid_dates)}."
+    ))
+  }
+
+  terra::time(raster) <- valid_dates
   raster
 }
 

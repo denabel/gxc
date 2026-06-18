@@ -18,31 +18,29 @@
   months <- as.integer(request$month)
   days   <- as.integer(request$day)
 
-  # Assign each day to the correct month by detecting month boundaries:
-  # a day smaller than the previous one signals a new month
-  counts <- integer(length(months))
-  m_idx <- 1L
-  for (i in seq_along(days)) {
-    if (i > 1 && days[i] < days[i - 1]) m_idx <- m_idx + 1L
-    counts[m_idx] <- counts[m_idx] + 1L
+  # case: all three vector have the same lenght
+  if (length(years) == length(months) && length(months) == length(days)) {
+    dates <- as.Date(paste(years, months, days, sep = "-"))
+  } else {
+    # fallback
+    counts <- integer(length(months))
+    m_idx <- 1L
+    for (i in seq_along(days)) {
+      if (i > 1 && days[i] < days[i - 1]) m_idx <- m_idx + 1L
+      counts[m_idx] <- counts[m_idx] + 1L
+    }
+    month_per_day <- rep(months, times = counts)
+    year_per_day <- rep(years, each = length(days))
+    dates <- as.Date(paste(year_per_day, month_per_day, days, sep = "-"))
   }
-  month_per_day <- rep(months, times = counts)
 
-  # Expand years to match days: each year covers all month/day combinations
-  year_per_day <- rep(years, each = length(days))
-
-  dates <- as.Date(paste(year_per_day, month_per_day, days, sep = "-"))
-
-  # Sort dates to match original ordering (year > month > day)
   dates <- sort(dates)
 
-  # One request per day
   lapply(dates, function(d) {
     r <- request
     r$year  <- format(d, "%Y")
     r$month <- format(d, "%m")
     r$day   <- format(d, "%d")
-    # Append date to target name to keep it unique per request
     r$target <- paste0(request$target, "_", format(d, "%Y%m%d"))
     r
   })
