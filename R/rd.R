@@ -2,10 +2,14 @@ rd_indicators <- function(fun) {
   switch(
     fun,
     link_daily = {
-      land <- allowed_indicators_by_catalogue$`derived-era5-land-daily-statistics`
-      land <- sprintf("\\code{%s}", land)
+      land    <- allowed_indicators_by_catalogue$`derived-era5-land-daily-statistics`
       slevels <- allowed_indicators_by_catalogue$`derived-era5-single-levels-daily-statistics`
-      slevels <- sprintf("\\code{%s}", slevels)
+
+      # Pad shorter vector with empty strings
+      max_len <- max(length(land), length(slevels))
+      land    <- c(sprintf("\\code{%s}", land),    rep("", max_len - length(land)))
+      slevels <- c(sprintf("\\code{%s}", slevels), rep("", max_len - length(slevels)))
+
       df <- data.frame(
         Land = land,
         "Single Levels" = slevels,
@@ -13,12 +17,14 @@ rd_indicators <- function(fun) {
       )
       rd_table(df)
     },
-
     link_monthly = {
-      land <- allowed_indicators_by_catalogue$`reanalysis-era5-land-monthly-means`
-      land <- sprintf("\\code{%s}", land)
+      land    <- allowed_indicators_by_catalogue$`reanalysis-era5-land-monthly-means`
       slevels <- allowed_indicators_by_catalogue$`reanalysis-era5-single-levels-monthly-means`
-      slevels <- sprintf("\\code{%s}", slevels)
+
+      max_len <- max(length(land), length(slevels))
+      land    <- c(sprintf("\\code{%s}", land),    rep("", max_len - length(land)))
+      slevels <- c(sprintf("\\code{%s}", slevels), rep("", max_len - length(slevels)))
+
       df <- data.frame(
         Land = land,
         "Single Levels" = slevels,
