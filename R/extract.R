@@ -268,16 +268,6 @@
 #' @param baseline Whether to aggregate across baseline years.
 #' @returns A named list.
 #' @noRd
-#' Low-level extraction function
-#' @param raster SpatRaster or path to a raster file. For parallelization,
-#'   a path must be provided.
-#' @param vector An sf dataframe containing polygons or points and a column
-#'   `link_date`.
-#' @param agg Whether to aggregate the years in a given time span. Requires
-#'   a column `time_span_seq` in `vector`.
-#' @param baseline Whether to aggregate across baseline years.
-#' @returns A named list.
-#' @noRd
 .toi_extract_impl <- function(raster,
                               vector,
                               agg            = FALSE,
