@@ -1,11 +1,10 @@
 .toi_extract_baseline <- function(.data,
                                   raster,
-                                  path = NULL,
                                   baseline_fun,
                                   stat_wrangling = "deviation",
-                                  focal_values = NULL,
-                                  parallel = FALSE,
-                                  chunk_size = 50) {
+                                  focal_values   = NULL,
+                                  parallel       = FALSE,
+                                  chunk_size     = 50) {
   if (!parallel) {
     .toi_extract_impl(
       raster, .data,
@@ -21,14 +20,16 @@
     )
     raster_values <- future.apply::future_lapply(
       chunks,
-      function(chunk) .toi_extract_impl(
-        path,
-        .data[chunk, ],
-        baseline       = TRUE,
-        baseline_fun   = baseline_fun,
-        stat_wrangling = stat_wrangling,
-        focal_values   = focal_values[chunk]
-      ),
+      function(chunk) {
+        .toi_extract_impl(
+          raster,
+          .data[chunk, ],
+          baseline       = TRUE,
+          baseline_fun   = baseline_fun,
+          stat_wrangling = stat_wrangling,
+          focal_values   = focal_values[chunk]
+        )
+      },
       future.seed = TRUE
     )
     do.call(c, raster_values)
@@ -39,17 +40,16 @@
 .toi_extract_grid_baseline <- function(.data,
                                        raster,
                                        temporals,
-                                       path = NULL,
-                                       time_span = 0,
-                                       parallel = FALSE,
+                                       time_span  = 0,
+                                       parallel   = FALSE,
                                        chunk_size = 50) {
   .toi_extract_grid(
     .data,
     raster,
     temporals,
-    agg = time_span > 0,
-    baseline = TRUE,
-    parallel = parallel,
+    agg        = time_span > 0,
+    baseline   = TRUE,
+    parallel   = parallel,
     chunk_size = chunk_size
   )
 }
@@ -60,9 +60,9 @@
 .toi_extract <- function(.data,
                          raster,
                          raster_path,
-                         time_span = 0,
-                         parallel = FALSE,
-                         chunk_size = 50,
+                         time_span      = 0,
+                         parallel       = FALSE,
+                         chunk_size     = 50,
                          baseline_fun,
                          stat_wrangling = "deviation") {
   if (parallel) {
@@ -136,19 +136,17 @@
 .toi_extract_grid <- function(.data,
                               raster,
                               temporals,
-                              agg = FALSE,
-                              baseline = FALSE,
-                              parallel = FALSE,
+                              agg        = FALSE,
+                              baseline   = FALSE,
+                              parallel   = FALSE,
                               chunk_size = 50,
-                              method = "bilinear") {
+                              method     = "bilinear") {
   dates <- as_date(terra::time(raster))
 
   if (parallel) {
     chunks <- terra::split(.data, ceiling(terra::ncell(.data) / chunk_size))
   }
 
-  # Times cannot vary across grids because SpatRasters do not support it
-  # If the temporals dataframe suggests this, throw an error
   if (agg) {
     seq_dates <- unique(temporals$time_span_seq)
     if (length(seq_dates) != 1) {
@@ -171,22 +169,21 @@
   }
 
   if (agg && !baseline) {
-    # if a timespan is specified, aggregate across all dates
-    lyr_idx <- which(dates %in% unlist(seq_dates))
+    lyr_idx   <- which(dates %in% unlist(seq_dates))
     toi_layer <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
   } else if (agg && baseline) {
-    seq_md <- paste(month(seq_dates), day(seq_dates), sep = "-")
+    seq_md      <- paste(month(seq_dates), day(seq_dates), sep = "-")
     baseline_md <- paste(month(dates), day(dates), sep = "-")
-    lyr_idx <- which(baseline_md %in% seq_md)
-    toi_layer <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+    lyr_idx     <- which(baseline_md %in% seq_md)
+    toi_layer   <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
   } else if (!agg && baseline) {
     target_dates <- unlist(temporals$time_span_seq)
-    target_md <- paste(month(target_dates), day(target_dates), sep = "-")
-    baseline_md <- paste(month(dates), day(dates), sep = "-")
-    lyr_idx <- which(baseline_md %in% target_md)
-    toi_layer <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+    target_md    <- paste(month(target_dates), day(target_dates), sep = "-")
+    baseline_md  <- paste(month(dates), day(dates), sep = "-")
+    lyr_idx      <- which(baseline_md %in% target_md)
+    toi_layer    <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
   } else {
-    lyr_idx <- which(dates == target_date)[[1]]
+    lyr_idx   <- which(dates == target_date)[[1]]
     toi_layer <- raster[[lyr_idx]]
   }
 
@@ -195,22 +192,22 @@
 
 
 #' Low-level extraction function
-#' @param raster SpatRaster of path to a raster file. For parallelization,
-#' a path must be provided.
+#' @param raster SpatRaster or path to a raster file. For parallelization,
+#'   a path must be provided.
 #' @param vector An sf dataframe containing polygons or points and a column
-#' `link_date`.
+#'   `link_date`.
 #' @param agg Whether to aggregate the years in a given time span. Requires
-#' a column `time_span_seq` in `vector`.
+#'   a column `time_span_seq` in `vector`.
 #' @param baseline Whether to aggregate across baseline years.
 #' @returns A named list.
 #' @noRd
 .toi_extract_impl <- function(raster,
                               vector,
-                              agg = FALSE,
+                              agg            = FALSE,
                               baseline_fun,
-                              baseline = FALSE,
+                              baseline       = FALSE,
                               stat_wrangling = "deviation",
-                              focal_values = NULL) {
+                              focal_values   = NULL) {
   requireNamespace("sf", quietly = TRUE)
 
   if (is.character(raster)) {
@@ -221,17 +218,19 @@
 
   if (baseline) {
     month <- month(dates)
-    day <- day(dates)
+    day   <- day(dates)
   }
 
   vals <- lapply(seq_len(nrow(vector)), function(i) {
     vector_sliced <- vector[i, ]
+
     if (agg) {
       target_dates <- as_date(unlist(vector_sliced$time_span_seq))
-      lyr_idx <- which(dates %in% target_dates)
+      lyr_idx      <- which(dates %in% target_dates)
+
       if (stat_wrangling %in% c("count_above", "count_below")) {
-        # unkollabiert zurückgeben: Vektor mit einem Wert pro focal Tag
-        focal_values <- sapply(lyr_idx, function(idx) {
+        # Return individual focal day values uncollapsed for count operations
+        focal_vals <- sapply(lyr_idx, function(idx) {
           terra::extract(
             raster[[idx]],
             vector_sliced,
@@ -240,7 +239,7 @@
             ID    = FALSE
           )[1, 1]
         })
-        return(focal_values)
+        return(focal_vals)
       } else {
         raster_agg <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
         return(terra::extract(
@@ -251,11 +250,12 @@
           ID    = FALSE
         ))
       }
+
     } else if (baseline) {
       target_dates <- as_date(unlist(vector_sliced$time_span_seq))
-      target_md <- paste(month(target_dates), day(target_dates), sep = "-")
-      baseline_md <- paste(month, day, sep = "-")
-      lyr_idx <- which(baseline_md %in% target_md)
+      target_md    <- paste(month(target_dates), day(target_dates), sep = "-")
+      baseline_md  <- paste(month, day, sep = "-")
+      lyr_idx      <- which(baseline_md %in% target_md)
 
       if (length(lyr_idx) == 0) {
         return(list(reference_stat = NA_real_, result = NA_real_))
@@ -271,17 +271,28 @@
         )[1, 1]
       })
 
+      # Use pre-extracted focal values for count operations
+      focal_val <- if (
+        stat_wrangling %in% c("count_above", "count_below") &&
+        !is.null(focal_values)
+      ) {
+        focal_values[[i]]
+      } else {
+        vector_sliced$.linked
+      }
+
       return(
         compute_stat_wrangling(
           baseline_values = baseline_values,
-          focal_value     = vector_sliced$.linked,
+          focal_value     = focal_val,
           stat_wrangling  = stat_wrangling,
           baseline_fun    = baseline_fun
         )
       )
+
     } else {
       lyr_idx <- which(dates == vector_sliced$link_date)
-      raster <- raster[[lyr_idx]]
+      raster  <- raster[[lyr_idx]]
     }
 
     terra::extract(

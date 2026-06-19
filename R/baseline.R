@@ -35,7 +35,7 @@ compute_stat_wrangling <- function(
     baseline_values,
     focal_value,
     stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
-    baseline_fun = function(x) mean(x, na.rm = TRUE)
+    baseline_fun   = function(x) mean(x, na.rm = TRUE)
 ) {
   stat_wrangling <- match.arg(stat_wrangling)
   reference_stat <- baseline_fun(baseline_values)
@@ -56,9 +56,9 @@ add_baseline <- function(.data, baseline, baseline_fun) {
 
   request_args <- list(
     indicator = lnk %>>% "indicator",
-    days = lnk %>>% "days",
-    months = lnk %>>% "months",
-    extent = lnk %>>% "extent",
+    days      = lnk %>>% "days",
+    months    = lnk %>>% "months",
+    extent    = lnk %>>% "extent",
     catalogue = lnk %>>% "catalogue",
     statistic = lnk %>>% "statistic",
     time_zone = lnk %>>% "time_zone"
@@ -66,76 +66,82 @@ add_baseline <- function(.data, baseline, baseline_fun) {
 
   .add_baseline(
     .data,
-    baseline = baseline,
+    baseline     = baseline,
     baseline_fun = baseline_fun,
     request_args = request_args,
-    requester = lnk %>>% "requester",
-    cache = lnk %>>% "cache",
-    path = lnk %>>% "path",
-    parallel = lnk %>>% "parallel",
-    chunk_size = lnk %>>% "chunk_size",
-    verbose = lnk %>>% "verbose"
+    requester    = lnk %>>% "requester",
+    cache        = lnk %>>% "cache",
+    path         = lnk %>>% "path",
+    parallel     = lnk %>>% "parallel",
+    chunk_size   = lnk %>>% "chunk_size",
+    verbose      = lnk %>>% "verbose"
   )
 }
-
 
 .add_baseline <- function(.data,
                           baseline,
                           baseline_fun,
                           baseline_fun_name,
                           indicator,
-                          requester,
-                          request_args,
                           ...,
-                          focal_values = NULL,
-                          stat_wrangling = "deviation",
-                          prefix = NULL,
-                          cache = TRUE,
-                          path = NULL,
-                          parallel = FALSE,
-                          chunk_size = 50,
-                          verbose = TRUE) {
-  min_year <- baseline[1]
-  max_year <- baseline[2]
-  dates <- make_dates(seq(min_year, max_year), months = 1, days = 1)
-  years <- format(dates, "%Y")
+                          focal_values    = NULL,
+                          stat_wrangling  = "deviation",
+                          prefix          = NULL,
+                          obs_raster      = NULL,
+                          baseline_raster = NULL,
+                          cache           = TRUE,
+                          path            = NULL,
+                          parallel        = FALSE,
+                          chunk_size      = 50,
+                          verbose         = TRUE) {
 
-  # Derive baseline span from focal span, replicated across baseline years
-  focal_span <- sort(unique(as_date(unlist(.data$time_span_seq))))
-  baseline_span <- sort(unique(as_date(unlist(lapply(years, function(y) {
-    as.Date(paste(y, format(focal_span, "%m-%d"), sep = "-"))
-  })))))
+  # If baseline_raster is not provided, fall back to request-based approach
+  # (used by add_baseline public function)
+  if (is.null(baseline_raster)) {
+    min_year <- baseline[1]
+    max_year <- baseline[2]
+    dates    <- make_dates(seq(min_year, max_year), months = 1, days = 1)
+    years    <- format(dates, "%Y")
 
-  request_args$years  <- format(baseline_span, "%Y")
-  request_args$months <- format(baseline_span, "%m")
-  request_args$days   <- format(baseline_span, "%d")
+    focal_span    <- sort(unique(as_date(unlist(.data$time_span_seq))))
+    baseline_span <- sort(unique(as_date(unlist(lapply(years, function(y) {
+      as.Date(paste(y, format(focal_span, "%m-%d"), sep = "-"))
+    })))))
 
-  request_args <- c(
-    request_args,
-    cache   = cache,
-    path    = path,
-    prefix  = "baseline",
-    verbose = verbose
-  )
-  path <- do.call(requester, request_args)
-  raster <- terra::rast(path)
-  raster <- .align_crs_raster(.data, raster)
-
-  if (!inherits(terra::time(raster), "POSIXt")) {
-    raster <- raster_timestamp(
-      raster,
-      days   = format(baseline_span, "%d"),
-      months = format(baseline_span, "%m"),
-      years  = format(baseline_span, "%Y"),
-      span   = baseline_span
+    request_args <- list(
+      indicator = indicator,
+      catalogue = list(...)$catalogue,
+      extent    = list(...)$extent %||% .get_extent(.data),
+      years     = format(baseline_span, "%Y"),
+      months    = format(baseline_span, "%m"),
+      days      = format(baseline_span, "%d"),
+      statistic = list(...)$statistic,
+      time_zone = list(...)$time_zone,
+      cache     = cache,
+      path      = path,
+      prefix    = "baseline",
+      verbose   = verbose
     )
+
+    baseline_path   <- do.call(.request_era5_daily, request_args)
+    baseline_raster <- terra::rast(baseline_path)
+    baseline_raster <- .align_crs_raster(.data, baseline_raster)
+
+    if (!inherits(terra::time(baseline_raster), "POSIXt")) {
+      baseline_raster <- raster_timestamp(
+        baseline_raster,
+        days   = format(baseline_span, "%d"),
+        months = format(baseline_span, "%m"),
+        years  = format(baseline_span, "%Y"),
+        span   = baseline_span
+      )
+    }
   }
 
   if (is_sf(.data)) {
     baseline_result <- .toi_extract_baseline(
       .data,
-      raster,
-      path,
+      baseline_raster,
       ...,
       parallel       = parallel,
       chunk_size     = chunk_size,
@@ -151,17 +157,17 @@ add_baseline <- function(.data, baseline, baseline_fun) {
 
   } else {
     baseline_result <- .toi_extract_grid_baseline(
-      .data, raster, path, ...,
+      .data, baseline_raster, ...,
       parallel   = parallel,
       chunk_size = chunk_size
     )
     names(baseline_result) <- .col("baseline", prefix)
     .data <- c(.data, baseline_result)
-    deviation <- .data[[".linked"]] - .data[[.col("baseline", prefix)]]
+    deviation        <- .data[[".linked"]] - .data[[.col("baseline", prefix)]]
     names(deviation) <- .col("result", prefix)
-    .data <- c(.data, deviation)
+    .data            <- c(.data, deviation)
   }
 
-  if (!cache) unlink(path)
+  if (!cache && !is.null(baseline_path)) unlink(baseline_path)
   .data
 }
