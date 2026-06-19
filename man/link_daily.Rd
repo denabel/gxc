@@ -29,6 +29,12 @@ link_daily(
   time_lag = 0,
   buffer = 0,
   baseline = FALSE,
+  baseline_fun = c("mean", "median", "min", "max", "sd", "p05", "p10", "p20", "p80",
+    "p90", "p95"),
+  study_fun = c("mean", "median", "min", "max", "sd", "p05", "p10", "p20", "p80", "p90",
+    "p95"),
+  stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
+  prefix = NULL,
   catalogue = "derived-era5-land-daily-statistics",
   statistic = "daily_mean",
   time_zone = "utc+00:00",
@@ -46,6 +52,12 @@ link_daily(
   time_span = 0,
   time_lag = 0,
   baseline = FALSE,
+  baseline_fun = c("mean", "median", "min", "max", "sd", "p05", "p10", "p20", "p80",
+    "p90", "p95"),
+  study_fun = c("mean", "median", "min", "max", "sd", "p05", "p10", "p20", "p80", "p90",
+    "p95"),
+  stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
+  prefix = NULL,
   method = "bilinear",
   catalogue = "derived-era5-land-daily-statistics",
   statistic = "daily_mean",
@@ -184,7 +196,20 @@ attribute.
 
 The following indicators are currently supported:
 
-\verb{r rd_indicators("link_daily")}
+\tabular{ll}{
+\strong{Land} \tab \strong{Single Levels}\cr
+\code{2m_temperature}                  \tab \code{2m_temperature}                      \cr
+\code{snow_cover}                      \tab \code{total_precipitation}                 \cr
+\code{10m_u_component_of_wind}         \tab \code{10m_u_component_of_wind}             \cr
+\code{10m_v_component_of_wind}         \tab \code{10m_v_component_of_wind}             \cr
+\code{leaf_area_index_high_vegetation} \tab \code{instantaneous_10m_wind_gust}         \cr
+\code{leaf_area_index_low_vegetation}  \tab \code{downward_uv_radiation_at_the_surface}\cr
+\tab \code{total_cloud_cover}                   \cr
+\tab \code{k_index}                             \cr
+\tab \code{leaf_area_index_high_vegetation}     \cr
+\tab \code{leaf_area_index_low_vegetation}      \cr
+\tab \code{snowfall}
+}
 }
 \note{
 Users must have a CDS account and have their API key configured for

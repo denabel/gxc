@@ -27,8 +27,15 @@ link_monthly(
   date_var = "date",
   time_span = 0,
   time_lag = 0,
+  months = NULL,
   buffer = 0,
   baseline = FALSE,
+  baseline_fun = c("mean", "median", "min", "max", "sd", "p05", "p10", "p20", "p80",
+    "p90", "p95"),
+  study_fun = c("mean", "median", "min", "max", "sd", "p05", "p10", "p20", "p80", "p90",
+    "p95"),
+  stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
+  prefix = NULL,
   catalogue = "reanalysis-era5-land-monthly-means",
   by_hour = FALSE,
   cache = TRUE,
@@ -44,7 +51,14 @@ link_monthly(
   ...,
   time_span = 0,
   time_lag = 0,
+  months = NULL,
   baseline = FALSE,
+  baseline_fun = c("mean", "median", "min", "max", "sd", "p05", "p10", "p20", "p80",
+    "p90", "p95"),
+  study_fun = c("mean", "median", "min", "max", "sd", "p05", "p10", "p20", "p80", "p90",
+    "p95"),
+  stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
+  prefix = NULL,
   method = "bilinear",
   catalogue = "reanalysis-era5-land-monthly-means",
   by_hour = FALSE,
@@ -106,6 +120,11 @@ is \code{0}).}
 
 \item{time_lag}{Integer specifying the time lag in days to shift the
 \code{date_var} backward (default is \code{0}).}
+
+\item{months}{Optional integer vector specifying explicit months to use as
+the study period (e.g. \code{c(3, 4, 5)} for spring). If the input date falls
+within one of the specified months, the window is shifted one year back.
+Cannot be combined with \code{time_span}.}
 
 \item{buffer}{Numeric value specifying the buffer radius (in kilometers) to
 be applied around each geometry. The default is \code{0}, corresponding to a
@@ -186,7 +205,20 @@ computed.
 
 The following indicators are currently supported:
 
-\verb{r rd_indicators("link_monthly")}
+\tabular{ll}{
+\strong{Land} \tab \strong{Single Levels}\cr
+\code{2m_temperature}                  \tab \code{2m_temperature}                      \cr
+\code{total_precipitation}             \tab \code{total_precipitation}                 \cr
+\code{10m_u_component_of_wind}         \tab \code{10m_u_component_of_wind}             \cr
+\code{10m_v_component_of_wind}         \tab \code{10m_v_component_of_wind}             \cr
+\code{leaf_area_index_high_vegetation} \tab \code{instantaneous_10m_wind_gust}         \cr
+\code{leaf_area_index_low_vegetation}  \tab \code{downward_uv_radiation_at_the_surface}\cr
+\code{snow_cover}                      \tab \code{total_cloud_cover}                   \cr
+\code{snowfall}                        \tab \code{k_index}                             \cr
+\tab \code{leaf_area_index_high_vegetation}     \cr
+\tab \code{leaf_area_index_low_vegetation}      \cr
+\tab \code{snowfall}
+}
 }
 \note{
 Users must have a CDS account and have their API key configured for
@@ -224,6 +256,14 @@ result2 <- link_monthly(
   pts_sf,
   indicator = "2m_temperature",
   buffer = 5,
+  baseline = c("1980", "2010")
+)
+
+# Example 3: Explicit spring months with baseline deviation
+result3 <- link_monthly(
+  pts_sf,
+  indicator = "2m_temperature",
+  months = c(3, 4, 5),
   baseline = c("1980", "2010")
 )
 

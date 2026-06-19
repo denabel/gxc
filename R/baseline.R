@@ -31,7 +31,8 @@
   if (is.null(prefix)) paste0(".", name) else paste0(".", name, "_", prefix)
 }
 
-# Scalar method for sf
+#' Scalar method for sf
+#' @export
 compute_stat_wrangling <- function(
     baseline_values,
     focal_value,
@@ -41,6 +42,7 @@ compute_stat_wrangling <- function(
   UseMethod("compute_stat_wrangling")
 }
 
+#' @exportS3Method
 compute_stat_wrangling.numeric <- function(
     baseline_values,
     focal_value,
@@ -60,7 +62,8 @@ compute_stat_wrangling.numeric <- function(
   list(reference_stat = reference_stat, result = result)
 }
 
-# Raster method for SpatRaster
+#' Raster method for SpatRaster
+#' @exportS3Method
 compute_stat_wrangling.SpatRaster <- function(
     baseline_values,
     focal_value,
