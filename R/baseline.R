@@ -31,7 +31,17 @@
   if (is.null(prefix)) paste0(".", name) else paste0(".", name, "_", prefix)
 }
 
+# Scalar method for sf
 compute_stat_wrangling <- function(
+    baseline_values,
+    focal_value,
+    stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
+    baseline_fun   = function(x) mean(x, na.rm = TRUE)
+) {
+  UseMethod("compute_stat_wrangling")
+}
+
+compute_stat_wrangling.numeric <- function(
     baseline_values,
     focal_value,
     stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
@@ -45,6 +55,26 @@ compute_stat_wrangling <- function(
                    sd_deviation = (focal_value - reference_stat) / sd(baseline_values, na.rm = TRUE),
                    count_above  = sum(focal_value > reference_stat, na.rm = TRUE),
                    count_below  = sum(focal_value < reference_stat, na.rm = TRUE)
+  )
+
+  list(reference_stat = reference_stat, result = result)
+}
+
+# Raster method for SpatRaster
+compute_stat_wrangling.SpatRaster <- function(
+    baseline_values,
+    focal_value,
+    stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
+    baseline_fun   = function(x) mean(x, na.rm = TRUE)
+) {
+  stat_wrangling <- match.arg(stat_wrangling)
+  reference_stat <- terra::app(baseline_values, baseline_fun)
+
+  result <- switch(stat_wrangling,
+                   deviation    = focal_value - reference_stat,
+                   sd_deviation = (focal_value - reference_stat) / terra::stdev(baseline_values, na.rm = TRUE),
+                   count_above  = sum(terra::ifel(baseline_values > focal_value, 1, 0), na.rm = TRUE),
+                   count_below  = sum(terra::ifel(baseline_values < focal_value, 1, 0), na.rm = TRUE)
   )
 
   list(reference_stat = reference_stat, result = result)
@@ -156,18 +186,26 @@ add_baseline <- function(.data, baseline, baseline_fun) {
       sapply(baseline_result, `[[`, "result")
 
   } else {
-    baseline_result <- .toi_extract_grid_baseline(
-      .data, baseline_raster, ...,
-      parallel   = parallel,
-      chunk_size = chunk_size
+    # Grid path: use compute_stat_wrangling.SpatRaster
+    focal_layer <- .data[[.col("study", prefix)]]
+
+    baseline_result <- compute_stat_wrangling(
+      baseline_values = baseline_raster,
+      focal_value     = focal_layer,
+      stat_wrangling  = stat_wrangling,
+      baseline_fun    = baseline_fun
     )
-    names(baseline_result) <- .col("baseline", prefix)
-    .data <- c(.data, baseline_result)
-    deviation        <- .data[[".linked"]] - .data[[.col("baseline", prefix)]]
-    names(deviation) <- .col("result", prefix)
-    .data            <- c(.data, deviation)
+
+    baseline_layer        <- baseline_result$reference_stat
+    result_layer          <- baseline_result$result
+    names(baseline_layer) <- .col("baseline", prefix)
+    names(result_layer)   <- .col("result",   prefix)
+
+    # Replace placeholder layers
+    .data[[.col("baseline", prefix)]] <- baseline_layer
+    .data[[.col("result",   prefix)]] <- result_layer
   }
 
-  if (!cache && !is.null(baseline_path)) unlink(baseline_path)
+  if (!cache && exists("baseline_path")) unlink(baseline_path)
   .data
 }

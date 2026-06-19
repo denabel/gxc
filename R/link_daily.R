@@ -457,18 +457,25 @@ link_daily.sf <-
 link_daily.SpatRaster <- function(.data,
                                   indicator,
                                   ...,
-                                  time_span = 0,
-                                  time_lag = 0,
-                                  baseline = FALSE,
-                                  method = "bilinear",
-                                  catalogue = "derived-era5-land-daily-statistics",
-                                  statistic = "daily_mean",
-                                  time_zone = "utc+00:00",
-                                  cache = TRUE,
-                                  path = NULL,
-                                  parallel = FALSE,
-                                  chunk_size = 5000,
-                                  verbose = TRUE) {
+                                  time_span      = 0,
+                                  time_lag       = 0,
+                                  baseline       = FALSE,
+                                  baseline_fun   = c("mean", "median", "min", "max", "sd",
+                                                     "p05", "p10", "p20", "p80", "p90", "p95"),
+                                  study_fun      = c("mean", "median", "min", "max", "sd",
+                                                     "p05", "p10", "p20", "p80", "p90", "p95"),
+                                  stat_wrangling = c("deviation", "sd_deviation",
+                                                     "count_above", "count_below"),
+                                  prefix         = NULL,
+                                  method         = "bilinear",
+                                  catalogue      = "derived-era5-land-daily-statistics",
+                                  statistic      = "daily_mean",
+                                  time_zone      = "utc+00:00",
+                                  cache          = TRUE,
+                                  path           = NULL,
+                                  parallel       = FALSE,
+                                  chunk_size     = 5000,
+                                  verbose        = TRUE) {
   .check_valid_catalogue(catalogue, temp_res = "daily")
   .check_valid_indicator(indicator, catalogue)
   .check_valid_statistic(statistic)
@@ -479,91 +486,215 @@ link_daily.SpatRaster <- function(.data,
   .check_api_key("ecmwfr")
   path <- path %||% .default_download_dir(cache, service = "ecmwfr")
 
+  stat_wrangling <- match.arg(stat_wrangling)
+
+  if (stat_wrangling %in% c("count_above", "count_below") && time_span == 0) {
+    cli::cli_abort(c(
+      "{.val {stat_wrangling}} requires {.arg time_span} > 0.",
+      "i" = "With {.arg time_span = 0} there is only one focal day to compare against the baseline."
+    ))
+  }
+
+  baseline_resolved <- .resolve_baseline_fun(baseline_fun, arg = "baseline_fun")
+  baseline_fun_name <- baseline_resolved$name
+  baseline_fun      <- baseline_resolved$fun
+
+  study_resolved <- .resolve_baseline_fun(study_fun, arg = "study_fun")
+  study_fun_name <- study_resolved$name
+  study_fun      <- study_resolved$fun
+
+  # Store original CRS and project to WGS84 — analog to link_daily.sf
+  crs_data <- terra::crs(.data)
+  prepared <- terra::project(.data, "EPSG:4326")
+
   temporals <- .transform_time(
-    .data,
+    prepared,
     time_span = time_span,
-    time_lag = time_lag
+    time_lag  = time_lag
   )
-  extent <- .get_extent(.data)
 
-  span <- unlist(temporals$time_span_seq)
-  years <- num_keys(year(span))
-  months <- num_keys(month(span))
-  days <- num_keys(day(span))
+  global_extent <- .get_extent(prepared)
 
-  # Download data from API
-  obs_path <- .request_era5_daily(
-    indicator,
+  if (verbose) {
+    cli::cli_rule(left = "Link with ERA5 daily indicators")
+    cli::cli_dl(c(
+      "Indicator"         = "{.val {indicator}}",
+      "Time span"         = "{.val {time_span}}",
+      "Time lag"          = "{.val {time_lag}}",
+      "Baseline"          =
+        "{.val {if (isFALSE(baseline)) 'none' else paste0(baseline[1], '-', baseline[2])}}",
+      "Baseline function" = "{.val {baseline_fun_name}}",
+      "Study function"    = "{.val {study_fun_name}}",
+      "Stat wrangling"    = "{.val {stat_wrangling}}",
+      "Prefix"            = "{.val {prefix %||% '(none)'}}",
+      "Caching enabled"   = "{.val {cache}}",
+      "Storage path"      = "{.path {path}}"
+    ))
+    cli::cli_text("")
+  }
+
+  # -------------------------------------------------------------------------
+  # Phase 1: Submit all requests upfront as a single batch
+  # -------------------------------------------------------------------------
+
+  all_obs_span <- sort(unique(as_date(unlist(temporals$time_span_seq))))
+
+  if (verbose) {
+    cli::cli_progress_message(
+      "Submitting observation requests ({length(all_obs_span)} day{?s})..."
+    )
+  }
+
+  obs_request <- .build_era5_daily_request(
+    indicator = indicator,
     catalogue = catalogue,
-    extent = extent,
-    years = years,
-    months = months,
-    days = days,
-    cache = cache,
-    path = path,
-    prefix = "observation",
+    extent    = global_extent,
+    years     = format(all_obs_span, "%Y"),
+    months    = format(all_obs_span, "%m"),
+    days      = format(all_obs_span, "%d"),
+    prefix    = "observation",
     statistic = statistic,
-    time_zone = time_zone,
-    verbose = verbose
+    time_zone = time_zone
+  )
+  obs_path <- .submit_era5_batch(
+    obs_request, path = path, cache = cache, verbose = verbose
   )
 
-  raster <- terra::rast(obs_path)
+  # Load global observation raster and reproject to original CRS
+  obs_raster <- terra::rast(obs_path)
+  obs_raster <- raster_timestamp(
+    obs_raster,
+    days   = format(all_obs_span, "%d"),
+    months = format(all_obs_span, "%m"),
+    years  = format(all_obs_span, "%Y"),
+    span   = all_obs_span
+  )
+  obs_raster <- .align_crs_raster(.data, obs_raster)
 
-  # Add timestamp to raster file
-  raster <- raster_timestamp(raster, days, months, years)
-  raster <- .align_crs_raster(.data, raster)
+  baseline_raster <- NULL
+  if (!isFALSE(baseline)) {
+    baseline_years <- format(
+      make_dates(seq(baseline[1], baseline[2]), months = 1, days = 1),
+      "%Y"
+    )
+    all_baseline_span <- sort(unique(as_date(unlist(lapply(baseline_years, function(y) {
+      as.Date(paste(y, format(all_obs_span, "%m-%d"), sep = "-"))
+    })))))
+
+    if (verbose) {
+      cli::cli_progress_message(
+        "Submitting baseline requests ({length(all_baseline_span)} day{?s})..."
+      )
+    }
+
+    baseline_request <- .build_era5_daily_request(
+      indicator = indicator,
+      catalogue = catalogue,
+      extent    = global_extent,
+      years     = format(all_baseline_span, "%Y"),
+      months    = format(all_baseline_span, "%m"),
+      days      = format(all_baseline_span, "%d"),
+      prefix    = "baseline",
+      statistic = statistic,
+      time_zone = time_zone
+    )
+    baseline_path <- .submit_era5_batch(
+      baseline_request, path = path, cache = cache, verbose = verbose
+    )
+
+    baseline_raster <- terra::rast(baseline_path)
+    baseline_raster <- raster_timestamp(
+      baseline_raster,
+      days   = format(all_baseline_span, "%d"),
+      months = format(all_baseline_span, "%m"),
+      years  = format(all_baseline_span, "%Y"),
+      span   = all_baseline_span
+    )
+    baseline_raster <- .align_crs_raster(.data, baseline_raster)
+  }
+
+  # -------------------------------------------------------------------------
+  # Phase 2: Extract
+  # -------------------------------------------------------------------------
 
   info(
     "Extracting values from raster",
-    msg_done = "Extracted values from raster.",
+    msg_done   = "Extracted values from raster.",
     msg_failed = "Failed to extract values from raster.",
-    level = "step"
+    level      = "step"
   )
 
-  # Extract toi values
   extracted <- .toi_extract_grid(
     .data,
-    raster,
+    obs_raster,
     temporals,
-    agg = time_span > 0,
-    parallel = parallel,
-    chunk_size = chunk_size,
-    method = method
+    agg            = time_span > 0,
+    stat_wrangling = stat_wrangling,
+    parallel       = parallel,
+    chunk_size     = chunk_size,
+    method         = method
   )
 
-  names(extracted) <- ".linked"
-  .data <- c(.data, extracted, warn = FALSE)
+  # Collapse to single layer for study column if count mode returned stack
+  study_layer <- if (terra::nlyr(extracted) > 1) {
+    terra::app(extracted, study_fun)
+  } else {
+    extracted
+  }
+  names(study_layer) <- .col("study", prefix)
+  .data <- c(.data, study_layer, warn = FALSE)
+
+  # Placeholder layers so column order is consistent before .add_baseline
+  placeholder              <- study_layer
+  terra::values(placeholder) <- NA_real_
+  baseline_ph              <- placeholder
+  result_ph                <- placeholder
+  names(baseline_ph)       <- .col("baseline", prefix)
+  names(result_ph)         <- .col("result",   prefix)
+  .data <- c(.data, baseline_ph, warn = FALSE)
+  .data <- c(.data, result_ph,   warn = FALSE)
+
+  # Keep .linked for internal baseline comparison
+  .data[[".linked"]] <- study_layer
 
   if (!isFALSE(baseline)) {
     .data <- .add_baseline(
       .data,
-      baseline = baseline,
-      temporals = temporals,
-      requester = .request_era5_daily,
-      request_args = list(
-        indicator = indicator,
-        days = days,
-        months = months,
-        extent = extent,
-        catalogue = catalogue,
-        statistic = statistic,
-        time_zone = time_zone
-      ),
-      cache = cache,
-      path = path,
-      parallel = parallel,
-      chunk_size = chunk_size,
-      verbose = verbose
+      baseline          = baseline,
+      baseline_fun      = baseline_fun,
+      baseline_fun_name = baseline_fun_name,
+      indicator         = indicator,
+      stat_wrangling    = stat_wrangling,
+      prefix            = prefix,
+      obs_raster        = obs_raster,
+      baseline_raster   = baseline_raster,
+      cache             = cache,
+      path              = path,
+      parallel          = parallel,
+      chunk_size        = chunk_size,
+      verbose           = verbose
     )
   }
 
-  if (!cache) {
-    unlink(obs_path)
-  }
+  # Remove internal .linked layer
+  .data[[".linked"]] <- NULL
+
+  # Store metadata via metags
+  terra::metags(.data) <- c(
+    indicator      = indicator,
+    unit           = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
+    study_fun      = study_fun_name,
+    baseline_fun   = if (isFALSE(baseline)) NA_character_ else baseline_fun_name,
+    baseline_years = if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2]),
+    time_span      = as.character(time_span),
+    time_lag       = as.character(time_lag),
+    prefix         = prefix %||% ""
+  )
+
+  if (!cache) unlink(obs_path)
 
   .data
 }
-
 
 #' @rdname link_daily
 #' @export

@@ -40,17 +40,19 @@
 .toi_extract_grid_baseline <- function(.data,
                                        raster,
                                        temporals,
-                                       time_span  = 0,
-                                       parallel   = FALSE,
-                                       chunk_size = 50) {
+                                       time_span      = 0,
+                                       stat_wrangling = "deviation",
+                                       parallel       = FALSE,
+                                       chunk_size     = 50) {
   .toi_extract_grid(
     .data,
     raster,
     temporals,
-    agg        = time_span > 0,
-    baseline   = TRUE,
-    parallel   = parallel,
-    chunk_size = chunk_size
+    agg            = time_span > 0,
+    baseline       = TRUE,
+    stat_wrangling = stat_wrangling,
+    parallel       = parallel,
+    chunk_size     = chunk_size
   )
 }
 
@@ -136,11 +138,12 @@
 .toi_extract_grid <- function(.data,
                               raster,
                               temporals,
-                              agg        = FALSE,
-                              baseline   = FALSE,
-                              parallel   = FALSE,
-                              chunk_size = 50,
-                              method     = "bilinear") {
+                              agg            = FALSE,
+                              baseline       = FALSE,
+                              stat_wrangling = "deviation",
+                              parallel       = FALSE,
+                              chunk_size     = 50,
+                              method         = "bilinear") {
   dates <- as_date(terra::time(raster))
 
   if (parallel) {
@@ -170,18 +173,23 @@
 
   if (agg && !baseline) {
     lyr_idx   <- which(dates %in% unlist(seq_dates))
-    toi_layer <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+    if (stat_wrangling %in% c("count_above", "count_below")) {
+      # Return uncollapsed stack for count operations
+      toi_layer <- raster[[lyr_idx]]
+    } else {
+      toi_layer <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+    }
   } else if (agg && baseline) {
-    seq_md      <- paste(month(seq_dates), day(seq_dates), sep = "-")
+    seq_md      <- paste(month(unlist(seq_dates)), day(unlist(seq_dates)), sep = "-")
     baseline_md <- paste(month(dates), day(dates), sep = "-")
     lyr_idx     <- which(baseline_md %in% seq_md)
-    toi_layer   <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+    toi_layer   <- raster[[lyr_idx]]
   } else if (!agg && baseline) {
     target_dates <- unlist(temporals$time_span_seq)
     target_md    <- paste(month(target_dates), day(target_dates), sep = "-")
     baseline_md  <- paste(month(dates), day(dates), sep = "-")
     lyr_idx      <- which(baseline_md %in% target_md)
-    toi_layer    <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+    toi_layer    <- raster[[lyr_idx]]
   } else {
     lyr_idx   <- which(dates == target_date)[[1]]
     toi_layer <- raster[[lyr_idx]]
