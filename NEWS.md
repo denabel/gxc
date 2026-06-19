@@ -121,15 +121,22 @@ character data.
 
 #### Batched API requests
 
-Observation and baseline requests are now submitted as a single batch before
-extraction begins, rather than one request per date group. This means the API's
-parallel download capacity (`workers = 6`) is used across all dates
-simultaneously, significantly reducing total download time for datasets with
-many unique dates.
+Previously, all requested days or months were submitted as a single API request
+containing the full date range. This caused two problems: date ranges spanning
+year boundaries were not correctly represented, and large combined requests are
+discouraged by the Copernicus API.
 
-Additionally, a global spatial extent is computed once over the full dataset
-rather than per date group. The downloaded raster is then reused across all
-splits, eliminating redundant downloads.
+Requests are now split into individual API calls — one per day for
+`link_daily()` and one per month for `link_monthly()` — which is the approach
+recommended by the Copernicus CDS. These individual requests are submitted as a
+single batch before extraction begins, so the API's parallel download capacity
+(`workers = 6`) is used across all dates simultaneously.
+
+Additionally, all observation and baseline requests are now submitted upfront
+before the extraction loop starts, rather than one request per date group. A
+global spatial extent is computed once over the full dataset and reused across
+all splits, eliminating redundant downloads and significantly reducing total
+download time for datasets with many unique dates.
 
 ---
 
