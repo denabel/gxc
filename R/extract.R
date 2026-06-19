@@ -75,8 +75,11 @@
   }
 
   if (length(unique(.data$link_date)) == 1 && time_span == 0) {
+    # All observations share the same link date — select correct layer first
+    dates   <- as_date(terra::time(raster))
+    lyr_idx <- which(dates == unique(.data$link_date))[[1]]
     terra::extract(
-      raster,
+      raster[[lyr_idx]],
       .data,
       fun   = mean,
       na.rm = TRUE,
