@@ -273,7 +273,7 @@ link_daily.sf <-
       )
       sort(unique(as_date(unlist(p$time_span_seq))))
     })
-    all_obs_span <- sort(unique(as_date(unlist(all_spans))))
+    all_obs_span <- sort(unique(do.call(c, all_spans)))
 
     if (verbose) {
       cli::cli_progress_message(
@@ -313,9 +313,9 @@ link_daily.sf <-
         make_dates(seq(baseline[1], baseline[2]), months = 1, days = 1),
         "%Y"
       )
-      all_baseline_span <- sort(unique(as_date(unlist(lapply(baseline_years, function(y) {
+      all_baseline_span <- sort(unique(do.call(c, lapply(baseline_years, function(y) {
         as.Date(paste(y, format(all_obs_span, "%m-%d"), sep = "-"))
-      })))))
+      }))))
 
       if (verbose) {
         cli::cli_progress_message(
@@ -537,7 +537,7 @@ link_daily.SpatRaster <- function(.data,
   # Phase 1: Submit all requests upfront as a single batch
   # -------------------------------------------------------------------------
 
-  all_obs_span <- sort(unique(as_date(unlist(temporals$time_span_seq))))
+  all_obs_span <- sort(unique(do.call(c, all_spans)))
 
   if (verbose) {
     cli::cli_progress_message(
@@ -577,9 +577,9 @@ link_daily.SpatRaster <- function(.data,
       make_dates(seq(baseline[1], baseline[2]), months = 1, days = 1),
       "%Y"
     )
-    all_baseline_span <- sort(unique(as_date(unlist(lapply(baseline_years, function(y) {
+    all_baseline_span <- sort(unique(do.call(c, lapply(baseline_years, function(y) {
       as.Date(paste(y, format(all_obs_span, "%m-%d"), sep = "-"))
-    })))))
+    }))))
 
     if (verbose) {
       cli::cli_progress_message(

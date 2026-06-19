@@ -10,43 +10,70 @@
   }
 
   if (is_sf(.data)) {
-    box <- sf::st_bbox(.data)
+    box  <- sf::st_bbox(.data)
     ymax <- .snap_to_grid(box$ymax, grid_resolution, "ceiling")
     xmin <- .snap_to_grid(box$xmin, grid_resolution, "floor")
     ymin <- .snap_to_grid(box$ymin, grid_resolution, "floor")
     xmax <- .snap_to_grid(box$xmax, grid_resolution, "ceiling")
-
   } else if (is_terra(.data)) {
-    box <- terra::ext(.data)
+    box  <- terra::ext(.data)
     ymax <- .snap_to_grid(box[4], grid_resolution, "ceiling")
     xmin <- .snap_to_grid(box[1], grid_resolution, "floor")
     ymin <- .snap_to_grid(box[3], grid_resolution, "floor")
     xmax <- .snap_to_grid(box[2], grid_resolution, "ceiling")
   }
 
-  # point case: bbox has no extent → one grid step in each direction
+  # Point case: bbox has no extent → one grid step in each direction
   if (xmin >= xmax) { xmin <- xmin - grid_resolution; xmax <- xmax + grid_resolution }
   if (ymin >= ymax) { ymin <- ymin - grid_resolution; ymax <- ymax + grid_resolution }
 
   c(ymax, xmin, ymin, xmax)
 }
 
-# .get_extent <- function(.data) {
-#   if (is_sf(.data)) {
-#     box <- sf::st_bbox(.data)
-#     c(ceiling(box$ymax), floor(box$xmin), floor(box$ymin), ceiling(box$xmax))
-#   } else if (is_terra(.data)) {
-#     box <- terra::ext(.data)
-#     c(ceiling(box[4]), floor(box[1]), floor(box[3]), ceiling(box[2]))
-#   }
-# }
+
+#' Resolve explicit month vector relative to a reference date
+#' @param date A Date object
+#' @param months Integer vector of months (e.g. c(5, 6, 7))
+#' @returns A Date vector (first day of each resolved month)
+#' @noRd
+.resolve_months <- function(date, months) {
+  current_month <- lubridate::month(date)
+  current_year  <- lubridate::year(date)
+
+  # If any requested month overlaps with current month, shift window one year back
+  ref_year <- if (any(months %in% current_month)) {
+    current_year - 1L
+  } else {
+    current_year
+  }
+
+  # Assign years sequentially, detecting year boundary crossings
+  years <- integer(length(months))
+  y     <- ref_year
+  for (i in seq_along(months)) {
+    if (i > 1L && months[i] < months[i - 1L]) y <- y + 1L
+    years[i] <- y
+  }
+
+  as.Date(paste(years, months, "01", sep = "-"))
+}
 
 
+#' Construct time columns for linking
+#' @param .data An sf or SpatRaster object
+#' @param date_var Name of the date column (sf only)
+#' @param time_span Integer time span
+#' @param time_lag Integer time lag
+#' @param months Optional integer vector of months
+#' @param by Sequence interval
+#' @returns Modified .data with time columns added
+#' @noRd
 .transform_time <- function(.data,
-                            date_var = "date",
+                            date_var  = "date",
                             time_span = 0,
-                            time_lag = 0,
-                            by = "1 day") {
+                            time_lag  = 0,
+                            months    = NULL,
+                            by        = "1 day") {
   if (is_sf(.data)) {
     .data$link_date <- .data[[date_var]]
   } else if (is_terra(.data)) {
@@ -55,14 +82,26 @@
 
   .data$link_date <- as_date(.data$link_date)
   .data$link_date <- .data$link_date - days(time_lag)
-  .data$link_date_end <- .data$link_date - days(time_span)
-  .data$time_span_seq <- Map(
-    .data$link_date_end,
-    .data$link_date,
-    f = function(end, start) {
-      format(seq(end, start, by = by), "%Y-%m-%d")
-    }
-  )
+
+  if (!is.null(months)) {
+    # Explicit month window: resolve relative to each link_date
+    .data$time_span_seq <- lapply(.data$link_date, function(d) {
+      resolved <- .resolve_months(d, months)
+      format(resolved, "%Y-%m-%d")
+    })
+    .data$link_date_end <- as_date(
+      sapply(.data$time_span_seq, function(x) x[1])
+    )
+  } else {
+    .data$link_date_end <- .data$link_date - days(time_span)
+    .data$time_span_seq <- Map(
+      .data$link_date_end,
+      .data$link_date,
+      f = function(end, start) {
+        format(seq(end, start, by = by), "%Y-%m-%d")
+      }
+    )
+  }
 
   .data
 }

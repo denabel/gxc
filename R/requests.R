@@ -44,6 +44,26 @@
   })
 }
 
+.split_request_by_month <- function(request) {
+  years  <- request$year
+  months <- request$month
+
+  dates <- sort(as.Date(paste(years, months, "01", sep = "-")))
+
+  lapply(dates, function(d) {
+    r        <- request
+    r$year   <- format(d, "%Y")
+    r$month  <- format(d, "%m")
+    r$target <- paste0(
+      r$variable, "_",
+      r$.prefix, "_",
+      format(d, "%Y%m")
+    )
+    r$.prefix <- NULL  # vor API-Call entfernen
+    r
+  })
+}
+
 # Builds a daily ERA5 request list without submitting it
 .build_era5_daily_request <- function(indicator,
                                       catalogue,
@@ -72,7 +92,33 @@
   )
 }
 
-# Submits a pre-built request, checking cache first
+# Builds a monthly ERA5 request list without submitting it
+.build_era5_monthly_request <- function(indicator,
+                                        catalogue,
+                                        extent,
+                                        years,
+                                        months,
+                                        prefix       = "observation",
+                                        product_type = "monthly_averaged_reanalysis",
+                                        request_time = "00:00") {
+  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
+  file_name <- paste0(indicator, "_", prefix, "_", timestamp)
+
+  list(
+    variable           = indicator,
+    download_format    = "unarchived",
+    product_type       = product_type,
+    time               = request_time,
+    year               = years,
+    month              = months,
+    area               = extent,
+    dataset_short_name = catalogue,
+    target             = file_name,
+    .prefix            = prefix  # intern gespeichert
+  )
+}
+
+# Submits a pre-built daily request as a batch, checking cache first
 .submit_era5_batch <- function(request,
                                path,
                                cache   = TRUE,
@@ -125,7 +171,62 @@
   data_path
 }
 
-# Wrapper: build + submit in one call (used by link_monthly and add_baseline)
+# Submits a pre-built monthly request as a batch, checking cache first
+.submit_era5_monthly_batch <- function(request,
+                                       path,
+                                       cache   = TRUE,
+                                       verbose = TRUE) {
+  request_length <- length(.split_request_by_month(request))
+
+  stash    <- new_stash(path, service = "ecmwfr")
+  restored <- stash$restore(request, request_length)
+
+  if (!is.null(restored)) {
+    file <- basename(restored)
+    info(
+      "Restoring file {.val {file}} from cache...",
+      msg_done   = "Restored file {.val {file}} from cache.",
+      msg_failed = "Failed to restore file {.val {file}} from cache.",
+      level      = "step"
+    )
+    return(restored)
+  }
+
+  prefix <- strsplit(request$target, "_")[[1]][2]
+
+  info(
+    "Preparing {prefix} data from ECMWF...",
+    msg_done   = "Successfully prepared {prefix} data from ECMWF.",
+    msg_failed = "Failed to prepare {prefix} data from ECMWF.",
+    level      = "step"
+  )
+
+  fail_if_test()
+  capture.output(
+    capture.output(
+      data_path <-
+        ecmwfr::wf_request_batch(
+          .split_request_by_month(request),
+          path    = path,
+          workers = 6,
+          retry   = 5
+        ),
+      type = "message"
+    ),
+    type = "output"
+  )
+
+  data_path <- as.character(data_path)
+
+  if (cache) {
+    info("Storing file {.val {basename(data_path)}} in cache.")
+    stash$store(data_path, request)
+  }
+
+  data_path
+}
+
+# Wrapper: build + submit in one call (used by add_baseline)
 .ecmwf_request <- function(indicator,
                            ...,
                            cache   = FALSE,
@@ -143,26 +244,25 @@
                                   extent,
                                   years,
                                   months,
-                                  days,
+                                  days         = NULL,
                                   cache        = FALSE,
                                   path         = NULL,
                                   prefix       = "observation",
                                   product_type = "monthly_averaged_reanalysis",
                                   request_time = "00:00",
                                   verbose      = NULL) {
-  .ecmwf_request(
-    indicator          = indicator,
-    download_format    = "unarchived",
-    product_type       = product_type,
-    time               = request_time,
-    year               = years,
-    month              = months,
-    area               = extent,
-    dataset_short_name = catalogue,
-    cache              = cache,
-    path               = path,
-    prefix             = prefix,
-    verbose            = verbose
+  request <- .build_era5_monthly_request(
+    indicator    = indicator,
+    catalogue    = catalogue,
+    extent       = extent,
+    years        = years,
+    months       = months,
+    prefix       = prefix,
+    product_type = product_type,
+    request_time = request_time
+  )
+  .submit_era5_monthly_batch(
+    request, path = path, cache = cache, verbose = verbose
   )
 }
 
