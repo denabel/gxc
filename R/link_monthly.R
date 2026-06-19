@@ -500,8 +500,10 @@ link_monthly.SpatRaster <- function(.data,
   # Phase 1: Submit all requests upfront as a single batch
   # -------------------------------------------------------------------------
 
-  all_obs_span <-
-    sort(unique(as.Date(format(do.call(c, all_spans), "%Y-%m-01"))))
+  all_obs_span <- sort(unique(as.Date(format(
+    do.call(c, lapply(temporals$time_span_seq, as_date)),
+    "%Y-%m-01"
+  ))))
 
   if (verbose) {
     cli::cli_progress_message(
