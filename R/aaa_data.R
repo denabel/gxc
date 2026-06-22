@@ -68,7 +68,8 @@ allowed_indicators_by_catalogue <- list(
     "air_temperature_mean",
     "air_temperature_max",
     "air_temperature_min",
-    "precipitation"
+    "precipitation",
+    "drought_index"
   )
 )
 
@@ -120,6 +121,11 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
       "https://opendata.dwd.de/climate_environment/CDC/",
       "grids_germany/monthly/precipitation/",
       "{month_folder}/grids_germany_monthly_precipitation_{yearmonth}.asc.gz"
+    ),
+    drought_index = paste0(
+      "https://opendata.dwd.de/climate_environment/CDC/",
+      "grids_germany/monthly/drought_index/",
+      "{month_folder}/grids_germany_monthly_drought_index_{yearmonth}.asc.gz"
     )
   )
 )
