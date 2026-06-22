@@ -77,6 +77,29 @@ allowed_hours     <- sprintf("%02d:00", 0:23)
 allowed_statistic <- c("daily_mean", "daily_maximum", "daily_minimum")
 allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
+# Physical units per indicator
+.indicator_units <- list(
+  # ERA5
+  `2m_temperature`                       = "K",
+  `total_precipitation`                  = "m",
+  `10m_u_component_of_wind`              = "m/s",
+  `10m_v_component_of_wind`              = "m/s",
+  `instantaneous_10m_wind_gust`          = "m/s",
+  `downward_uv_radiation_at_the_surface` = "J/m2",
+  `total_cloud_cover`                    = "0-1",
+  `k_index`                              = "K",
+  `leaf_area_index_high_vegetation`      = "m2/m2",
+  `leaf_area_index_low_vegetation`       = "m2/m2",
+  `snow_cover`                           = "%",
+  `snowfall`                             = "m",
+  # DWD
+  air_temperature_mean                   = "degC",
+  air_temperature_max                    = "degC",
+  air_temperature_min                    = "degC",
+  precipitation                          = "mm",
+  drought_index                          = "mm/degC"
+)
+
 # DWD URL templates
 .dwd_url_templates <- list(
   daily = list(

@@ -18,12 +18,14 @@
   list(fun = .baseline_funs[[x]], name = x)
 }
 
+# Returns the physical unit of the result given stat_wrangling and indicator
 .result_unit <- function(stat_wrangling, indicator) {
+  indicator_unit <- .indicator_units[[indicator]] %||% NA_character_
   switch(stat_wrangling,
-         deviation    = indicator,
+         deviation    = indicator_unit,
          sd_deviation = "sd",
-         count_above  = "days_above",
-         count_below  = "days_below"
+         count_above  = "days",
+         count_below  = "days"
   )
 }
 
@@ -31,7 +33,6 @@
   if (is.null(prefix)) paste0(".", name) else paste0(".", name, "_", prefix)
 }
 
-#' Scalar method for sf
 #' @export
 compute_stat_wrangling <- function(
     baseline_values,
@@ -62,38 +63,28 @@ compute_stat_wrangling.numeric <- function(
   list(reference_stat = reference_stat, result = result)
 }
 
-#' Raster method for SpatRaster
 #' @exportS3Method
 compute_stat_wrangling.SpatRaster <- function(
     baseline_values,
     focal_value,
-    stat_wrangling =
-      c("deviation", "sd_deviation", "count_above", "count_below"),
+    stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
     baseline_fun   = function(x) mean(x, na.rm = TRUE)
 ) {
   stat_wrangling <- match.arg(stat_wrangling)
 
   # Align extents if needed
   if (!terra::compareGeom(baseline_values, focal_value, stopOnError = FALSE)) {
-    baseline_values <-
-      terra::resample(baseline_values, focal_value, method = "bilinear")
+    baseline_values <- terra::resample(baseline_values, focal_value, method = "bilinear")
   }
 
   reference_stat <- terra::app(baseline_values, baseline_fun)
 
-  result <-
-    switch(
-      stat_wrangling,
-      deviation    = focal_value - reference_stat,
-      sd_deviation =
-        (focal_value - reference_stat) /
-        terra::stdev(baseline_values, na.rm = TRUE),
-      count_above  =
-        sum(terra::ifel(baseline_values > focal_value, 1, 0), na.rm = TRUE),
-      count_below  =
-        sum(terra::ifel(baseline_values < focal_value, 1, 0), na.rm = TRUE
-      )
-    )
+  result <- switch(stat_wrangling,
+                   deviation    = focal_value - reference_stat,
+                   sd_deviation = (focal_value - reference_stat) / terra::stdev(baseline_values, na.rm = TRUE),
+                   count_above  = sum(terra::ifel(baseline_values > focal_value, 1, 0), na.rm = TRUE),
+                   count_below  = sum(terra::ifel(baseline_values < focal_value, 1, 0), na.rm = TRUE)
+  )
 
   list(reference_stat = reference_stat, result = result)
 }
@@ -204,7 +195,6 @@ add_baseline <- function(.data, baseline, baseline_fun) {
       sapply(baseline_result, `[[`, "result")
 
   } else {
-    # Grid path: use compute_stat_wrangling.SpatRaster
     focal_layer <- .data[[.col("study", prefix)]]
 
     baseline_result <- compute_stat_wrangling(
@@ -219,7 +209,6 @@ add_baseline <- function(.data, baseline, baseline_fun) {
     names(baseline_layer) <- .col("baseline", prefix)
     names(result_layer)   <- .col("result",   prefix)
 
-    # Replace placeholder layers
     .data[[.col("baseline", prefix)]] <- baseline_layer
     .data[[.col("result",   prefix)]] <- result_layer
   }

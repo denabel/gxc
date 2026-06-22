@@ -436,8 +436,12 @@ link_daily.sf <-
         prepared$.linked <- NULL
 
         # Write metadata columns
+        # Write metadata columns
         prepared[[.col("indicator",      prefix)]] <- indicator
         prepared[[.col("unit",           prefix)]] <-
+          .indicator_units[[indicator]] %||% NA_character_
+        prepared[[.col("time_unit",      prefix)]] <- "days"
+        prepared[[.col("result_unit",    prefix)]] <-
           if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator)
         prepared[[.col("study_fun",      prefix)]] <- study_fun_name
         prepared[[.col("baseline_fun",   prefix)]] <-
@@ -722,7 +726,9 @@ link_daily.SpatRaster <- function(.data,
   # Store metadata via metags
   terra::metags(.data) <- c(
     indicator      = indicator,
-    unit           = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
+    unit           = .indicator_units[[indicator]] %||% NA_character_,
+    time_unit      = "days",
+    result_unit    = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
     study_fun      = study_fun_name,
     baseline_fun   = if (isFALSE(baseline)) NA_character_ else baseline_fun_name,
     baseline_years = if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2]),
