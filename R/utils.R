@@ -441,3 +441,22 @@ supscript <- function(x) {
   }
   invisible(path_out)
 }
+
+# Safely loads a vector of raster file paths into a single SpatRaster,
+# resampling to a common extent if files have mismatched extents
+.safe_rast <- function(paths) {
+  if (length(paths) == 1) return(terra::rast(paths))
+
+  rasters   <- lapply(paths, terra::rast)
+  reference <- rasters[[1]]
+
+  rasters <- lapply(rasters, function(r) {
+    if (!terra::compareGeom(r, reference, stopOnError = FALSE)) {
+      terra::resample(r, reference, method = "bilinear")
+    } else {
+      r
+    }
+  })
+
+  do.call(c, rasters)
+}
