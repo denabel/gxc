@@ -29,7 +29,7 @@
     }
     month_per_day <- rep(months, times = counts)
     year_per_day  <- rep(years, each = length(days))
-    dates <- as.Date(paste(year_per_day, month_per_day, days, sep = "-"))
+    dates         <- as.Date(paste(year_per_day, month_per_day, days, sep = "-"))
   }
 
   dates <- sort(dates)
@@ -45,21 +45,14 @@
 }
 
 .split_request_by_month <- function(request) {
-  years  <- request$year
-  months <- request$month
-
-  dates <- sort(as.Date(paste(years, months, "01", sep = "-")))
+  dates <- sort(as.Date(paste(request$year, request$month, "01", sep = "-")))
 
   lapply(dates, function(d) {
-    r        <- request
-    r$year   <- format(d, "%Y")
-    r$month  <- format(d, "%m")
-    r$target <- paste0(
-      r$variable, "_",
-      r$.prefix, "_",
-      format(d, "%Y%m")
-    )
-    r$.prefix <- NULL  # vor API-Call entfernen
+    r         <- request
+    r$year    <- format(d, "%Y")
+    r$month   <- format(d, "%m")
+    r$target  <- paste0(r$variable, "_", r$.prefix, "_", format(d, "%Y%m"))
+    r$.prefix <- NULL
     r
   })
 }
@@ -114,16 +107,17 @@
     area               = extent,
     dataset_short_name = catalogue,
     target             = file_name,
-    .prefix            = prefix  # intern gespeichert
+    .prefix            = prefix
   )
 }
 
-# Submits a pre-built daily request as a batch, checking cache first
-.submit_era5_batch <- function(request,
-                               path,
-                               cache   = TRUE,
-                               verbose = TRUE) {
-  request_length <- length(.split_request_by_day(request))
+# Shared logic for submitting a batch request with cache check
+.submit_batch <- function(request,
+                          split_fn,
+                          path,
+                          cache   = TRUE,
+                          verbose = TRUE) {
+  request_length <- length(split_fn(request))
 
   stash    <- new_stash(path, service = "ecmwfr")
   restored <- stash$restore(request, request_length)
@@ -151,66 +145,12 @@
   fail_if_test()
   capture.output(
     capture.output(
-      data_path <-
-        ecmwfr::wf_request_batch(
-          .split_request_by_day(request),
-          path    = path,
-          workers = 6,
-          retry   = 5
-        ),
-      type = "message"
-    ),
-    type = "output"
-  )
-
-  if (cache) {
-    info("Storing file {.val {basename(data_path)}} in cache.")
-    stash$store(data_path, request)
-  }
-
-  data_path
-}
-
-# Submits a pre-built monthly request as a batch, checking cache first
-.submit_era5_monthly_batch <- function(request,
-                                       path,
-                                       cache   = TRUE,
-                                       verbose = TRUE) {
-  request_length <- length(.split_request_by_month(request))
-
-  stash    <- new_stash(path, service = "ecmwfr")
-  restored <- stash$restore(request, request_length)
-
-  if (!is.null(restored)) {
-    file <- basename(restored)
-    info(
-      "Restoring file {.val {file}} from cache...",
-      msg_done   = "Restored file {.val {file}} from cache.",
-      msg_failed = "Failed to restore file {.val {file}} from cache.",
-      level      = "step"
-    )
-    return(restored)
-  }
-
-  prefix <- strsplit(request$target, "_")[[1]][2]
-
-  info(
-    "Preparing {prefix} data from ECMWF...",
-    msg_done   = "Successfully prepared {prefix} data from ECMWF.",
-    msg_failed = "Failed to prepare {prefix} data from ECMWF.",
-    level      = "step"
-  )
-
-  fail_if_test()
-  capture.output(
-    capture.output(
-      data_path <-
-        ecmwfr::wf_request_batch(
-          .split_request_by_month(request),
-          path    = path,
-          workers = 6,
-          retry   = 5
-        ),
+      data_path <- ecmwfr::wf_request_batch(
+        split_fn(request),
+        path    = path,
+        workers = 6,
+        retry   = 5
+      ),
       type = "message"
     ),
     type = "output"
@@ -224,6 +164,16 @@
   }
 
   data_path
+}
+
+# Submits a pre-built daily ERA5 request as a batch, checking cache first
+.submit_era5_batch <- function(request, path, cache = TRUE, verbose = TRUE) {
+  .submit_batch(request, .split_request_by_day, path, cache, verbose)
+}
+
+# Submits a pre-built monthly ERA5 request as a batch, checking cache first
+.submit_era5_monthly_batch <- function(request, path, cache = TRUE, verbose = TRUE) {
+  .submit_batch(request, .split_request_by_month, path, cache, verbose)
 }
 
 # Wrapper: build + submit in one call (used by add_baseline)
@@ -261,9 +211,7 @@
     product_type = product_type,
     request_time = request_time
   )
-  .submit_era5_monthly_batch(
-    request, path = path, cache = cache, verbose = verbose
-  )
+  .submit_era5_monthly_batch(request, path = path, cache = cache, verbose = verbose)
 }
 
 .request_era5_daily <- function(indicator,
@@ -290,4 +238,132 @@
     time_zone = time_zone
   )
   .submit_era5_batch(request, path = path, cache = cache, verbose = verbose)
+}
+
+# Downloads a DWD year file if not already cached
+.download_dwd_year_file <- function(indicator, year, path) {
+  url_template <- .dwd_url_templates$daily[[indicator]]
+  url          <- glue::glue(url_template, year = year)
+  year_dir     <- file.path(path, "dwd", "raw")
+  year_file    <- file.path(year_dir, basename(url))
+
+  dir.create(year_dir, showWarnings = FALSE, recursive = TRUE)
+
+  if (file.exists(year_file)) return(year_file)
+
+  info("Downloading DWD year file for {year}...")
+  download.file(url, destfile = year_file, mode = "wb", quiet = TRUE)
+
+  year_file
+}
+
+# Decompresses a .gz file to a target path using base R
+.decompress_gz <- function(path_gz, path_out) {
+  con_in  <- gzcon(file(path_gz, "rb"))
+  con_out <- file(path_out, "wb")
+  on.exit({
+    close(con_in)
+    close(con_out)
+  }, add = TRUE)
+  repeat {
+    chunk <- readBin(con_in, "raw", n = 65536L)
+    if (length(chunk) == 0L) break
+    writeBin(chunk, con_out)
+  }
+  invisible(path_out)
+}
+
+# Slices daily layers from DWD year files and caches them as individual .tif files
+.request_dwd_daily <- function(indicator,
+                               years,
+                               months,
+                               days,
+                               cache  = TRUE,
+                               path   = NULL,
+                               prefix = "observation") {
+  path  <- path %||% .default_download_dir(cache, service = "dwd")
+  dates <- as.Date(paste(years, months, days, sep = "-"))
+
+  # Group dates by year to load each year file only once
+  dates_by_year <- split(dates, format(dates, "%Y"))
+
+  all_paths <- unlist(lapply(names(dates_by_year), function(year) {
+    year_dates      <- dates_by_year[[year]]
+    year_file       <- .download_dwd_year_file(indicator, year, path)
+    year_rast       <- terra::rast(year_file)
+    year_dates_rast <- as_date(terra::time(year_rast))
+
+    lapply(year_dates, function(d) {
+      cached_file <- file.path(
+        path, "dwd", "daily",
+        paste0(indicator, "_", prefix, "_", format(d, "%Y%m%d"), ".tif")
+      )
+      dir.create(dirname(cached_file), showWarnings = FALSE, recursive = TRUE)
+
+      if (file.exists(cached_file)) return(cached_file)
+
+      lyr_idx <- which(year_dates_rast == d)
+      if (length(lyr_idx) == 0) {
+        cli::cli_abort(
+          "No layer found for date {.val {d}} in {.path {year_file}}."
+        )
+      }
+
+      # Slice layer and correct CRS (DWD nc files declare EPSG:4258
+      # but data is in EPSG:31467)
+      day_layer <- year_rast[[lyr_idx]]
+      terra::crs(day_layer) <- "EPSG:31467"
+      terra::writeRaster(day_layer, cached_file, overwrite = FALSE)
+
+      cached_file
+    })
+  }), recursive = FALSE)
+
+  as.character(all_paths)
+}
+
+# Downloads DWD monthly data and caches as individual .tif files
+.request_dwd_monthly <- function(indicator,
+                                 years,
+                                 months,
+                                 cache  = TRUE,
+                                 path   = NULL,
+                                 prefix = "observation") {
+  path  <- path %||% .default_download_dir(cache, service = "dwd")
+  dates <- as.Date(paste(years, months, "01", sep = "-"))
+
+  all_paths <- sapply(dates, function(d) {
+    yearmonth    <- format(d, "%Y%m")
+    month_folder <- .dwd_month_folder(format(d, "%m"))
+    url_template <- .dwd_url_templates$monthly[[indicator]]
+    url          <- glue::glue(
+      url_template,
+      month_folder = month_folder,
+      yearmonth    = yearmonth
+    )
+
+    cached_file <- file.path(
+      path, "dwd", "monthly",
+      paste0(indicator, "_", prefix, "_", yearmonth, ".tif")
+    )
+    dir.create(dirname(cached_file), showWarnings = FALSE, recursive = TRUE)
+
+    if (file.exists(cached_file)) return(cached_file)
+
+    tmp_gz  <- tempfile(fileext = ".asc.gz")
+    tmp_asc <- sub("\\.gz$", "", tmp_gz)
+
+    download.file(url, destfile = tmp_gz, mode = "wb", quiet = TRUE)
+    .decompress_gz(tmp_gz, tmp_asc)
+
+    # Set CRS — DWD monthly ASC files have no CRS declaration
+    r <- terra::rast(tmp_asc)
+    terra::crs(r) <- "EPSG:31467"
+    terra::writeRaster(r, cached_file, overwrite = FALSE)
+    unlink(c(tmp_gz, tmp_asc))
+
+    cached_file
+  })
+
+  as.character(all_paths)
 }

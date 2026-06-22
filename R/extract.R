@@ -299,28 +299,150 @@
     day   <- day(dates)
   }
 
-  vals <- lapply(seq_len(nrow(vector)), function(i) {
-    vector_sliced <- vector[i, ]
+  # Helper: check if all rows share the same time_span_seq
+  .all_same_seq <- function(v) {
+    length(unique(sapply(v$time_span_seq, paste, collapse = "-"))) == 1
+  }
 
-    if (agg) {
-      target_dates <- as_date(unlist(vector_sliced$time_span_seq))
-
-      # Normalize target dates to match raster resolution
-      target_norm <- if (is_monthly) {
+  if (agg) {
+    if (.all_same_seq(vector)) {
+      target_dates <- as_date(unlist(vector$time_span_seq[[1]]))
+      target_norm  <- if (is_monthly) {
         as.Date(format(target_dates, "%Y-%m-01"))
       } else {
         target_dates
       }
-
       lyr_idx <- which(dates_norm %in% target_norm)
 
       if (length(lyr_idx) == 0) {
-        return(list(reference_stat = NA_real_, result = NA_real_))
+        return(lapply(seq_len(nrow(vector)), function(i) NA_real_))
       }
 
       if (stat_wrangling %in% c("count_above", "count_below")) {
-        # Return individual focal values uncollapsed for count operations
-        focal_vals <- sapply(lyr_idx, function(idx) {
+        # Return uncollapsed focal values per point
+        lapply(seq_len(nrow(vector)), function(i) {
+          sapply(lyr_idx, function(idx) {
+            terra::extract(
+              raster[[idx]],
+              vector[i, ],
+              fun   = mean,
+              na.rm = TRUE,
+              ID    = FALSE
+            )[1, 1]
+          })
+        })
+      } else {
+        # Aggregate once, extract all points at once
+        raster_agg <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+        result     <- terra::extract(
+          raster_agg, vector, fun = mean, na.rm = TRUE, ID = FALSE
+        )
+        lapply(seq_len(nrow(result)), function(i) result[i, , drop = FALSE])
+      }
+
+    } else {
+      # Different time_span_seq per row — row-wise loop
+      lapply(seq_len(nrow(vector)), function(i) {
+        vector_sliced <- vector[i, ]
+        target_dates  <- as_date(unlist(vector_sliced$time_span_seq))
+        target_norm   <- if (is_monthly) {
+          as.Date(format(target_dates, "%Y-%m-01"))
+        } else {
+          target_dates
+        }
+        lyr_idx <- which(dates_norm %in% target_norm)
+
+        if (length(lyr_idx) == 0) return(NA_real_)
+
+        if (stat_wrangling %in% c("count_above", "count_below")) {
+          sapply(lyr_idx, function(idx) {
+            terra::extract(
+              raster[[idx]],
+              vector_sliced,
+              fun   = mean,
+              na.rm = TRUE,
+              ID    = FALSE
+            )[1, 1]
+          })
+        } else {
+          raster_agg <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
+          terra::extract(
+            raster_agg,
+            vector_sliced,
+            fun   = mean,
+            na.rm = TRUE,
+            ID    = FALSE
+          )
+        }
+      })
+    }
+
+  } else if (baseline) {
+    if (.all_same_seq(vector)) {
+      target_dates <- as_date(unlist(vector$time_span_seq[[1]]))
+
+      if (is_monthly) {
+        lyr_idx <- which(month(dates_norm) %in% month(target_dates))
+      } else {
+        target_md   <- paste(month(target_dates), day(target_dates), sep = "-")
+        baseline_md <- paste(month, day, sep = "-")
+        lyr_idx     <- which(baseline_md %in% target_md)
+      }
+
+      if (length(lyr_idx) == 0) {
+        return(lapply(seq_len(nrow(vector)), function(i) {
+          list(reference_stat = NA_real_, result = NA_real_)
+        }))
+      }
+
+      # Extract all baseline layers for all points at once
+      baseline_matrix <- terra::extract(
+        raster[[lyr_idx]],
+        vector,
+        fun   = NULL,
+        na.rm = TRUE,
+        ID    = FALSE
+      )
+
+      lapply(seq_len(nrow(vector)), function(i) {
+        baseline_values <- as.numeric(baseline_matrix[i, ])
+        focal_val <- if (
+          stat_wrangling %in% c("count_above", "count_below") &&
+          !is.null(focal_values)
+        ) {
+          focal_values[[i]]
+        } else {
+          vector$.linked[i]
+        }
+        compute_stat_wrangling(
+          baseline_values = baseline_values,
+          focal_value     = focal_val,
+          stat_wrangling  = stat_wrangling,
+          baseline_fun    = baseline_fun
+        )
+      })
+
+    } else {
+      # Different time_span_seq per row — row-wise loop
+      lapply(seq_len(nrow(vector)), function(i) {
+        vector_sliced <- vector[i, ]
+        target_dates  <- as_date(unlist(vector_sliced$time_span_seq))
+
+        if (is_monthly) {
+          target_m    <- month(target_dates)
+          baseline_m  <- month(dates_norm)
+          lyr_idx     <- which(baseline_m %in% target_m)
+        } else {
+          target_md   <- paste(month(target_dates), day(target_dates), sep = "-")
+          baseline_md <- paste(month, day, sep = "-")
+          lyr_idx     <- which(baseline_md %in% target_md)
+        }
+
+        if (length(lyr_idx) == 0) {
+          return(list(reference_stat = NA_real_, result = NA_real_))
+        }
+
+        baseline_values <- sapply(lyr_idx, function(idx) {
           terra::extract(
             raster[[idx]],
             vector_sliced,
@@ -329,67 +451,29 @@
             ID    = FALSE
           )[1, 1]
         })
-        return(focal_vals)
-      } else {
-        raster_agg <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
-        return(terra::extract(
-          raster_agg,
-          vector_sliced,
-          fun   = mean,
-          na.rm = TRUE,
-          ID    = FALSE
-        ))
-      }
 
-    } else if (baseline) {
-      target_dates <- as_date(unlist(vector_sliced$time_span_seq))
+        focal_val <- if (
+          stat_wrangling %in% c("count_above", "count_below") &&
+          !is.null(focal_values)
+        ) {
+          focal_values[[i]]
+        } else {
+          vector_sliced$.linked
+        }
 
-      if (is_monthly) {
-        # Match by month only for monthly rasters
-        target_m    <- month(target_dates)
-        baseline_m  <- month(dates_norm)
-        lyr_idx     <- which(baseline_m %in% target_m)
-      } else {
-        # Match by month-day for daily rasters
-        target_md   <- paste(month(target_dates), day(target_dates), sep = "-")
-        baseline_md <- paste(month, day, sep = "-")
-        lyr_idx     <- which(baseline_md %in% target_md)
-      }
-
-      if (length(lyr_idx) == 0) {
-        return(list(reference_stat = NA_real_, result = NA_real_))
-      }
-
-      baseline_values <- sapply(lyr_idx, function(idx) {
-        terra::extract(
-          raster[[idx]],
-          vector_sliced,
-          fun   = mean,
-          na.rm = TRUE,
-          ID    = FALSE
-        )[1, 1]
-      })
-
-      # Use pre-extracted focal values for count operations
-      focal_val <- if (
-        stat_wrangling %in% c("count_above", "count_below") &&
-        !is.null(focal_values)
-      ) {
-        focal_values[[i]]
-      } else {
-        vector_sliced$.linked
-      }
-
-      return(
         compute_stat_wrangling(
           baseline_values = baseline_values,
           focal_value     = focal_val,
           stat_wrangling  = stat_wrangling,
           baseline_fun    = baseline_fun
         )
-      )
+      })
+    }
 
-    } else {
+  } else {
+    lapply(seq_len(nrow(vector)), function(i) {
+      vector_sliced <- vector[i, ]
+
       # Normalize link_date for monthly rasters
       link_date <- if (is_monthly) {
         as.Date(format(vector_sliced$link_date, "%Y-%m-01"))
@@ -399,21 +483,15 @@
 
       lyr_idx <- which(dates_norm == link_date)
 
-      if (length(lyr_idx) == 0) {
-        return(NA_real_)
-      }
+      if (length(lyr_idx) == 0) return(NA_real_)
 
-      raster <- raster[[lyr_idx[[1]]]]
-    }
-
-    terra::extract(
-      raster,
-      vector_sliced,
-      fun   = mean,
-      na.rm = TRUE,
-      ID    = FALSE
-    )
-  })
-
-  vals
+      terra::extract(
+        raster[[lyr_idx[[1]]]],
+        vector_sliced,
+        fun   = mean,
+        na.rm = TRUE,
+        ID    = FALSE
+      )
+    })
+  }
 }

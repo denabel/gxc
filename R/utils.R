@@ -425,3 +425,19 @@ supscript <- function(x) {
   regmatches(x, matches) <- list(substrings)
   x
 }
+
+# Decompresses a .gz file to a target path using base R
+.decompress_gz <- function(path_gz, path_out) {
+  con_in  <- gzcon(file(path_gz, "rb"))
+  con_out <- file(path_out, "wb")
+  on.exit({
+    close(con_in)
+    close(con_out)
+  }, add = TRUE)
+  repeat {
+    chunk <- readBin(con_in, "raw", n = 65536L)
+    if (length(chunk) == 0L) break
+    writeBin(chunk, con_out)
+  }
+  invisible(path_out)
+}

@@ -118,6 +118,16 @@
 }
 
 
+#' Check API key only for ERA5 catalogues
+#' @param catalogue A string giving a catalogue.
+#' @noRd
+.check_api_key_if_needed <- function(catalogue) {
+  if (.catalogue_source(catalogue) == "era5") {
+    .check_api_key("ecmwfr")
+  }
+}
+
+
 .check_parallel <- function(parallel) {
   if (parallel) {
     rlang::check_installed("future.apply", "for parallel processing.")

@@ -67,18 +67,33 @@ compute_stat_wrangling.numeric <- function(
 compute_stat_wrangling.SpatRaster <- function(
     baseline_values,
     focal_value,
-    stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
+    stat_wrangling =
+      c("deviation", "sd_deviation", "count_above", "count_below"),
     baseline_fun   = function(x) mean(x, na.rm = TRUE)
 ) {
   stat_wrangling <- match.arg(stat_wrangling)
+
+  # Align extents if needed
+  if (!terra::compareGeom(baseline_values, focal_value, stopOnError = FALSE)) {
+    baseline_values <-
+      terra::resample(baseline_values, focal_value, method = "bilinear")
+  }
+
   reference_stat <- terra::app(baseline_values, baseline_fun)
 
-  result <- switch(stat_wrangling,
-                   deviation    = focal_value - reference_stat,
-                   sd_deviation = (focal_value - reference_stat) / terra::stdev(baseline_values, na.rm = TRUE),
-                   count_above  = sum(terra::ifel(baseline_values > focal_value, 1, 0), na.rm = TRUE),
-                   count_below  = sum(terra::ifel(baseline_values < focal_value, 1, 0), na.rm = TRUE)
-  )
+  result <-
+    switch(
+      stat_wrangling,
+      deviation    = focal_value - reference_stat,
+      sd_deviation =
+        (focal_value - reference_stat) /
+        terra::stdev(baseline_values, na.rm = TRUE),
+      count_above  =
+        sum(terra::ifel(baseline_values > focal_value, 1, 0), na.rm = TRUE),
+      count_below  =
+        sum(terra::ifel(baseline_values < focal_value, 1, 0), na.rm = TRUE
+      )
+    )
 
   list(reference_stat = reference_stat, result = result)
 }

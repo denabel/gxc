@@ -37,16 +37,14 @@
 #'   be applied around each geometry. The default is `0`, corresponding to a
 #'   direct cell match; values greater than 0 generate a spatial buffer
 #'   around each point for aggregated extraction.
-#' @param catalogue Character string specifying which ERA5 catalogue to use.
-#'   Options are `"derived-era5-land-daily-statistics"` (default) or
-#'   `"derived-era5-single-levels-daily-statistics"`. The first is a good
-#'   default for land surface processes while the latter includes data from
-#'   both land and oceans.
+#' @param catalogue Character string specifying which catalogue to use.
+#'   Options are `"derived-era5-land-daily-statistics"` (default),
+#'   `"derived-era5-single-levels-daily-statistics"`, or `"dwd-hyras-daily"`.
 #' @param statistic Character string specifying the type of daily statistic to
-#'   download. Options are `"daily_mean"` (default), `"daily_maximum"`, and
-#'   `"daily_minimum"`.
-#' @param time_zone Character string specifying the time zone to use (default
-#'   is `"utc+00:00"`).
+#'   download (ERA5 only). Options are `"daily_mean"` (default),
+#'   `"daily_maximum"`, and `"daily_minimum"`.
+#' @param time_zone Character string specifying the time zone to use (ERA5
+#'   only, default is `"utc+00:00"`).
 #' @param cache Logical value indicating whether to keep the downloaded
 #'   files and restore them when downloading the same file again.
 #'   Enabling caching can speed up functions calls significantly when working
@@ -61,16 +59,10 @@
 #'   chunking. See section **Parallel processing** for details. Default is
 #'   `FALSE` (i.e., sequential execution).
 #' @param chunk_size Integer specifying the number of observations per chunk
-#'   when parallelizing. This is the number of rows that is processed
-#'   simultaneously during parallel processing. Setting this to something lower
-#'   than `nrow(.data)` increases the total number of parallel processes.
-#'   Default is `50`.
+#'   when parallelizing. Default is `50`.
 #' @param verbose Logical value specifiying whether to show informative status
-#'   updates. If \code{FALSE}, suppresses all messages signaled by the function.
-#'   Defaults to \code{TRUE}.
-#' @param ... Arguments passed to methods. If `.data` is a stars object,
-#'   arguments are passed to `link_daily.SpatRaster`, otherwise to
-#'   `link_daily.sf`.
+#'   updates. Defaults to \code{TRUE}.
+#' @param ... Arguments passed to methods.
 #'
 #' @details
 #' This function interacts with the Copernicus Climate Data Store (CDS) API to
@@ -93,7 +85,7 @@
 #' `r rd_indicators("link_daily")`
 #'
 #' @note Users must have a CDS account and have their API key configured for
-#' `ecmwfr`.
+#' `ecmwfr` when using ERA5 catalogues.
 #'
 #' @section Parallel processing:
 #' This function can use parallel processing with chunking via
@@ -105,17 +97,8 @@
 #' the function will run sequentially through the chunks, which will most
 #' likely increase duration.
 #'
-#' @return An object of the input class (i.e. if `.data` is an sf dataframe,
-#' the function returns an sf dataframe) with the original data and appended
-#' climate indicator values. If a baseline period is specified, additional
-#' data for baseline values and deviations are included. The output contains
-#' the following columns / layers:
-#'
-#' \itemize{
-#'  \item{`.linked`: Linked climate indicator value}
-#'  \item{`.baseline`: Linked baseline indicator value (if applicable)}
-#'  \item{`.deviation`: Difference between `.linked` and `.baseline` (if applicable)}
-#' }
+#' @return An object of the input class with the original data and appended
+#' climate indicator values.
 #'
 #' @export
 #'
@@ -142,18 +125,20 @@
 #'   baseline = c("1980", "2010")
 #' )
 #'
-#' # View the results
-#' head(result1)
-#' head(result2)
+#' # Example: DWD HYRAS daily data
+#' result3 <- link_daily(
+#'   pts_sf,
+#'   indicator = "air_temperature_mean",
+#'   catalogue = "dwd-hyras-daily"
+#' )
 #'
 #' # The input can also be raster
-#' germany_bbox <- c(xmin = 5, xmax = 16, ymin = 47, ymax = 55) # approximate extent
+#' germany_bbox <- c(xmin = 5, xmax = 16, ymin = 47, ymax = 55)
 #' grid <- rast(
 #'   xmin = germany_bbox["xmin"], xmax = germany_bbox["xmax"],
 #'   ymin = germany_bbox["ymin"], ymax = germany_bbox["ymax"]
 #' )
 #' terra::time(grid) <- as.Date("2014-08-01")
-#'
 #' link_daily(grid, indicator = "2m_temperature")}
 link_daily <- function(.data,
                        indicator,
@@ -202,7 +187,7 @@ link_daily.sf <-
     .check_baseline(baseline)
     .check_parallel(parallel)
     .check_column(.data, date_var)
-    .check_api_key("ecmwfr")
+    .check_api_key_if_needed(catalogue)
     path <- path %||% .default_download_dir(cache, service = "ecmwfr")
 
     stat_wrangling <- match.arg(stat_wrangling)
@@ -237,9 +222,10 @@ link_daily.sf <-
     result   <- vector("list", n_splits)
 
     if (verbose) {
-      cli::cli_rule(left = "Link with ERA5 daily indicators")
+      cli::cli_rule(left = "Link with daily indicators")
       cli::cli_dl(c(
         "Indicator"         = "{.val {indicator}}",
+        "Catalogue"         = "{.val {catalogue}}",
         "Time span"         = "{.val {time_span}}",
         "Time lag"          = "{.val {time_lag}}",
         "Baseline"          =
@@ -281,30 +267,43 @@ link_daily.sf <-
       )
     }
 
-    obs_request <- .build_era5_daily_request(
-      indicator = indicator,
-      catalogue = catalogue,
-      extent    = global_extent,
-      years     = format(all_obs_span, "%Y"),
-      months    = format(all_obs_span, "%m"),
-      days      = format(all_obs_span, "%d"),
-      prefix    = "observation",
-      statistic = statistic,
-      time_zone = time_zone
-    )
-    obs_path <- .submit_era5_batch(
-      obs_request, path = path, cache = cache, verbose = verbose
-    )
+    # Dispatch request by catalogue source
+    obs_path <- if (.catalogue_source(catalogue) == "era5") {
+      obs_request <- .build_era5_daily_request(
+        indicator = indicator,
+        catalogue = catalogue,
+        extent    = global_extent,
+        years     = format(all_obs_span, "%Y"),
+        months    = format(all_obs_span, "%m"),
+        days      = format(all_obs_span, "%d"),
+        prefix    = "observation",
+        statistic = statistic,
+        time_zone = time_zone
+      )
+      .submit_era5_batch(obs_request, path = path, cache = cache, verbose = verbose)
+    } else {
+      .request_dwd_daily(
+        indicator = indicator,
+        years     = format(all_obs_span, "%Y"),
+        months    = format(all_obs_span, "%m"),
+        days      = format(all_obs_span, "%d"),
+        cache     = cache,
+        path      = path,
+        prefix    = "observation"
+      )
+    }
 
     # Load global observation raster once for all splits
     obs_raster <- terra::rast(obs_path)
-    obs_raster <- raster_timestamp(
-      obs_raster,
-      days   = format(all_obs_span, "%d"),
-      months = format(all_obs_span, "%m"),
-      years  = format(all_obs_span, "%Y"),
-      span   = all_obs_span
-    )
+    if (!inherits(terra::time(obs_raster), "POSIXt")) {
+      obs_raster <- raster_timestamp(
+        obs_raster,
+        days   = format(all_obs_span, "%d"),
+        months = format(all_obs_span, "%m"),
+        years  = format(all_obs_span, "%Y"),
+        span   = all_obs_span
+      )
+    }
 
     # Baseline requests upfront if needed
     baseline_raster <- NULL
@@ -323,20 +322,32 @@ link_daily.sf <-
         )
       }
 
-      baseline_request <- .build_era5_daily_request(
-        indicator = indicator,
-        catalogue = catalogue,
-        extent    = global_extent,
-        years     = format(all_baseline_span, "%Y"),
-        months    = format(all_baseline_span, "%m"),
-        days      = format(all_baseline_span, "%d"),
-        prefix    = "baseline",
-        statistic = statistic,
-        time_zone = time_zone
-      )
-      baseline_path <- .submit_era5_batch(
-        baseline_request, path = path, cache = cache, verbose = verbose
-      )
+      baseline_path <- if (.catalogue_source(catalogue) == "era5") {
+        baseline_request <- .build_era5_daily_request(
+          indicator = indicator,
+          catalogue = catalogue,
+          extent    = global_extent,
+          years     = format(all_baseline_span, "%Y"),
+          months    = format(all_baseline_span, "%m"),
+          days      = format(all_baseline_span, "%d"),
+          prefix    = "baseline",
+          statistic = statistic,
+          time_zone = time_zone
+        )
+        .submit_era5_batch(
+          baseline_request, path = path, cache = cache, verbose = verbose
+        )
+      } else {
+        .request_dwd_daily(
+          indicator = indicator,
+          years     = format(all_baseline_span, "%Y"),
+          months    = format(all_baseline_span, "%m"),
+          days      = format(all_baseline_span, "%d"),
+          cache     = cache,
+          path      = path,
+          prefix    = "baseline"
+        )
+      }
 
       # Load global baseline raster once for all splits
       baseline_raster <- terra::rast(baseline_path)
@@ -483,7 +494,7 @@ link_daily.SpatRaster <- function(.data,
   .check_baseline(baseline)
   .check_parallel(parallel)
   .check_terra_time(.data)
-  .check_api_key("ecmwfr")
+  .check_api_key_if_needed(catalogue)
   path <- path %||% .default_download_dir(cache, service = "ecmwfr")
 
   stat_wrangling <- match.arg(stat_wrangling)
@@ -503,7 +514,7 @@ link_daily.SpatRaster <- function(.data,
   study_fun_name <- study_resolved$name
   study_fun      <- study_resolved$fun
 
-  # Store original CRS and project to WGS84 — analog to link_daily.sf
+  # Store original CRS and project to WGS84
   crs_data <- terra::crs(.data)
   prepared <- terra::project(.data, "EPSG:4326")
 
@@ -514,11 +525,15 @@ link_daily.SpatRaster <- function(.data,
   )
 
   global_extent <- .get_extent(prepared)
+  # Collect all unique days from temporals
+  all_spans    <- list(sort(unique(do.call(c, lapply(temporals$time_span_seq, as_date)))))
+  all_obs_span <- sort(unique(do.call(c, all_spans)))
 
   if (verbose) {
-    cli::cli_rule(left = "Link with ERA5 daily indicators")
+    cli::cli_rule(left = "Link with daily indicators")
     cli::cli_dl(c(
       "Indicator"         = "{.val {indicator}}",
+      "Catalogue"         = "{.val {catalogue}}",
       "Time span"         = "{.val {time_span}}",
       "Time lag"          = "{.val {time_lag}}",
       "Baseline"          =
@@ -545,30 +560,43 @@ link_daily.SpatRaster <- function(.data,
     )
   }
 
-  obs_request <- .build_era5_daily_request(
-    indicator = indicator,
-    catalogue = catalogue,
-    extent    = global_extent,
-    years     = format(all_obs_span, "%Y"),
-    months    = format(all_obs_span, "%m"),
-    days      = format(all_obs_span, "%d"),
-    prefix    = "observation",
-    statistic = statistic,
-    time_zone = time_zone
-  )
-  obs_path <- .submit_era5_batch(
-    obs_request, path = path, cache = cache, verbose = verbose
-  )
+  # Dispatch request by catalogue source
+  obs_path <- if (.catalogue_source(catalogue) == "era5") {
+    obs_request <- .build_era5_daily_request(
+      indicator = indicator,
+      catalogue = catalogue,
+      extent    = global_extent,
+      years     = format(all_obs_span, "%Y"),
+      months    = format(all_obs_span, "%m"),
+      days      = format(all_obs_span, "%d"),
+      prefix    = "observation",
+      statistic = statistic,
+      time_zone = time_zone
+    )
+    .submit_era5_batch(obs_request, path = path, cache = cache, verbose = verbose)
+  } else {
+    .request_dwd_daily(
+      indicator = indicator,
+      years     = format(all_obs_span, "%Y"),
+      months    = format(all_obs_span, "%m"),
+      days      = format(all_obs_span, "%d"),
+      cache     = cache,
+      path      = path,
+      prefix    = "observation"
+    )
+  }
 
   # Load global observation raster and reproject to original CRS
   obs_raster <- terra::rast(obs_path)
-  obs_raster <- raster_timestamp(
-    obs_raster,
-    days   = format(all_obs_span, "%d"),
-    months = format(all_obs_span, "%m"),
-    years  = format(all_obs_span, "%Y"),
-    span   = all_obs_span
-  )
+  if (!inherits(terra::time(obs_raster), "POSIXt")) {
+    obs_raster <- raster_timestamp(
+      obs_raster,
+      days   = format(all_obs_span, "%d"),
+      months = format(all_obs_span, "%m"),
+      years  = format(all_obs_span, "%Y"),
+      span   = all_obs_span
+    )
+  }
   obs_raster <- .align_crs_raster(.data, obs_raster)
 
   baseline_raster <- NULL
@@ -587,20 +615,32 @@ link_daily.SpatRaster <- function(.data,
       )
     }
 
-    baseline_request <- .build_era5_daily_request(
-      indicator = indicator,
-      catalogue = catalogue,
-      extent    = global_extent,
-      years     = format(all_baseline_span, "%Y"),
-      months    = format(all_baseline_span, "%m"),
-      days      = format(all_baseline_span, "%d"),
-      prefix    = "baseline",
-      statistic = statistic,
-      time_zone = time_zone
-    )
-    baseline_path <- .submit_era5_batch(
-      baseline_request, path = path, cache = cache, verbose = verbose
-    )
+    baseline_path <- if (.catalogue_source(catalogue) == "era5") {
+      baseline_request <- .build_era5_daily_request(
+        indicator = indicator,
+        catalogue = catalogue,
+        extent    = global_extent,
+        years     = format(all_baseline_span, "%Y"),
+        months    = format(all_baseline_span, "%m"),
+        days      = format(all_baseline_span, "%d"),
+        prefix    = "baseline",
+        statistic = statistic,
+        time_zone = time_zone
+      )
+      .submit_era5_batch(
+        baseline_request, path = path, cache = cache, verbose = verbose
+      )
+    } else {
+      .request_dwd_daily(
+        indicator = indicator,
+        years     = format(all_baseline_span, "%Y"),
+        months    = format(all_baseline_span, "%m"),
+        days      = format(all_baseline_span, "%d"),
+        cache     = cache,
+        path      = path,
+        prefix    = "baseline"
+      )
+    }
 
     baseline_raster <- terra::rast(baseline_path)
     baseline_raster <- raster_timestamp(

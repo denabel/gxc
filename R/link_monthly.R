@@ -1,13 +1,14 @@
-#' Link with ERA5 monthly indicators
+#' Link with monthly indicators
 #'
 #' @description Augments spatio-temporal data with indicators from the
-#' Copernicus earth observation database (ERA5).
+#' Copernicus earth observation database (ERA5) or the German Weather Service
+#' (DWD).
 #' The function performs the following pre-/post-processing steps:
 #'
 #' \itemize{
 #'  \item{Construct time adjustments (time aggregations, time lags)}
 #'  \item{Compute space adjustments (spatial buffers)}
-#'  \item{Download monthly statistics from Copernicus database}
+#'  \item{Download monthly statistics from Copernicus database or DWD}
 #'  \item{Link raster statistics back to input}
 #'  \item{Optionally, add comparative statistics based on a baseline period}
 #' }
@@ -15,19 +16,15 @@
 #' This function interfaces the monthly means of ERA5 indicators. For daily
 #' statistics see \code{\link{link_daily}}.
 #'
-#' @param catalogue Character string specifying which ERA5 catalogue to use.
-#'   Options are `"reanalysis-era5-land-monthly-means"`
-#'   or `"reanalysis-era5-single-levels-monthly-means"`. The first provides
-#'   higher spatial resolution at 0.1x0.1 degrees but is only available from
-#'   1950 onwards. If you need data before 1950 or if you are working with large
-#'   spatial extents where finer resolution is not required, you can switch to
-#'   the latter.
+#' @param catalogue Character string specifying which catalogue to use.
+#'   Options are `"reanalysis-era5-land-monthly-means"` (default),
+#'   `"reanalysis-era5-single-levels-monthly-means"`, or `"dwd-monthly"`.
 #' @param by_hour Logical or character. If `FALSE` (default), the monthly
 #'   averaged values are derived from the entire day
 #'   (`"monthly_averaged_reanalysis"`). If a character string specifying an
 #'   hour (e.g., `"03:00"`), then the dataset
 #'   `"monthly_averaged_reanalysis_by_hour_of_day"` is used, and only values
-#'   from that hour of the day are included.
+#'   from that hour of the day are included. Only applicable for ERA5 catalogues.
 #' @param months Optional integer vector specifying explicit months to use as
 #'   the study period (e.g. `c(3, 4, 5)` for spring). If the input date falls
 #'   within one of the specified months, the window is shifted one year back.
@@ -35,22 +32,17 @@
 #' @inherit link_daily
 #'
 #' @details
-#' This function interacts with the Copernicus Climate Data Store (CDS) API to
-#' download ERA5 monthly reanalysis data for a specified climate indicator and
-#' time period. The input spatial points (an sf object) are first optionally
-#' buffered (using the `buffer` argument) to expand the extraction area. The
-#' function then determines the geographic extent from the (possibly buffered)
-#' points and adjusts the time dimension based on the specified `date_var`,
-#' `time_lag`, and `time_span` (all in months). Monthly time sequences are
-#' constructed assuming that dates correspond to the first day of each month.
-#' The function downloads the corresponding monthly data (or hourly-based
-#' monthly averages if `by_hour` is specified) and extracts these values for
-#' each point—using a direct cell match when `buffer = 0` or aggregating over
-#' the buffer area when `buffer > 0`. If a baseline period is provided (e.g.,
+#' This function interacts with the Copernicus Climate Data Store (CDS) API or
+#' the DWD open data server to download monthly reanalysis data for a specified
+#' climate indicator and time period. The input spatial points (an sf object)
+#' are first optionally buffered (using the `buffer` argument) to expand the
+#' extraction area. The function then determines the geographic extent from the
+#' (possibly buffered) points and adjusts the time dimension based on the
+#' specified `date_var`, `time_lag`, and `time_span` (all in months). Monthly
+#' time sequences are constructed assuming that dates correspond to the first
+#' day of each month. If a baseline period is provided (e.g.,
 #' `baseline = c("1980", "2010")`), baseline monthly statistics are downloaded
 #' for the specified period and appended as an additional attribute.
-#' Optionally, deviations between the focal and baseline values may be
-#' computed.
 #'
 #' The following indicators are currently supported:
 #'
@@ -85,6 +77,13 @@
 #'   indicator = "2m_temperature",
 #'   months = c(3, 4, 5),
 #'   baseline = c("1980", "2010")
+#' )
+#'
+#' # Example 4: DWD monthly data
+#' result4 <- link_monthly(
+#'   pts_sf,
+#'   indicator = "air_temperature_mean",
+#'   catalogue = "dwd-monthly"
 #' )
 #'
 #' # View the results:
@@ -135,7 +134,7 @@ link_monthly.sf <- function(.data,
   .check_baseline(baseline)
   .check_parallel(parallel)
   .check_column(.data, date_var)
-  .check_api_key("ecmwfr")
+  .check_api_key_if_needed(catalogue)
   .check_months_time_span(months, time_span)
   .check_valid_months(months)
   path <- path %||% .default_download_dir(cache, service = "ecmwfr")
@@ -181,9 +180,10 @@ link_monthly.sf <- function(.data,
   result   <- vector("list", n_splits)
 
   if (verbose) {
-    cli::cli_rule(left = "Link with ERA5 monthly indicators")
+    cli::cli_rule(left = "Link with monthly indicators")
     cli::cli_dl(c(
       "Indicator"         = "{.val {indicator}}",
+      "Catalogue"         = "{.val {catalogue}}",
       "Time span"         = "{.val {if (is.null(months)) time_span else 'via months'}}",
       "Months"            = "{.val {if (is.null(months)) '(none)' else paste(months, collapse = ', ')}}",
       "Time lag"          = "{.val {time_lag}}",
@@ -228,19 +228,31 @@ link_monthly.sf <- function(.data,
     )
   }
 
-  obs_path <- .request_era5_monthly(
-    indicator,
-    catalogue    = catalogue,
-    extent       = global_extent,
-    years        = format(all_obs_span, "%Y"),
-    months       = format(all_obs_span, "%m"),
-    cache        = cache,
-    path         = path,
-    prefix       = "observation",
-    product_type = product_type,
-    request_time = request_time,
-    verbose      = verbose
-  )
+  # Dispatch request by catalogue source
+  obs_path <- if (.catalogue_source(catalogue) == "era5") {
+    .request_era5_monthly(
+      indicator,
+      catalogue    = catalogue,
+      extent       = global_extent,
+      years        = format(all_obs_span, "%Y"),
+      months       = format(all_obs_span, "%m"),
+      cache        = cache,
+      path         = path,
+      prefix       = "observation",
+      product_type = product_type,
+      request_time = request_time,
+      verbose      = verbose
+    )
+  } else {
+    .request_dwd_monthly(
+      indicator = indicator,
+      years     = format(all_obs_span, "%Y"),
+      months    = format(all_obs_span, "%m"),
+      cache     = cache,
+      path      = path,
+      prefix    = "observation"
+    )
+  }
 
   obs_raster <- terra::rast(obs_path)
   if (!inherits(terra::time(obs_raster), "POSIXt")) {
@@ -269,19 +281,30 @@ link_monthly.sf <- function(.data,
       )
     }
 
-    baseline_path <- .request_era5_monthly(
-      indicator,
-      catalogue    = catalogue,
-      extent       = global_extent,
-      years        = format(all_baseline_span, "%Y"),
-      months       = format(all_baseline_span, "%m"),
-      cache        = cache,
-      path         = path,
-      prefix       = "baseline",
-      product_type = product_type,
-      request_time = request_time,
-      verbose      = verbose
-    )
+    baseline_path <- if (.catalogue_source(catalogue) == "era5") {
+      .request_era5_monthly(
+        indicator,
+        catalogue    = catalogue,
+        extent       = global_extent,
+        years        = format(all_baseline_span, "%Y"),
+        months       = format(all_baseline_span, "%m"),
+        cache        = cache,
+        path         = path,
+        prefix       = "baseline",
+        product_type = product_type,
+        request_time = request_time,
+        verbose      = verbose
+      )
+    } else {
+      .request_dwd_monthly(
+        indicator = indicator,
+        years     = format(all_baseline_span, "%Y"),
+        months    = format(all_baseline_span, "%m"),
+        cache     = cache,
+        path      = path,
+        prefix    = "baseline"
+      )
+    }
 
     baseline_raster <- terra::rast(baseline_path)
     if (!inherits(terra::time(baseline_raster), "POSIXt")) {
@@ -432,7 +455,7 @@ link_monthly.SpatRaster <- function(.data,
   .check_baseline(baseline)
   .check_parallel(parallel)
   .check_terra_time(.data)
-  .check_api_key("ecmwfr")
+  .check_api_key_if_needed(catalogue)
   .check_months_time_span(months, time_span)
   .check_valid_months(months)
   path <- path %||% .default_download_dir(cache, service = "ecmwfr")
@@ -463,7 +486,7 @@ link_monthly.SpatRaster <- function(.data,
     request_time <- by_hour
   }
 
-  # Store original CRS and project to WGS84 — analog to link_daily.SpatRaster
+  # Store original CRS and project to WGS84
   crs_data <- terra::crs(.data)
   prepared <- terra::project(.data, "EPSG:4326")
 
@@ -478,9 +501,10 @@ link_monthly.SpatRaster <- function(.data,
   global_extent <- .get_extent(prepared)
 
   if (verbose) {
-    cli::cli_rule(left = "Link with ERA5 monthly indicators")
+    cli::cli_rule(left = "Link with monthly indicators")
     cli::cli_dl(c(
       "Indicator"         = "{.val {indicator}}",
+      "Catalogue"         = "{.val {catalogue}}",
       "Time span"         = "{.val {if (is.null(months)) time_span else 'via months'}}",
       "Months"            = "{.val {if (is.null(months)) '(none)' else paste(months, collapse = ', ')}}",
       "Time lag"          = "{.val {time_lag}}",
@@ -511,19 +535,31 @@ link_monthly.SpatRaster <- function(.data,
     )
   }
 
-  obs_path <- .request_era5_monthly(
-    indicator,
-    catalogue    = catalogue,
-    extent       = global_extent,
-    years        = format(all_obs_span, "%Y"),
-    months       = format(all_obs_span, "%m"),
-    cache        = cache,
-    path         = path,
-    prefix       = "observation",
-    product_type = product_type,
-    request_time = request_time,
-    verbose      = verbose
-  )
+  # Dispatch request by catalogue source
+  obs_path <- if (.catalogue_source(catalogue) == "era5") {
+    .request_era5_monthly(
+      indicator,
+      catalogue    = catalogue,
+      extent       = global_extent,
+      years        = format(all_obs_span, "%Y"),
+      months       = format(all_obs_span, "%m"),
+      cache        = cache,
+      path         = path,
+      prefix       = "observation",
+      product_type = product_type,
+      request_time = request_time,
+      verbose      = verbose
+    )
+  } else {
+    .request_dwd_monthly(
+      indicator = indicator,
+      years     = format(all_obs_span, "%Y"),
+      months    = format(all_obs_span, "%m"),
+      cache     = cache,
+      path      = path,
+      prefix    = "observation"
+    )
+  }
 
   obs_raster <- terra::rast(obs_path)
   if (!inherits(terra::time(obs_raster), "POSIXt")) {
@@ -553,19 +589,30 @@ link_monthly.SpatRaster <- function(.data,
       )
     }
 
-    baseline_path <- .request_era5_monthly(
-      indicator,
-      catalogue    = catalogue,
-      extent       = global_extent,
-      years        = format(all_baseline_span, "%Y"),
-      months       = format(all_baseline_span, "%m"),
-      cache        = cache,
-      path         = path,
-      prefix       = "baseline",
-      product_type = product_type,
-      request_time = request_time,
-      verbose      = verbose
-    )
+    baseline_path <- if (.catalogue_source(catalogue) == "era5") {
+      .request_era5_monthly(
+        indicator,
+        catalogue    = catalogue,
+        extent       = global_extent,
+        years        = format(all_baseline_span, "%Y"),
+        months       = format(all_baseline_span, "%m"),
+        cache        = cache,
+        path         = path,
+        prefix       = "baseline",
+        product_type = product_type,
+        request_time = request_time,
+        verbose      = verbose
+      )
+    } else {
+      .request_dwd_monthly(
+        indicator = indicator,
+        years     = format(all_baseline_span, "%Y"),
+        months    = format(all_baseline_span, "%m"),
+        cache     = cache,
+        path      = path,
+        prefix    = "baseline"
+      )
+    }
 
     baseline_raster <- terra::rast(baseline_path)
     if (!inherits(terra::time(baseline_raster), "POSIXt")) {
