@@ -240,14 +240,14 @@
   .submit_era5_batch(request, path = path, cache = cache, verbose = verbose)
 }
 
-# Downloads a DWD year file if not already cached
+# Downloads a DWD year file to a temporary location
 .download_dwd_year_file <- function(indicator, year, path) {
   url_template <- .dwd_url_templates$daily[[indicator]]
   url          <- glue::glue(url_template, year = year)
-  year_dir     <- file.path(path, "dwd", "raw")
-  year_file    <- file.path(year_dir, basename(url))
+  tmp_dir      <- file.path(path, "dwd", "tmp")
+  year_file    <- file.path(tmp_dir, basename(url))
 
-  dir.create(year_dir, showWarnings = FALSE, recursive = TRUE)
+  dir.create(tmp_dir, showWarnings = FALSE, recursive = TRUE)
 
   if (file.exists(year_file)) return(year_file)
 
@@ -273,7 +273,8 @@
   invisible(path_out)
 }
 
-# Slices daily layers from DWD year files and caches them as individual .tif files
+# Slices daily layers from DWD year files, caches them as individual .tif
+# files, and removes the raw year file afterwards to save disk space
 .request_dwd_daily <- function(indicator,
                                years,
                                months,
@@ -288,35 +289,51 @@
   dates_by_year <- split(dates, format(dates, "%Y"))
 
   all_paths <- unlist(lapply(names(dates_by_year), function(year) {
-    year_dates      <- dates_by_year[[year]]
-    year_file       <- .download_dwd_year_file(indicator, year, path)
-    year_rast       <- terra::rast(year_file)
-    year_dates_rast <- as_date(terra::time(year_rast))
+    year_dates <- dates_by_year[[year]]
 
-    lapply(year_dates, function(d) {
-      cached_file <- file.path(
-        path, "dwd", "daily",
-        paste0(indicator, "_", prefix, "_", format(d, "%Y%m%d"), ".tif")
+    # Build expected cache paths for all days in this year
+    cached_files <- file.path(
+      path, "dwd", "daily",
+      paste0(indicator, "_", prefix, "_", format(year_dates, "%Y%m%d"), ".tif")
+    )
+
+    # Only download year file if at least one day is not yet cached
+    missing <- !file.exists(cached_files)
+
+    if (any(missing)) {
+      dir.create(
+        file.path(path, "dwd", "daily"),
+        showWarnings = FALSE,
+        recursive    = TRUE
       )
-      dir.create(dirname(cached_file), showWarnings = FALSE, recursive = TRUE)
 
-      if (file.exists(cached_file)) return(cached_file)
+      year_file       <- .download_dwd_year_file(indicator, year, path)
+      year_rast       <- terra::rast(year_file)
+      year_dates_rast <- as_date(terra::time(year_rast))
 
-      lyr_idx <- which(year_dates_rast == d)
-      if (length(lyr_idx) == 0) {
-        cli::cli_abort(
-          "No layer found for date {.val {d}} in {.path {year_file}}."
-        )
+      # Only slice days that are not yet cached
+      for (idx in which(missing)) {
+        d       <- year_dates[[idx]]
+        lyr_idx <- which(year_dates_rast == d)
+
+        if (length(lyr_idx) == 0) {
+          cli::cli_abort(
+            "No layer found for date {.val {d}} in {.path {year_file}}."
+          )
+        }
+
+        # Slice layer and correct CRS — DWD HYRAS daily data is in EPSG:3035
+        # but nc files declare EPSG:4258
+        day_layer <- year_rast[[lyr_idx]]
+        terra::crs(day_layer) <- "EPSG:3035"
+        terra::writeRaster(day_layer, cached_files[[idx]], overwrite = FALSE)
       }
 
-      # Slice layer and correct CRS (DWD nc files declare EPSG:4258
-      # but data is in EPSG:31467)
-      day_layer <- year_rast[[lyr_idx]]
-      terra::crs(day_layer) <- "EPSG:31467"
-      terra::writeRaster(day_layer, cached_file, overwrite = FALSE)
+      # Remove raw year file after all missing days have been sliced
+      unlink(year_file)
+    }
 
-      cached_file
-    })
+    cached_files
   }), recursive = FALSE)
 
   as.character(all_paths)
@@ -357,6 +374,7 @@
     .decompress_gz(tmp_gz, tmp_asc)
 
     # Set CRS — DWD monthly ASC files have no CRS declaration
+    # Monthly HYRAS data is in EPSG:31467
     r <- terra::rast(tmp_asc)
     terra::crs(r) <- "EPSG:31467"
     terra::writeRaster(r, cached_file, overwrite = FALSE)
