@@ -93,6 +93,47 @@ pts |>
   link_daily(indicator = "2m_temperature", time_span = 30, prefix = "temp_30d")
 ```
 
+#### DWD catalogue support
+
+`link_daily()` and `link_monthly()` now support data from the German Weather
+Service (DWD) in addition to ERA5. Two new catalogues are available:
+
+- `"dwd-hyras-daily"`: daily HYRAS gridded data for Germany at 1 km resolution,
+  downloaded directly from the DWD open data server. Year files are cached
+  locally and sliced into individual daily `.tif` files on first use.
+- `"dwd-monthly"`: monthly gridded data for Germany at 1 km resolution,
+  downloaded as compressed ASCII grid files (`.asc.gz`) and converted to `.tif`
+  on first use.
+
+No API key is required for DWD data.
+
+```r
+# Daily air temperature
+link_daily(
+  pts,
+  indicator = "air_temperature_mean",
+  catalogue = "dwd-hyras-daily"
+)
+
+# Monthly drought index with baseline
+link_monthly(
+  pts,
+  indicator      = "drought_index",
+  catalogue      = "dwd-monthly",
+  months         = c(6, 7, 8),
+  baseline       = c("1980", "2010"),
+  stat_wrangling = "deviation"
+)
+```
+
+The following indicators are currently supported:
+
+**`dwd-hyras-daily`**: `air_temperature_mean`, `air_temperature_max`,
+`air_temperature_min`, `precipitation`
+
+**`dwd-monthly`**: `air_temperature_mean`, `air_temperature_max`,
+`air_temperature_min`, `precipitation`, `drought_index`
+
 #### Redesigned output columns
 
 Output columns are now consistently structured across all calls, regardless of
@@ -100,20 +141,27 @@ whether a baseline is requested. Calls without a baseline still produce all
 columns, with `NA` in the baseline-specific ones — making `rbind()` across
 different specifications straightforward.
 
+The primary result columns come first, followed by metadata:
+
 | Column | Content |
 |---|---|
 | `.study` | Focal period summary value |
 | `.baseline` | Baseline reference value (`NA` if no baseline) |
 | `.result` | Result of `stat_wrangling` (`NA` if no baseline) |
-| `.indicator` | Indicator name |
-| `.unit` | Unit of `.result` (e.g. `"K"`, `"sd"`, `"days_above"`) |
+| `.indicator` | Indicator name (e.g. `"2m_temperature"`, `"air_temperature_mean"`) |
+| `.unit` | Physical unit of the indicator (e.g. `"K"`, `"degC"`, `"mm"`) |
+| `.time_unit` | Temporal unit of the study period (`"days"` or `"months"`) |
+| `.result_unit` | Unit of `.result` (e.g. `"K"`, `"sd"`, `"days"`) |
 | `.study_fun` | Aggregation function used for focal period |
 | `.baseline_fun` | Aggregation function used for baseline (`NA` if no baseline) |
 | `.baseline_years` | Baseline year range (`NA` if no baseline) |
 | `.time_span` | `time_span` argument value |
-| `.months` | `months` argument value (`NA` if not used) |
+| `.months` | `months` argument value — `link_monthly()` only (`NA` if not used) |
 | `.time_lag` | `time_lag` argument value |
 | `.buffer` | `buffer` argument value |
+
+When `prefix` is specified, all column names gain the prefix suffix (e.g.
+`.study_temp_7d`).
 
 For `link_daily.SpatRaster()` and `link_monthly.SpatRaster()`, metadata is
 stored via `terra::metags()` instead of columns, since raster layers cannot hold
@@ -153,6 +201,10 @@ download time for datasets with many unique dates.
 - Fixed monthly requests being incorrectly routed through the daily
   `wf_request_batch` pipeline. Monthly requests now use a dedicated
   `.submit_era5_monthly_batch()` function with per-month splitting.
+- Fixed slow extraction for datasets where all observations share the same
+  date and `time_span > 0`. `terra::app` and `terra::extract` are now called
+  once for all points in a split rather than once per point, reducing
+  extraction time by an order of magnitude.
 
 ---
 
@@ -167,6 +219,10 @@ The output column names have changed. Code that referenced `.linked`,
 | `.baseline` | `.baseline` (unchanged, but now always present) |
 | `.deviation` | `.result` |
 
+The `catalogue` argument now accepts DWD catalogues in addition to ERA5. The
+default remains `"derived-era5-land-daily-statistics"` for `link_daily()` and
+`"reanalysis-era5-land-monthly-means"` for `link_monthly()`.
+
 ---
 
 ### Internal changes
@@ -175,11 +231,28 @@ The output column names have changed. Code that referenced `.linked`,
   `.build_era5_monthly_request()`, `.submit_era5_batch()`, and
   `.submit_era5_monthly_batch()` separate request construction from submission,
   enabling the batched upfront download strategy.
+- New `.submit_batch()` consolidates shared batch submission logic for daily
+  and monthly ERA5 requests.
+- New `.request_dwd_daily()` and `.request_dwd_monthly()` handle DWD data
+  download, decompression, CRS assignment, and per-day/per-month caching.
+- New `.decompress_gz()` decompresses `.gz` files using base R without
+  external dependencies.
+- New `.safe_rast()` safely loads multiple raster files into a single
+  `SpatRaster`, resampling to a common extent if files have mismatched extents.
 - New `.resolve_baseline_fun()` resolves string or function arguments for
   `baseline_fun` and `study_fun`.
 - New `.resolve_months()` handles year-boundary logic for explicit month windows.
+- New `.catalogue_source()` derives the data source (`"era5"` or `"dwd"`) from
+  the catalogue name, enabling dispatch to the correct requester.
+- New `.indicator_units` lookup table maps indicator names to physical units.
 - `compute_stat_wrangling()` is now an S3 generic with `.numeric` and
   `.SpatRaster` methods.
-- `.toi_extract_grid()` and `.toi_extract_impl()` now accept a `stat_wrangling`
-  argument and return uncollapsed layer stacks for count-based operations.
+- `.toi_extract_impl()` now vectorises extraction over all points in a split
+  when they share the same `time_span_seq`, with a row-wise fallback for
+  datasets with varying date windows.
+- `.toi_extract_grid()` and `.toi_extract_impl()` handle both daily and monthly
+  rasters via an `is_monthly` flag, normalising dates for correct layer matching.
 - `.transform_time()` gains a `months` argument for explicit month windows.
+- Internal data objects (`allowed_catalogues_*`, `allowed_indicators_*`,
+  `allowed_hours`, etc.) moved to `aaa_data.R` to ensure they are loaded before
+  all other files, fixing documentation generation errors.
