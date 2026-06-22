@@ -254,7 +254,7 @@ link_monthly.sf <- function(.data,
     )
   }
 
-  obs_raster <- terra::rast(obs_path)
+  obs_raster <- .safe_rast(obs_path)
   if (!inherits(terra::time(obs_raster), "POSIXt")) {
     obs_raster <- raster_timestamp(
       obs_raster,
@@ -306,7 +306,7 @@ link_monthly.sf <- function(.data,
       )
     }
 
-    baseline_raster <- terra::rast(baseline_path)
+    baseline_raster <- .safe_rast(baseline_path)
     if (!inherits(terra::time(baseline_raster), "POSIXt")) {
       baseline_raster <- raster_timestamp(
         baseline_raster,
@@ -565,7 +565,7 @@ link_monthly.SpatRaster <- function(.data,
     )
   }
 
-  obs_raster <- terra::rast(obs_path)
+  obs_raster <- .safe_rast(obs_path)
   if (!inherits(terra::time(obs_raster), "POSIXt")) {
     obs_raster <- raster_timestamp(
       obs_raster,
@@ -618,7 +618,7 @@ link_monthly.SpatRaster <- function(.data,
       )
     }
 
-    baseline_raster <- terra::rast(baseline_path)
+    baseline_raster <- .safe_rast(baseline_path)
     if (!inherits(terra::time(baseline_raster), "POSIXt")) {
       baseline_raster <- raster_timestamp(
         baseline_raster,

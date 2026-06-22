@@ -294,7 +294,7 @@ link_daily.sf <-
     }
 
     # Load global observation raster once for all splits
-    obs_raster <- terra::rast(obs_path)
+    obs_raster <- .safe_rast(obs_path)
     if (!inherits(terra::time(obs_raster), "POSIXt")) {
       obs_raster <- raster_timestamp(
         obs_raster,
@@ -350,7 +350,7 @@ link_daily.sf <-
       }
 
       # Load global baseline raster once for all splits
-      baseline_raster <- terra::rast(baseline_path)
+      baseline_raster <- .safe_rast(baseline_path)
       baseline_raster <- raster_timestamp(
         baseline_raster,
         days   = format(all_baseline_span, "%d"),
@@ -591,7 +591,7 @@ link_daily.SpatRaster <- function(.data,
   }
 
   # Load global observation raster and reproject to original CRS
-  obs_raster <- terra::rast(obs_path)
+  obs_raster <- .safe_rast(obs_path)
   if (!inherits(terra::time(obs_raster), "POSIXt")) {
     obs_raster <- raster_timestamp(
       obs_raster,
@@ -646,7 +646,7 @@ link_daily.SpatRaster <- function(.data,
       )
     }
 
-    baseline_raster <- terra::rast(baseline_path)
+    baseline_raster <- .safe_rast(baseline_path)
     baseline_raster <- raster_timestamp(
       baseline_raster,
       days   = format(all_baseline_span, "%d"),
