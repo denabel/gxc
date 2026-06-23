@@ -1,6 +1,6 @@
 #' Link with monthly indicators
 #'
-#' @description Augments spatio-temporal data with indicators from the
+#' @description Augments spatio-temporal data with monthly indicators from the
 #' Copernicus earth observation database (ERA5) or the German Weather Service
 #' (DWD).
 #' The function performs the following pre-/post-processing steps:
@@ -8,89 +8,98 @@
 #' \itemize{
 #'  \item{Construct time adjustments (time aggregations, time lags)}
 #'  \item{Compute space adjustments (spatial buffers)}
-#'  \item{Download monthly statistics from Copernicus database or DWD}
+#'  \item{Download monthly statistics from the data source}
 #'  \item{Link raster statistics back to input}
 #'  \item{Optionally, add comparative statistics based on a baseline period}
 #' }
 #'
-#' This function interfaces the monthly means of ERA5 indicators. For daily
-#' statistics see \code{\link{link_daily}}.
+#' This function interfaces the monthly means of ERA5 and DWD indicators. For
+#' daily statistics see \code{\link{link_daily}}.
 #'
 #' @param catalogue Character string specifying which catalogue to use.
 #'   Options are `"reanalysis-era5-land-monthly-means"` (default),
 #'   `"reanalysis-era5-single-levels-monthly-means"`, or `"dwd-monthly"`.
-#' @param by_hour Logical or character. If `FALSE` (default), the monthly
-#'   averaged values are derived from the entire day
-#'   (`"monthly_averaged_reanalysis"`). If a character string specifying an
-#'   hour (e.g., `"03:00"`), then the dataset
-#'   `"monthly_averaged_reanalysis_by_hour_of_day"` is used, and only values
-#'   from that hour of the day are included. Only applicable for ERA5 catalogues.
+#' @param by_hour Logical or character specifying whether to use
+#'   hourly-based monthly averages. ERA5 only. If `FALSE` (default), monthly
+#'   averages are derived from the entire day. If a character string giving a
+#'   full hour (e.g. `"03:00"`), only values from that hour of the day are
+#'   included. Not applicable for DWD catalogues.
 #' @param months Optional integer vector specifying explicit months to use as
 #'   the study period (e.g. `c(3, 4, 5)` for spring). If the input date falls
-#'   within one of the specified months, the window is shifted one year back.
-#'   Cannot be combined with `time_span`.
+#'   within one of the specified months, the window is automatically shifted
+#'   one year back to avoid using incomplete data. Cannot be combined with
+#'   `time_span`.
 #' @inherit link_daily
 #'
 #' @details
-#' This function interacts with the Copernicus Climate Data Store (CDS) API or
-#' the DWD open data server to download monthly reanalysis data for a specified
-#' climate indicator and time period. The input spatial points (an sf object)
-#' are first optionally buffered (using the `buffer` argument) to expand the
-#' extraction area. The function then determines the geographic extent from the
-#' (possibly buffered) points and adjusts the time dimension based on the
-#' specified `date_var`, `time_lag`, and `time_span` (all in months). Monthly
-#' time sequences are constructed assuming that dates correspond to the first
-#' day of each month. If a baseline period is provided (e.g.,
-#' `baseline = c("1980", "2010")`), baseline monthly statistics are downloaded
-#' for the specified period and appended as an additional attribute.
+#' For ERA5 catalogues, this function interacts with the Copernicus Climate
+#' Data Store (CDS) API to download monthly reanalysis data. Requests are
+#' submitted as individual per-month calls. For DWD catalogues, monthly
+#' gridded data is downloaded directly from the DWD open data server as
+#' compressed ASCII grid files and cached as `.tif` files.
+#'
+#' The input spatial points are first optionally buffered (if `buffer > 0`),
+#' then processed to determine the geographic extent. The time dimension is
+#' adjusted using `time_lag` and `time_span` (both in months). If `months`
+#' is specified, an explicit seasonal window is used instead of a rolling
+#' time span. If a baseline period is provided, baseline statistics are
+#' downloaded and appended as additional columns.
+#'
+#' Output columns are consistently structured regardless of whether a baseline
+#' is requested — calls without a baseline still produce all columns, with
+#' `NA` in baseline-specific ones, making `rbind()` across specifications
+#' straightforward. See \code{\link{link_daily}} for the daily equivalent.
 #'
 #' The following indicators are currently supported:
 #'
 #' `r rd_indicators("link_monthly")`
 #'
+#' @note Users must have a CDS account and have their API key configured for
+#'   `ecmwfr` when using ERA5 catalogues. DWD catalogues require no
+#'   authentication.
+#'
+#' @return An object of the same class as `.data` with additional columns
+#'   (sf input) or layers (SpatRaster input) containing the linked indicator
+#'   values and associated metadata.
+#'
+#' @export
+#'
 #' @examples
 #' \dontrun{
 #' library(sf)
 #'
-#' # Create sample point data (sf object)
 #' pts <- data.frame(
-#'   lon = c(13.4, 11.6, 9.9),
-#'   lat = c(52.5, 51.3, 50.1),
-#'   date = c("2014-08-01", "2014-08-01", "2014-08-01")
+#'   lon  = c(13.4, 11.6),
+#'   lat  = c(52.5, 51.3),
+#'   date = c("2014-08-01", "2014-08-01")
 #' )
 #' pts_sf <- st_as_sf(pts, coords = c("lon", "lat"), crs = 4326)
 #'
-#' # Example 1: Direct extraction (buffer = 0)
+#' # Simple extraction
 #' result1 <- link_monthly(pts_sf, indicator = "2m_temperature")
 #'
-#' # Example 2: Aggregated extraction with a 5 km buffer and a baseline period
+#' # With buffer and baseline
 #' result2 <- link_monthly(
 #'   pts_sf,
 #'   indicator = "2m_temperature",
-#'   buffer = 5,
-#'   baseline = c("1980", "2010")
+#'   buffer    = 5000,
+#'   baseline  = c("1980", "2010")
 #' )
 #'
-#' # Example 3: Explicit spring months with baseline deviation
+#' # Explicit spring months with baseline deviation
 #' result3 <- link_monthly(
 #'   pts_sf,
 #'   indicator = "2m_temperature",
-#'   months = c(3, 4, 5),
-#'   baseline = c("1980", "2010")
+#'   months    = c(3, 4, 5),
+#'   baseline  = c("1980", "2010")
 #' )
 #'
-#' # Example 4: DWD monthly data
+#' # DWD monthly data
 #' result4 <- link_monthly(
 #'   pts_sf,
 #'   indicator = "air_temperature_mean",
 #'   catalogue = "dwd-monthly"
-#' )
-#'
-#' # View the results:
-#' head(result1)
-#' head(result2)}
-#'
-#' @export
+#' )}
 link_monthly <- function(.data,
                          indicator,
                          ...,
@@ -361,7 +370,7 @@ link_monthly.sf <- function(.data,
       )
 
       # Write primary result columns in order
-      prepared[[.col("study", prefix)]] <-
+      prepared[[.col("study",    prefix)]] <-
         .extract_study_values(raster_values, study_fun)
       prepared[[.col("baseline", prefix)]] <- NA_real_
       prepared[[.col("result",   prefix)]] <- NA_real_
@@ -392,7 +401,6 @@ link_monthly.sf <- function(.data,
       # Remove internal .linked column
       prepared$.linked <- NULL
 
-      # Write metadata columns
       # Write metadata columns
       prepared[[.col("indicator",      prefix)]] <- indicator
       prepared[[.col("unit",           prefix)]] <-
@@ -650,7 +658,7 @@ link_monthly.SpatRaster <- function(.data,
     method         = method
   )
 
-  # Collapse to single layer for study column if count mode returned stack
+  # Collapse to single layer if count mode returned a stack
   study_layer <- if (terra::nlyr(extracted) > 1) {
     terra::app(extracted, study_fun)
   } else {
@@ -660,12 +668,12 @@ link_monthly.SpatRaster <- function(.data,
   .data <- c(.data, study_layer, warn = FALSE)
 
   # Placeholder layers so column order is consistent before .add_baseline
-  placeholder              <- study_layer
+  placeholder                <- study_layer
   terra::values(placeholder) <- NA_real_
-  baseline_ph              <- placeholder
-  result_ph                <- placeholder
-  names(baseline_ph)       <- .col("baseline", prefix)
-  names(result_ph)         <- .col("result",   prefix)
+  baseline_ph                <- placeholder
+  result_ph                  <- placeholder
+  names(baseline_ph)         <- .col("baseline", prefix)
+  names(result_ph)           <- .col("result",   prefix)
   .data <- c(.data, baseline_ph, warn = FALSE)
   .data <- c(.data, result_ph,   warn = FALSE)
 

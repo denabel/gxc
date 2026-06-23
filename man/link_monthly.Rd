@@ -79,79 +79,110 @@ link_monthly(
 \item{.data}{An \code{sf} object containing the spatial data (polygons or points).}
 
 \item{indicator}{Character string specifying the indicator to download
-(e.g., \code{"2m_temperature"}). Allowed indicators differ by catalogue. See
-the \strong{Details} section for available indicators.}
+(e.g., \code{"2m_temperature"} for ERA5 or \code{"air_temperature_mean"} for DWD).
+Allowed indicators differ by catalogue. See the \strong{Details} section for
+available indicators.}
 
 \item{...}{Arguments passed to methods.}
 
-\item{cache}{Logical value indicating whether to keep the downloaded
-files and restore them when downloading the same file again.
-Enabling caching can speed up functions calls significantly when working
-with the same files repeatedly. See the \strong{Caching} section for details. If
-\code{FALSE}, removes the raw files after processing.}
+\item{cache}{Logical indicating whether to cache downloaded files and
+restore them on repeated calls with the same parameters. Enabling
+caching significantly speeds up repeated calls. If \code{FALSE}, raw files
+are deleted after extraction. Default is \code{TRUE}.}
 
-\item{path}{Character string specifying the directory path where data will
-be downloaded and cached. If \code{NULL}, the directory depends on whether
-caching is enabled. If \code{cache = FALSE}, files are stored in a temporary
-directory (\code{\link{tempdir}}), otherwise they are stored in the user
-directory (\code{\link{R_user_dir}}). Defaults to \code{NULL}.}
+\item{path}{Character string specifying the directory for downloads and
+cache. If \code{NULL} (default), uses a temporary directory when
+\code{cache = FALSE} or the user data directory
+(\code{\link[tools]{R_user_dir}}) when \code{cache = TRUE}.}
 
-\item{parallel}{Logical indicating whether to use parallel processing with
-chunking. See section \strong{Parallel processing} for details. Default is
-\code{FALSE} (i.e., sequential execution).}
+\item{parallel}{Logical indicating whether to use parallel processing.
+See section \strong{Parallel processing} for details. Default is \code{FALSE}.}
 
 \item{chunk_size}{Integer specifying the number of observations per chunk
-when parallelizing. Default is \code{50}.}
+when parallelising. Default is \code{50}.}
 
-\item{verbose}{Logical value specifiying whether to show informative status
-updates. Defaults to \code{TRUE}.}
+\item{verbose}{Logical specifying whether to show informative status
+messages. Default is \code{TRUE}.}
 
-\item{date_var}{Character string specifying the name of the date variable in \code{data}.}
+\item{date_var}{Character string specifying the name of the date variable
+in \code{.data}. Defaults to \code{"date"}.}
 
 \item{time_span}{Integer specifying the time span in days for averaging the
-climate indicator values prior to linking with the spatial data (default
-is \code{0}).}
+climate indicator values prior to linking with the spatial data. A value
+of \code{0} (default) uses only the exact date; values greater than \code{0}
+aggregate over a rolling window of that many days before the date.}
 
 \item{time_lag}{Integer specifying the time lag in days to shift the
-\code{date_var} backward (default is \code{0}).}
+\code{date_var} backward before extraction. Default is \code{0}.}
 
 \item{months}{Optional integer vector specifying explicit months to use as
 the study period (e.g. \code{c(3, 4, 5)} for spring). If the input date falls
-within one of the specified months, the window is shifted one year back.
-Cannot be combined with \code{time_span}.}
+within one of the specified months, the window is automatically shifted
+one year back to avoid using incomplete data. Cannot be combined with
+\code{time_span}.}
 
-\item{buffer}{Numeric value specifying the buffer radius (in kilometers) to
+\item{buffer}{Numeric value specifying the buffer radius in metres to
 be applied around each geometry. The default is \code{0}, corresponding to a
 direct cell match; values greater than 0 generate a spatial buffer
 around each point for aggregated extraction.}
 
 \item{baseline}{Either \code{FALSE} (default) or a character vector of length 2
-specifying the baseline period in years. For example,
-\code{baseline = c("1980", "2010")} uses the years 1980 to 2010 as the baseline.
-If \code{FALSE}, no baseline calculation is performed.}
+specifying the baseline period as start and end year. For example,
+\code{baseline = c("1980", "2010")} uses the years 1980 to 2010 as the
+baseline. If \code{FALSE}, no baseline calculation is performed.}
+
+\item{baseline_fun}{Character string or function specifying how baseline
+layers are collapsed to a single reference value. Accepts one of
+\code{"mean"} (default), \code{"median"}, \code{"min"}, \code{"max"}, \code{"sd"}, or percentiles
+\code{"p05"}, \code{"p10"}, \code{"p20"}, \code{"p80"}, \code{"p90"}, \code{"p95"}. A custom function
+is also accepted but will be labelled \code{"custom"} in output metadata.
+Ignored when \code{baseline = FALSE}.}
+
+\item{study_fun}{Character string or function specifying how focal period
+layers are collapsed to a single summary value. Same options as
+\code{baseline_fun}. Only relevant when \code{time_span > 0}. Default is \code{"mean"}.}
+
+\item{stat_wrangling}{Character string specifying how the focal value is
+compared to the baseline reference value. One of:
+\describe{
+\item{\code{"deviation"}}{Difference between focal value and baseline
+reference value (default).}
+\item{\code{"sd_deviation"}}{Deviation expressed in units of the baseline
+standard deviation (z-score).}
+\item{\code{"count_above"}}{Number of days in the focal period that exceed
+the baseline reference value. Requires \code{time_span > 0}.}
+\item{\code{"count_below"}}{Number of days in the focal period that fall
+below the baseline reference value. Requires \code{time_span > 0}.}
+}
+Ignored when \code{baseline = FALSE}.}
+
+\item{prefix}{Character string appended to all output column names
+(e.g. \code{prefix = "temp_7d"} produces \code{.study_temp_7d}, \code{.result_temp_7d}
+etc.). Useful when calling \code{link_daily()} multiple times on the same
+dataset. Default is \code{NULL} (no prefix).}
 
 \item{catalogue}{Character string specifying which catalogue to use.
 Options are \code{"reanalysis-era5-land-monthly-means"} (default),
 \code{"reanalysis-era5-single-levels-monthly-means"}, or \code{"dwd-monthly"}.}
 
-\item{by_hour}{Logical or character. If \code{FALSE} (default), the monthly
-averaged values are derived from the entire day
-(\code{"monthly_averaged_reanalysis"}). If a character string specifying an
-hour (e.g., \code{"03:00"}), then the dataset
-\code{"monthly_averaged_reanalysis_by_hour_of_day"} is used, and only values
-from that hour of the day are included. Only applicable for ERA5 catalogues.}
+\item{by_hour}{Logical or character specifying whether to use
+hourly-based monthly averages. ERA5 only. If \code{FALSE} (default), monthly
+averages are derived from the entire day. If a character string giving a
+full hour (e.g. \code{"03:00"}), only values from that hour of the day are
+included. Not applicable for DWD catalogues.}
 
-\item{method}{Character string specifying the resampling method to use when
-aligning the downloaded data with the grid. Options include \code{"bilinear"}
-(default), \code{"near"}, \code{"cubic"}, etc. See \code{\link[terra]{resample}} for
-details.}
+\item{method}{Character string specifying the resampling method to use
+when aligning the downloaded raster with the input grid. SpatRaster
+input only. Options include \code{"bilinear"} (default), \code{"near"}, \code{"cubic"},
+etc. See \code{\link[terra]{resample}} for details.}
 }
 \value{
-An object of the input class with the original data and appended
-climate indicator values.
+An object of the same class as \code{.data} with additional columns
+(sf input) or layers (SpatRaster input) containing the linked indicator
+values and associated metadata.
 }
 \description{
-Augments spatio-temporal data with indicators from the
+Augments spatio-temporal data with monthly indicators from the
 Copernicus earth observation database (ERA5) or the German Weather Service
 (DWD).
 The function performs the following pre-/post-processing steps:
@@ -159,26 +190,32 @@ The function performs the following pre-/post-processing steps:
 \itemize{
 \item{Construct time adjustments (time aggregations, time lags)}
 \item{Compute space adjustments (spatial buffers)}
-\item{Download monthly statistics from Copernicus database or DWD}
+\item{Download monthly statistics from the data source}
 \item{Link raster statistics back to input}
 \item{Optionally, add comparative statistics based on a baseline period}
 }
 
-This function interfaces the monthly means of ERA5 indicators. For daily
-statistics see \code{\link{link_daily}}.
+This function interfaces the monthly means of ERA5 and DWD indicators. For
+daily statistics see \code{\link{link_daily}}.
 }
 \details{
-This function interacts with the Copernicus Climate Data Store (CDS) API or
-the DWD open data server to download monthly reanalysis data for a specified
-climate indicator and time period. The input spatial points (an sf object)
-are first optionally buffered (using the \code{buffer} argument) to expand the
-extraction area. The function then determines the geographic extent from the
-(possibly buffered) points and adjusts the time dimension based on the
-specified \code{date_var}, \code{time_lag}, and \code{time_span} (all in months). Monthly
-time sequences are constructed assuming that dates correspond to the first
-day of each month. If a baseline period is provided (e.g.,
-\code{baseline = c("1980", "2010")}), baseline monthly statistics are downloaded
-for the specified period and appended as an additional attribute.
+For ERA5 catalogues, this function interacts with the Copernicus Climate
+Data Store (CDS) API to download monthly reanalysis data. Requests are
+submitted as individual per-month calls. For DWD catalogues, monthly
+gridded data is downloaded directly from the DWD open data server as
+compressed ASCII grid files and cached as \code{.tif} files.
+
+The input spatial points are first optionally buffered (if \code{buffer > 0}),
+then processed to determine the geographic extent. The time dimension is
+adjusted using \code{time_lag} and \code{time_span} (both in months). If \code{months}
+is specified, an explicit seasonal window is used instead of a rolling
+time span. If a baseline period is provided, baseline statistics are
+downloaded and appended as additional columns.
+
+Output columns are consistently structured regardless of whether a baseline
+is requested — calls without a baseline still produce all columns, with
+\code{NA} in baseline-specific ones, making \code{rbind()} across specifications
+straightforward. See \code{\link{link_daily}} for the daily equivalent.
 
 The following indicators are currently supported:
 
@@ -199,60 +236,53 @@ The following indicators are currently supported:
 }
 \note{
 Users must have a CDS account and have their API key configured for
-\code{ecmwfr} when using ERA5 catalogues.
+\code{ecmwfr} when using ERA5 catalogues. DWD catalogues require no
+authentication.
 }
 \section{Parallel processing}{
 
-This function can use parallel processing with chunking via
-\code{\link[future.apply]{future_lapply}} when \code{parallel = TRUE}. If
-\code{parallel = FALSE}, the function runs sequentially. When \code{parallel = TRUE},
-set your parallel plan (for example, using
-\code{\link[future]{plan}(multisession, workers = 6)})
-before calling this function. If no plan is set before but \code{parallel = TRUE},
-the function will run sequentially through the chunks, which will most
-likely increase duration.
+When \code{parallel = TRUE}, chunked parallel processing is performed via
+\code{\link[future.apply]{future_lapply}}. Set a parallel plan before
+calling this function, for example:
+\code{future::plan(multisession, workers = 4)}.
+If no plan is set, execution falls back to sequential processing through
+the chunks, which is likely slower than \code{parallel = FALSE}.
 }
 
 \examples{
 \dontrun{
 library(sf)
 
-# Create sample point data (sf object)
 pts <- data.frame(
-  lon = c(13.4, 11.6, 9.9),
-  lat = c(52.5, 51.3, 50.1),
-  date = c("2014-08-01", "2014-08-01", "2014-08-01")
+  lon  = c(13.4, 11.6),
+  lat  = c(52.5, 51.3),
+  date = c("2014-08-01", "2014-08-01")
 )
 pts_sf <- st_as_sf(pts, coords = c("lon", "lat"), crs = 4326)
 
-# Example 1: Direct extraction (buffer = 0)
+# Simple extraction
 result1 <- link_monthly(pts_sf, indicator = "2m_temperature")
 
-# Example 2: Aggregated extraction with a 5 km buffer and a baseline period
+# With buffer and baseline
 result2 <- link_monthly(
   pts_sf,
   indicator = "2m_temperature",
-  buffer = 5,
-  baseline = c("1980", "2010")
+  buffer    = 5000,
+  baseline  = c("1980", "2010")
 )
 
-# Example 3: Explicit spring months with baseline deviation
+# Explicit spring months with baseline deviation
 result3 <- link_monthly(
   pts_sf,
   indicator = "2m_temperature",
-  months = c(3, 4, 5),
-  baseline = c("1980", "2010")
+  months    = c(3, 4, 5),
+  baseline  = c("1980", "2010")
 )
 
-# Example 4: DWD monthly data
+# DWD monthly data
 result4 <- link_monthly(
   pts_sf,
   indicator = "air_temperature_mean",
   catalogue = "dwd-monthly"
-)
-
-# View the results:
-head(result1)
-head(result2)}
-
+)}
 }
