@@ -414,7 +414,7 @@
         } else {
           vector$.linked[i]
         }
-        compute_stat_wrangling(
+        .compute_stat_wrangling(
           baseline_values = baseline_values,
           focal_value     = focal_val,
           stat_wrangling  = stat_wrangling,
@@ -461,7 +461,7 @@
           vector_sliced$.linked
         }
 
-        compute_stat_wrangling(
+        .compute_stat_wrangling(
           baseline_values = baseline_values,
           focal_value     = focal_val,
           stat_wrangling  = stat_wrangling,

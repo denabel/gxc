@@ -33,18 +33,18 @@
   if (is.null(prefix)) paste0(".", name) else paste0(".", name, "_", prefix)
 }
 
-#' @export
-compute_stat_wrangling <- function(
+#' @noRd
+.compute_stat_wrangling <- function(
     baseline_values,
     focal_value,
     stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
     baseline_fun   = function(x) mean(x, na.rm = TRUE)
 ) {
-  UseMethod("compute_stat_wrangling")
+  UseMethod(".compute_stat_wrangling")
 }
 
-#' @exportS3Method
-compute_stat_wrangling.numeric <- function(
+#' @noRd
+.compute_stat_wrangling.numeric <- function(
     baseline_values,
     focal_value,
     stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
@@ -63,8 +63,8 @@ compute_stat_wrangling.numeric <- function(
   list(reference_stat = reference_stat, result = result)
 }
 
-#' @exportS3Method
-compute_stat_wrangling.SpatRaster <- function(
+#' @noRd
+.compute_stat_wrangling.SpatRaster <- function(
     baseline_values,
     focal_value,
     stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
@@ -197,7 +197,7 @@ add_baseline <- function(.data, baseline, baseline_fun) {
   } else {
     focal_layer <- .data[[.col("study", prefix)]]
 
-    baseline_result <- compute_stat_wrangling(
+    baseline_result <- .compute_stat_wrangling(
       baseline_values = baseline_raster,
       focal_value     = focal_layer,
       stat_wrangling  = stat_wrangling,
