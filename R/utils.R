@@ -190,24 +190,6 @@ make_dates <- function(years, months = NULL, days = NULL, unlist = TRUE) {
     ymd$day <- replicate(nrow(ymd), days, simplify = FALSE)
   }
 
-  # if (nrow(ymd) == 1 && length(days) > 1) {
-  #   ymd <-
-  #     expand.grid(
-  #       year = ymd$year, month = ymd$month, day = days,
-  #       stringsAsFactors = FALSE
-  #     )
-  # }
-  #
-  # # if (nrow(ymd) > 1 && length(days))
-  # else {
-  #   ymd <- ymd[rep(seq_len(nrow(ymd)), each = length(days)), ]
-  #
-  #   ymd$day <- rep(days, length.out = nrow(ymd))
-  #   # ymd$days <- replicate(nrow(ymd), days, simplify = FALSE)
-  #   ymd <- cbind(ymd, day = days, stringsAsFactors = FALSE)
-  # }
-
-
   dates <- .mapply(make_date, ymd, MoreArgs = NULL)
 
   if (unlist) {
