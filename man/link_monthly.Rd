@@ -7,7 +7,7 @@
 \alias{link_monthly.stars}
 \alias{link_monthly.SpatVector}
 \alias{link_monthly.Spatial}
-\title{Link with ERA5 monthly indicators}
+\title{Link with monthly indicators}
 \usage{
 link_monthly(
   .data,
@@ -82,9 +82,7 @@ link_monthly(
 (e.g., \code{"2m_temperature"}). Allowed indicators differ by catalogue. See
 the \strong{Details} section for available indicators.}
 
-\item{...}{Arguments passed to methods. If \code{.data} is a stars object,
-arguments are passed to \code{link_daily.SpatRaster}, otherwise to
-\code{link_daily.sf}.}
+\item{...}{Arguments passed to methods.}
 
 \item{cache}{Logical value indicating whether to keep the downloaded
 files and restore them when downloading the same file again.
@@ -103,14 +101,10 @@ chunking. See section \strong{Parallel processing} for details. Default is
 \code{FALSE} (i.e., sequential execution).}
 
 \item{chunk_size}{Integer specifying the number of observations per chunk
-when parallelizing. This is the number of rows that is processed
-simultaneously during parallel processing. Setting this to something lower
-than \code{nrow(.data)} increases the total number of parallel processes.
-Default is \code{50}.}
+when parallelizing. Default is \code{50}.}
 
 \item{verbose}{Logical value specifiying whether to show informative status
-updates. If \code{FALSE}, suppresses all messages signaled by the function.
-Defaults to \code{TRUE}.}
+updates. Defaults to \code{TRUE}.}
 
 \item{date_var}{Character string specifying the name of the date variable in \code{data}.}
 
@@ -136,20 +130,16 @@ specifying the baseline period in years. For example,
 \code{baseline = c("1980", "2010")} uses the years 1980 to 2010 as the baseline.
 If \code{FALSE}, no baseline calculation is performed.}
 
-\item{catalogue}{Character string specifying which ERA5 catalogue to use.
-Options are \code{"reanalysis-era5-land-monthly-means"}
-or \code{"reanalysis-era5-single-levels-monthly-means"}. The first provides
-higher spatial resolution at 0.1x0.1 degrees but is only available from
-1950 onwards. If you need data before 1950 or if you are working with large
-spatial extents where finer resolution is not required, you can switch to
-the latter.}
+\item{catalogue}{Character string specifying which catalogue to use.
+Options are \code{"reanalysis-era5-land-monthly-means"} (default),
+\code{"reanalysis-era5-single-levels-monthly-means"}, or \code{"dwd-monthly"}.}
 
 \item{by_hour}{Logical or character. If \code{FALSE} (default), the monthly
 averaged values are derived from the entire day
 (\code{"monthly_averaged_reanalysis"}). If a character string specifying an
 hour (e.g., \code{"03:00"}), then the dataset
 \code{"monthly_averaged_reanalysis_by_hour_of_day"} is used, and only values
-from that hour of the day are included.}
+from that hour of the day are included. Only applicable for ERA5 catalogues.}
 
 \item{method}{Character string specifying the resampling method to use when
 aligning the downloaded data with the grid. Options include \code{"bilinear"}
@@ -157,27 +147,19 @@ aligning the downloaded data with the grid. Options include \code{"bilinear"}
 details.}
 }
 \value{
-An object of the input class (i.e. if \code{.data} is an sf dataframe,
-the function returns an sf dataframe) with the original data and appended
-climate indicator values. If a baseline period is specified, additional
-data for baseline values and deviations are included. The output contains
-the following columns / layers:
-
-\itemize{
-\item{\code{.linked}: Linked climate indicator value}
-\item{\code{.baseline}: Linked baseline indicator value (if applicable)}
-\item{\code{.deviation}: Difference between \code{.linked} and \code{.baseline} (if applicable)}
-}
+An object of the input class with the original data and appended
+climate indicator values.
 }
 \description{
 Augments spatio-temporal data with indicators from the
-Copernicus earth observation database (ERA5).
+Copernicus earth observation database (ERA5) or the German Weather Service
+(DWD).
 The function performs the following pre-/post-processing steps:
 
 \itemize{
 \item{Construct time adjustments (time aggregations, time lags)}
 \item{Compute space adjustments (spatial buffers)}
-\item{Download monthly statistics from Copernicus database}
+\item{Download monthly statistics from Copernicus database or DWD}
 \item{Link raster statistics back to input}
 \item{Optionally, add comparative statistics based on a baseline period}
 }
@@ -186,43 +168,38 @@ This function interfaces the monthly means of ERA5 indicators. For daily
 statistics see \code{\link{link_daily}}.
 }
 \details{
-This function interacts with the Copernicus Climate Data Store (CDS) API to
-download ERA5 monthly reanalysis data for a specified climate indicator and
-time period. The input spatial points (an sf object) are first optionally
-buffered (using the \code{buffer} argument) to expand the extraction area. The
-function then determines the geographic extent from the (possibly buffered)
-points and adjusts the time dimension based on the specified \code{date_var},
-\code{time_lag}, and \code{time_span} (all in months). Monthly time sequences are
-constructed assuming that dates correspond to the first day of each month.
-The function downloads the corresponding monthly data (or hourly-based
-monthly averages if \code{by_hour} is specified) and extracts these values for
-each point—using a direct cell match when \code{buffer = 0} or aggregating over
-the buffer area when \code{buffer > 0}. If a baseline period is provided (e.g.,
+This function interacts with the Copernicus Climate Data Store (CDS) API or
+the DWD open data server to download monthly reanalysis data for a specified
+climate indicator and time period. The input spatial points (an sf object)
+are first optionally buffered (using the \code{buffer} argument) to expand the
+extraction area. The function then determines the geographic extent from the
+(possibly buffered) points and adjusts the time dimension based on the
+specified \code{date_var}, \code{time_lag}, and \code{time_span} (all in months). Monthly
+time sequences are constructed assuming that dates correspond to the first
+day of each month. If a baseline period is provided (e.g.,
 \code{baseline = c("1980", "2010")}), baseline monthly statistics are downloaded
 for the specified period and appended as an additional attribute.
-Optionally, deviations between the focal and baseline values may be
-computed.
 
 The following indicators are currently supported:
 
-\tabular{ll}{
-\strong{Land} \tab \strong{Single Levels}\cr
-\code{2m_temperature}                  \tab \code{2m_temperature}                      \cr
-\code{total_precipitation}             \tab \code{total_precipitation}                 \cr
-\code{10m_u_component_of_wind}         \tab \code{10m_u_component_of_wind}             \cr
-\code{10m_v_component_of_wind}         \tab \code{10m_v_component_of_wind}             \cr
-\code{leaf_area_index_high_vegetation} \tab \code{instantaneous_10m_wind_gust}         \cr
-\code{leaf_area_index_low_vegetation}  \tab \code{downward_uv_radiation_at_the_surface}\cr
-\code{snow_cover}                      \tab \code{total_cloud_cover}                   \cr
-\code{snowfall}                        \tab \code{k_index}                             \cr
-\tab \code{leaf_area_index_high_vegetation}     \cr
-\tab \code{leaf_area_index_low_vegetation}      \cr
-\tab \code{snowfall}
+\tabular{lll}{
+\strong{ERA5 Land} \tab \strong{ERA5 Single Levels} \tab \strong{DWD}\cr
+\code{2m_temperature}                  \tab \code{2m_temperature}                       \tab \code{air_temperature_mean}\cr
+\code{total_precipitation}             \tab \code{total_precipitation}                  \tab \code{air_temperature_max} \cr
+\code{10m_u_component_of_wind}         \tab \code{10m_u_component_of_wind}              \tab \code{air_temperature_min} \cr
+\code{10m_v_component_of_wind}         \tab \code{10m_v_component_of_wind}              \tab \code{precipitation}       \cr
+\code{leaf_area_index_high_vegetation} \tab \code{instantaneous_10m_wind_gust}          \tab \code{drought_index}       \cr
+\code{leaf_area_index_low_vegetation}  \tab \code{downward_uv_radiation_at_the_surface} \tab                             \cr
+\code{snow_cover}                      \tab \code{total_cloud_cover}                    \tab                             \cr
+\code{snowfall}                        \tab \code{k_index}                              \tab                             \cr
+\tab \code{leaf_area_index_high_vegetation}      \tab                             \cr
+\tab \code{leaf_area_index_low_vegetation}       \tab                             \cr
+\tab \code{snowfall}                             \tab
 }
 }
 \note{
 Users must have a CDS account and have their API key configured for
-\code{ecmwfr}.
+\code{ecmwfr} when using ERA5 catalogues.
 }
 \section{Parallel processing}{
 
@@ -265,6 +242,13 @@ result3 <- link_monthly(
   indicator = "2m_temperature",
   months = c(3, 4, 5),
   baseline = c("1980", "2010")
+)
+
+# Example 4: DWD monthly data
+result4 <- link_monthly(
+  pts_sf,
+  indicator = "air_temperature_mean",
+  catalogue = "dwd-monthly"
 )
 
 # View the results:

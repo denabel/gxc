@@ -82,9 +82,7 @@ link_daily(
 (e.g., \code{"2m_temperature"}). Allowed indicators differ by catalogue. See
 the \strong{Details} section for available indicators.}
 
-\item{...}{Arguments passed to methods. If \code{.data} is a stars object,
-arguments are passed to \code{link_daily.SpatRaster}, otherwise to
-\code{link_daily.sf}.}
+\item{...}{Arguments passed to methods.}
 
 \item{cache}{Logical value indicating whether to keep the downloaded
 files and restore them when downloading the same file again.
@@ -103,14 +101,10 @@ chunking. See section \strong{Parallel processing} for details. Default is
 \code{FALSE} (i.e., sequential execution).}
 
 \item{chunk_size}{Integer specifying the number of observations per chunk
-when parallelizing. This is the number of rows that is processed
-simultaneously during parallel processing. Setting this to something lower
-than \code{nrow(.data)} increases the total number of parallel processes.
-Default is \code{50}.}
+when parallelizing. Default is \code{50}.}
 
 \item{verbose}{Logical value specifiying whether to show informative status
-updates. If \code{FALSE}, suppresses all messages signaled by the function.
-Defaults to \code{TRUE}.}
+updates. Defaults to \code{TRUE}.}
 
 \item{date_var}{Character string specifying the name of the date variable in \code{data}.}
 
@@ -131,18 +125,16 @@ specifying the baseline period in years. For example,
 \code{baseline = c("1980", "2010")} uses the years 1980 to 2010 as the baseline.
 If \code{FALSE}, no baseline calculation is performed.}
 
-\item{catalogue}{Character string specifying which ERA5 catalogue to use.
-Options are \code{"derived-era5-land-daily-statistics"} (default) or
-\code{"derived-era5-single-levels-daily-statistics"}. The first is a good
-default for land surface processes while the latter includes data from
-both land and oceans.}
+\item{catalogue}{Character string specifying which catalogue to use.
+Options are \code{"derived-era5-land-daily-statistics"} (default),
+\code{"derived-era5-single-levels-daily-statistics"}, or \code{"dwd-hyras-daily"}.}
 
 \item{statistic}{Character string specifying the type of daily statistic to
-download. Options are \code{"daily_mean"} (default), \code{"daily_maximum"}, and
-\code{"daily_minimum"}.}
+download (ERA5 only). Options are \code{"daily_mean"} (default),
+\code{"daily_maximum"}, and \code{"daily_minimum"}.}
 
-\item{time_zone}{Character string specifying the time zone to use (default
-is \code{"utc+00:00"}).}
+\item{time_zone}{Character string specifying the time zone to use (ERA5
+only, default is \code{"utc+00:00"}).}
 
 \item{method}{Character string specifying the resampling method to use when
 aligning the downloaded data with the grid. Options include \code{"bilinear"}
@@ -150,17 +142,8 @@ aligning the downloaded data with the grid. Options include \code{"bilinear"}
 details.}
 }
 \value{
-An object of the input class (i.e. if \code{.data} is an sf dataframe,
-the function returns an sf dataframe) with the original data and appended
-climate indicator values. If a baseline period is specified, additional
-data for baseline values and deviations are included. The output contains
-the following columns / layers:
-
-\itemize{
-\item{\code{.linked}: Linked climate indicator value}
-\item{\code{.baseline}: Linked baseline indicator value (if applicable)}
-\item{\code{.deviation}: Difference between \code{.linked} and \code{.baseline} (if applicable)}
-}
+An object of the input class with the original data and appended
+climate indicator values.
 }
 \description{
 Augments spatio-temporal data with daily indicators from the
@@ -196,24 +179,24 @@ attribute.
 
 The following indicators are currently supported:
 
-\tabular{ll}{
-\strong{Land} \tab \strong{Single Levels}\cr
-\code{2m_temperature}                  \tab \code{2m_temperature}                      \cr
-\code{snow_cover}                      \tab \code{total_precipitation}                 \cr
-\code{10m_u_component_of_wind}         \tab \code{10m_u_component_of_wind}             \cr
-\code{10m_v_component_of_wind}         \tab \code{10m_v_component_of_wind}             \cr
-\code{leaf_area_index_high_vegetation} \tab \code{instantaneous_10m_wind_gust}         \cr
-\code{leaf_area_index_low_vegetation}  \tab \code{downward_uv_radiation_at_the_surface}\cr
-\tab \code{total_cloud_cover}                   \cr
-\tab \code{k_index}                             \cr
-\tab \code{leaf_area_index_high_vegetation}     \cr
-\tab \code{leaf_area_index_low_vegetation}      \cr
-\tab \code{snowfall}
+\tabular{lll}{
+\strong{ERA5 Land} \tab \strong{ERA5 Single Levels} \tab \strong{DWD HYRAS}\cr
+\code{2m_temperature}                  \tab \code{2m_temperature}                       \tab \code{air_temperature_mean}\cr
+\code{snow_cover}                      \tab \code{total_precipitation}                  \tab \code{air_temperature_max} \cr
+\code{10m_u_component_of_wind}         \tab \code{10m_u_component_of_wind}              \tab \code{air_temperature_min} \cr
+\code{10m_v_component_of_wind}         \tab \code{10m_v_component_of_wind}              \tab \code{precipitation}       \cr
+\code{leaf_area_index_high_vegetation} \tab \code{instantaneous_10m_wind_gust}          \tab                             \cr
+\code{leaf_area_index_low_vegetation}  \tab \code{downward_uv_radiation_at_the_surface} \tab                             \cr
+\tab \code{total_cloud_cover}                    \tab                             \cr
+\tab \code{k_index}                              \tab                             \cr
+\tab \code{leaf_area_index_high_vegetation}      \tab                             \cr
+\tab \code{leaf_area_index_low_vegetation}       \tab                             \cr
+\tab \code{snowfall}                             \tab
 }
 }
 \note{
 Users must have a CDS account and have their API key configured for
-\code{ecmwfr}.
+\code{ecmwfr} when using ERA5 catalogues.
 }
 \section{Parallel processing}{
 
@@ -250,17 +233,19 @@ result2 <- link_daily(
   baseline = c("1980", "2010")
 )
 
-# View the results
-head(result1)
-head(result2)
+# Example: DWD HYRAS daily data
+result3 <- link_daily(
+  pts_sf,
+  indicator = "air_temperature_mean",
+  catalogue = "dwd-hyras-daily"
+)
 
 # The input can also be raster
-germany_bbox <- c(xmin = 5, xmax = 16, ymin = 47, ymax = 55) # approximate extent
+germany_bbox <- c(xmin = 5, xmax = 16, ymin = 47, ymax = 55)
 grid <- rast(
   xmin = germany_bbox["xmin"], xmax = germany_bbox["xmax"],
   ymin = germany_bbox["ymin"], ymax = germany_bbox["ymax"]
 )
 terra::time(grid) <- as.Date("2014-08-01")
-
 link_daily(grid, indicator = "2m_temperature")}
 }
