@@ -138,7 +138,6 @@ days <- function(x = 1) {
 #' @returns A string
 #' @noRd
 num_keys <- function(x) {
-  # as.character(sort(unique(x)))
   as.character(unique(x))
 }
 
@@ -436,9 +435,9 @@ psum <- function(..., na.rm=FALSE) {
   do.call(c, rasters)
 }
 
-# Extracts study values from raster_values — handles both the case where
-# raster_values is a single dataframe (all observations share the same
-# link_date and time_span == 0) and a list (all other cases)
+#' Extracts study values from raster_values — handles both the case where
+#' raster_values is a single dataframe (all observations share the same
+#' link_date and time_span == 0) and a list (all other cases)
 #' @noRd
 .extract_study_values <- function(raster_values, study_fun) {
   if (is.data.frame(raster_values)) {
