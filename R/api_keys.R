@@ -28,7 +28,7 @@ set_api_key <- function(service = "ecmwfr", user = NULL) {
   keyring::key_set(
     service,
     username = user,
-    prompt = sprintf("Enter your API key for service", service)
+    prompt = sprintf("Enter your API key for service %s", service)
   )
 
   invisible(NULL)
