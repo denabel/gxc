@@ -89,33 +89,33 @@
   list(reference_stat = reference_stat, result = result)
 }
 
-add_baseline <- function(.data, baseline, baseline_fun) {
-  lnk <- .make_lnk(.data, baseline = baseline)
-  .check_lnk(lnk, "baseline")
-
-  request_args <- list(
-    indicator = lnk %>>% "indicator",
-    days      = lnk %>>% "days",
-    months    = lnk %>>% "months",
-    extent    = lnk %>>% "extent",
-    catalogue = lnk %>>% "catalogue",
-    statistic = lnk %>>% "statistic",
-    time_zone = lnk %>>% "time_zone"
-  )
-
-  .add_baseline(
-    .data,
-    baseline     = baseline,
-    baseline_fun = baseline_fun,
-    request_args = request_args,
-    requester    = lnk %>>% "requester",
-    cache        = lnk %>>% "cache",
-    path         = lnk %>>% "path",
-    parallel     = lnk %>>% "parallel",
-    chunk_size   = lnk %>>% "chunk_size",
-    verbose      = lnk %>>% "verbose"
-  )
-}
+# add_baseline <- function(.data, baseline, baseline_fun) {
+#   lnk <- .make_lnk(.data, baseline = baseline)
+#   .check_lnk(lnk, "baseline")
+#
+#   request_args <- list(
+#     indicator = lnk %>>% "indicator",
+#     days      = lnk %>>% "days",
+#     months    = lnk %>>% "months",
+#     extent    = lnk %>>% "extent",
+#     catalogue = lnk %>>% "catalogue",
+#     statistic = lnk %>>% "statistic",
+#     time_zone = lnk %>>% "time_zone"
+#   )
+#
+#   .add_baseline(
+#     .data,
+#     baseline     = baseline,
+#     baseline_fun = baseline_fun,
+#     request_args = request_args,
+#     requester    = lnk %>>% "requester",
+#     cache        = lnk %>>% "cache",
+#     path         = lnk %>>% "path",
+#     parallel     = lnk %>>% "parallel",
+#     chunk_size   = lnk %>>% "chunk_size",
+#     verbose      = lnk %>>% "verbose"
+#   )
+# }
 
 .add_baseline <- function(.data,
                           baseline,
