@@ -1,3 +1,5 @@
+# Returns the default download directory for cached files. If cache = TRUE,
+# uses the user data directory; otherwise uses a temporary directory.
 .default_download_dir <- function(cache, service = NULL) {
   dir <- if (cache) {
     tools::R_user_dir("gxc", which = "data")
@@ -13,7 +15,9 @@
   dir
 }
 
-# Decompresses a .gz file to a target path using base R
+
+# Decompresses a .gz file to a target path using base R connections,
+# reading in 64 KB chunks to support arbitrarily large files.
 .decompress_gz <- function(path_gz, path_out) {
   con_in  <- gzcon(file(path_gz, "rb"))
   con_out <- file(path_out, "wb")
@@ -29,6 +33,9 @@
   invisible(path_out)
 }
 
+
+# Splits a multi-day ERA5 request into individual per-day requests.
+# wf_request_batch requires one request object per day.
 .split_request_by_day <- function(request) {
   years  <- as.integer(request$year)
   months <- as.integer(request$month)
@@ -60,6 +67,9 @@
   })
 }
 
+
+# Splits a multi-month ERA5 request into individual per-month requests.
+# wf_request_batch requires one request object per month.
 .split_request_by_month <- function(request) {
   dates <- sort(as.Date(paste(request$year, request$month, "01", sep = "-")))
 
@@ -73,7 +83,10 @@
   })
 }
 
-# Builds a daily ERA5 request list without submitting it
+
+# Builds a daily ERA5 request list without submitting it. The target field
+# contains a timestamp to ensure unique filenames across concurrent calls;
+# it is excluded from cache hashing in new_stash().
 .build_era5_daily_request <- function(indicator,
                                       catalogue,
                                       extent,
@@ -101,7 +114,10 @@
   )
 }
 
-# Builds a monthly ERA5 request list without submitting it
+
+# Builds a monthly ERA5 request list without submitting it. The .prefix
+# field is used by .split_request_by_month() to construct unique target
+# filenames and is excluded from cache hashing in new_stash().
 .build_era5_monthly_request <- function(indicator,
                                         catalogue,
                                         extent,
@@ -127,7 +143,10 @@
   )
 }
 
-# Shared logic for submitting a batch request with cache check
+
+# Shared submission logic for both daily and monthly ERA5 batch requests.
+# Checks the stash cache first; submits via wf_request_batch if not cached.
+# split_fn is either .split_request_by_day or .split_request_by_month.
 .submit_batch <- function(request,
                           split_fn,
                           path,
@@ -182,17 +201,22 @@
   data_path
 }
 
-# Submits a pre-built daily ERA5 request as a batch, checking cache first
+
+# Submits a pre-built daily ERA5 request as a batch, checking cache first.
 .submit_era5_batch <- function(request, path, cache = TRUE, verbose = TRUE) {
   .submit_batch(request, .split_request_by_day, path, cache, verbose)
 }
 
-# Submits a pre-built monthly ERA5 request as a batch, checking cache first
+
+# Submits a pre-built monthly ERA5 request as a batch, checking cache first.
 .submit_era5_monthly_batch <- function(request, path, cache = TRUE, verbose = TRUE) {
   .submit_batch(request, .split_request_by_month, path, cache, verbose)
 }
 
-# Wrapper: build + submit in one call (used by add_baseline)
+
+# Convenience wrapper: build + submit a daily ERA5 request in one call.
+# Currently unused but retained for potential use by future pipe-based
+# add_baseline() — see baseline.R.
 .ecmwf_request <- function(indicator,
                            ...,
                            cache   = FALSE,
@@ -205,6 +229,9 @@
   .submit_era5_batch(request, path = path, cache = cache, verbose = verbose)
 }
 
+
+# High-level wrapper for monthly ERA5 requests: builds the request list
+# and submits it via .submit_era5_monthly_batch.
 .request_era5_monthly <- function(indicator,
                                   catalogue,
                                   extent,
@@ -230,6 +257,9 @@
   .submit_era5_monthly_batch(request, path = path, cache = cache, verbose = verbose)
 }
 
+
+# High-level wrapper for daily ERA5 requests: builds the request list
+# and submits it via .submit_era5_batch.
 .request_era5_daily <- function(indicator,
                                 catalogue,
                                 extent,
@@ -256,7 +286,10 @@
   .submit_era5_batch(request, path = path, cache = cache, verbose = verbose)
 }
 
-# Downloads a DWD year file to a temporary location
+
+# Downloads a DWD HYRAS year file to a temporary subdirectory. If the file
+# is already present from a previous call within the same session it is
+# reused; it will be deleted after slicing (see .request_dwd_daily).
 .download_dwd_year_file <- function(indicator, year, path) {
   url_template <- .dwd_url_templates$daily[[indicator]]
   url          <- glue::glue(url_template, year = year)
@@ -274,8 +307,11 @@
 }
 
 
-# Slices daily layers from DWD year files, caches them as individual .tif
-# files, and removes the raw year file afterwards to save disk space
+# Downloads DWD HYRAS daily data for the requested dates. Year files are
+# downloaded once per year, sliced into individual per-day .tif files, and
+# then deleted to save disk space. Already-cached day files are skipped.
+# CRS is corrected on write — HYRAS daily nc files declare EPSG:4258 but
+# the data is in EPSG:3035.
 .request_dwd_daily <- function(indicator,
                                years,
                                months,
@@ -312,7 +348,6 @@
       year_rast       <- terra::rast(year_file)
       year_dates_rast <- as_date(terra::time(year_rast))
 
-      # Only slice days that are not yet cached
       for (idx in which(missing)) {
         d       <- year_dates[[idx]]
         lyr_idx <- which(year_dates_rast == d)
@@ -323,8 +358,6 @@
           )
         }
 
-        # Slice layer and correct CRS — DWD HYRAS daily data is in EPSG:3035
-        # but nc files declare EPSG:4258
         day_layer <- year_rast[[lyr_idx]]
         terra::crs(day_layer) <- "EPSG:3035"
         terra::writeRaster(day_layer, cached_files[[idx]], overwrite = FALSE)
@@ -340,7 +373,11 @@
   as.character(all_paths)
 }
 
-# Downloads DWD monthly data and caches as individual .tif files
+
+# Downloads DWD monthly data for the requested year-month combinations.
+# Files are served as compressed ASCII grids (.asc.gz), decompressed,
+# and cached as .tif files. CRS is set on write — monthly ASC files
+# have no CRS declaration; data is in EPSG:31467.
 .request_dwd_monthly <- function(indicator,
                                  years,
                                  months,
@@ -374,8 +411,6 @@
     download.file(url, destfile = tmp_gz, mode = "wb", quiet = TRUE)
     .decompress_gz(tmp_gz, tmp_asc)
 
-    # Set CRS — DWD monthly ASC files have no CRS declaration
-    # Monthly HYRAS data is in EPSG:31467
     r <- terra::rast(tmp_asc)
     terra::crs(r) <- "EPSG:31467"
     terra::writeRaster(r, cached_file, overwrite = FALSE)
