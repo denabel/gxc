@@ -401,11 +401,8 @@ link_daily.sf <-
         )
 
         # Write primary result columns in order
-        prepared[[.col("study",    prefix)]] <- sapply(raster_values, function(x) {
-          if (is.numeric(x) && length(x) > 1) study_fun(x)
-          else if (is.data.frame(x)) x[1, 1]
-          else as.numeric(x)
-        })
+        prepared[[.col("study", prefix)]] <-
+          .extract_study_values(raster_values, study_fun)
         prepared[[.col("baseline", prefix)]] <- NA_real_
         prepared[[.col("result",   prefix)]] <- NA_real_
 

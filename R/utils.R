@@ -460,3 +460,18 @@ supscript <- function(x) {
 
   do.call(c, rasters)
 }
+
+# Extracts study values from raster_values — handles both the case where
+# raster_values is a single dataframe (all observations share the same
+# link_date and time_span == 0) and a list (all other cases)
+.extract_study_values <- function(raster_values, study_fun) {
+  if (is.data.frame(raster_values)) {
+    raster_values[[1]]
+  } else {
+    sapply(raster_values, function(x) {
+      if (is.numeric(x) && length(x) > 1) study_fun(x)
+      else if (is.data.frame(x)) x[1, 1]
+      else as.numeric(x)
+    })
+  }
+}
