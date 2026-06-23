@@ -171,6 +171,9 @@
                           chunk_size      = 50,
                           verbose         = TRUE) {
 
+  # Initialise so the unlink check at the end is always safe
+  baseline_path <- NULL
+
   # If baseline_raster is not provided, download it on the fly. This path is
   # currently unused but will be needed once the pipe-based interface is
   # implemented (see commented-out add_baseline() above).
@@ -251,8 +254,6 @@
     .data[[.col("result",   prefix)]] <- result_layer
   }
 
-  baseline_path <- if (exists("baseline_path")) baseline_path else NULL
   if (!cache && !is.null(baseline_path)) unlink(baseline_path)
-
   .data
 }
