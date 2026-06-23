@@ -81,10 +81,14 @@ new_stash <- function(cache = NULL, service = "ecmwfr") {
 
   .store <- function(data_path, params) {
     hash  <- .make_hash(params)
-    entry <- list(normalizePath(as.character(data_path)))
-    names(entry) <- hash
     index <- .get()
-    index <- c(index, entry)
+
+    # Don't overwrite existing cache entry
+    if (!is.null(index[[hash]])) return(invisible(NULL))
+
+    entry        <- list(normalizePath(as.character(data_path)))
+    names(entry) <- hash
+    index        <- c(index, entry)
     .write(index)
   }
 
