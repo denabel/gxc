@@ -353,7 +353,7 @@ metags_sanitize <- function(raster) {
 
 fail_if_test <- function() {
   if (isTRUE(getOption(".__gxc_fail_on_request__.", FALSE))) {
-    stop("Code has ben run in a test where this code should not be running!")
+    stop("Code has been run in a test where this code should not be running!")
   }
 }
 
