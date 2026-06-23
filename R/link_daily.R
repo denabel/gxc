@@ -272,7 +272,6 @@ link_daily.sf <- function(.data,
 
   global_extent <- .get_extent(prepared)
 
-  # Collect all unique days across all splits
   all_spans <- lapply(splits, function(splitted) {
     p <- .transform_time(
       splitted,
@@ -290,54 +289,26 @@ link_daily.sf <- function(.data,
     )
   }
 
-  # Dispatch request by catalogue source
-  obs_path <- if (.catalogue_source(catalogue) == "era5") {
-    obs_request <- .build_era5_daily_request(
-      indicator = indicator,
-      catalogue = catalogue,
-      extent    = global_extent,
-      years     = format(all_obs_span, "%Y"),
-      months    = format(all_obs_span, "%m"),
-      days      = format(all_obs_span, "%d"),
-      prefix    = "observation",
-      statistic = statistic,
-      time_zone = time_zone
-    )
-    .submit_era5_batch(obs_request, path = path, cache = cache, verbose = verbose)
-  } else {
-    .request_dwd_daily(
-      indicator = indicator,
-      years     = format(all_obs_span, "%Y"),
-      months    = format(all_obs_span, "%m"),
-      days      = format(all_obs_span, "%d"),
-      cache     = cache,
-      path      = path,
-      prefix    = "observation"
-    )
-  }
+  obs_path <- .request_climate_daily(
+    indicator = indicator,
+    catalogue = catalogue,
+    extent    = global_extent,
+    years     = format(all_obs_span, "%Y"),
+    months    = format(all_obs_span, "%m"),
+    days      = format(all_obs_span, "%d"),
+    prefix    = "observation",
+    cache     = cache,
+    path      = path,
+    statistic = statistic,
+    time_zone = time_zone,
+    verbose   = verbose
+  )
 
-  # Load global observation raster once for all splits
-  obs_raster <- .safe_rast(obs_path)
-  if (!inherits(terra::time(obs_raster), "POSIXt")) {
-    obs_raster <- raster_timestamp(
-      obs_raster,
-      days   = format(all_obs_span, "%d"),
-      months = format(all_obs_span, "%m"),
-      years  = format(all_obs_span, "%Y"),
-      span   = all_obs_span
-    )
-  }
+  obs_raster <- .load_climate_raster(obs_path, all_obs_span, daily = TRUE)
 
-  # Baseline requests upfront if needed
   baseline_raster <- NULL
   if (!isFALSE(baseline)) {
-    baseline_years <- format(
-      make_dates(seq(baseline[1], baseline[2]), months = 1, days = 1),
-      "%Y"
-    )
-    all_baseline_span <- sort(unique(do.call(c, lapply(baseline_years, function(y) {
-      as.Date(paste(y, format(all_obs_span, "%m-%d"), sep = "-"))
-    }))))
+    all_baseline_span <- .compute_baseline_span(baseline, all_obs_span, daily = TRUE)
 
     if (verbose) {
       cli::cli_progress_message(
@@ -345,42 +316,21 @@ link_daily.sf <- function(.data,
       )
     }
 
-    baseline_path <- if (.catalogue_source(catalogue) == "era5") {
-      baseline_request <- .build_era5_daily_request(
-        indicator = indicator,
-        catalogue = catalogue,
-        extent    = global_extent,
-        years     = format(all_baseline_span, "%Y"),
-        months    = format(all_baseline_span, "%m"),
-        days      = format(all_baseline_span, "%d"),
-        prefix    = "baseline",
-        statistic = statistic,
-        time_zone = time_zone
-      )
-      .submit_era5_batch(
-        baseline_request, path = path, cache = cache, verbose = verbose
-      )
-    } else {
-      .request_dwd_daily(
-        indicator = indicator,
-        years     = format(all_baseline_span, "%Y"),
-        months    = format(all_baseline_span, "%m"),
-        days      = format(all_baseline_span, "%d"),
-        cache     = cache,
-        path      = path,
-        prefix    = "baseline"
-      )
-    }
-
-    # Load global baseline raster once for all splits
-    baseline_raster <- .safe_rast(baseline_path)
-    baseline_raster <- raster_timestamp(
-      baseline_raster,
-      days   = format(all_baseline_span, "%d"),
-      months = format(all_baseline_span, "%m"),
-      years  = format(all_baseline_span, "%Y"),
-      span   = all_baseline_span
+    baseline_path   <- .request_climate_daily(
+      indicator = indicator,
+      catalogue = catalogue,
+      extent    = global_extent,
+      years     = format(all_baseline_span, "%Y"),
+      months    = format(all_baseline_span, "%m"),
+      days      = format(all_baseline_span, "%d"),
+      prefix    = "baseline",
+      cache     = cache,
+      path      = path,
+      statistic = statistic,
+      time_zone = time_zone,
+      verbose   = verbose
     )
+    baseline_raster <- .load_climate_raster(baseline_path, all_baseline_span, daily = TRUE)
   }
 
   # -------------------------------------------------------------------------
@@ -423,13 +373,10 @@ link_daily.sf <- function(.data,
         stat_wrangling = stat_wrangling
       )
 
-      # Write primary result columns in order
       prepared[[.col("study",    prefix)]] <-
         .extract_study_values(raster_values, study_fun)
       prepared[[.col("baseline", prefix)]] <- NA_real_
       prepared[[.col("result",   prefix)]] <- NA_real_
-
-      # Keep .linked for internal baseline comparison
       prepared$.linked <- prepared[[.col("study", prefix)]]
 
       if (!isFALSE(baseline)) {
@@ -452,27 +399,23 @@ link_daily.sf <- function(.data,
         )
       }
 
-      # Remove internal .linked column
       prepared$.linked <- NULL
 
-      # Write metadata columns
-      prepared[[.col("indicator",      prefix)]] <- indicator
-      prepared[[.col("unit",           prefix)]] <-
-        .indicator_units[[indicator]] %||% NA_character_
-      prepared[[.col("time_unit",      prefix)]] <- "days"
-      prepared[[.col("result_unit",    prefix)]] <-
-        if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator)
-      prepared[[.col("study_fun",      prefix)]] <- study_fun_name
-      prepared[[.col("baseline_fun",   prefix)]] <-
-        if (isFALSE(baseline)) NA_character_ else baseline_fun_name
-      prepared[[.col("baseline_years", prefix)]] <-
-        if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2])
-      prepared[[.col("time_span",      prefix)]] <- time_span
-      prepared[[.col("time_lag",       prefix)]] <- time_lag
-      prepared[[.col("buffer",         prefix)]] <- buffer
+      prepared <- .write_metadata_sf(
+        prepared,
+        prefix            = prefix,
+        indicator         = indicator,
+        baseline          = baseline,
+        stat_wrangling    = stat_wrangling,
+        study_fun_name    = study_fun_name,
+        baseline_fun_name = baseline_fun_name,
+        time_span         = time_span,
+        time_lag          = time_lag,
+        buffer            = buffer,
+        time_unit         = "days"
+      )
 
       if (!cache) unlink(obs_path)
-
       prepared
     }
   }
@@ -541,16 +484,9 @@ link_daily.SpatRaster <- function(.data,
   crs_data <- terra::crs(.data)
   prepared <- terra::project(.data, "EPSG:4326")
 
-  temporals <- .transform_time(
-    prepared,
-    time_span = time_span,
-    time_lag  = time_lag
-  )
-
+  temporals    <- .transform_time(prepared, time_span = time_span, time_lag = time_lag)
   global_extent <- .get_extent(prepared)
-
-  # Collect all unique days from temporals
-  all_obs_span <- sort(unique(do.call(c, lapply(temporals$time_span_seq, as_date))))
+  all_obs_span  <- sort(unique(do.call(c, lapply(temporals$time_span_seq, as_date))))
 
   if (verbose) {
     cli::cli_rule(left = "Link with daily indicators")
@@ -581,54 +517,26 @@ link_daily.SpatRaster <- function(.data,
     )
   }
 
-  # Dispatch request by catalogue source
-  obs_path <- if (.catalogue_source(catalogue) == "era5") {
-    obs_request <- .build_era5_daily_request(
-      indicator = indicator,
-      catalogue = catalogue,
-      extent    = global_extent,
-      years     = format(all_obs_span, "%Y"),
-      months    = format(all_obs_span, "%m"),
-      days      = format(all_obs_span, "%d"),
-      prefix    = "observation",
-      statistic = statistic,
-      time_zone = time_zone
-    )
-    .submit_era5_batch(obs_request, path = path, cache = cache, verbose = verbose)
-  } else {
-    .request_dwd_daily(
-      indicator = indicator,
-      years     = format(all_obs_span, "%Y"),
-      months    = format(all_obs_span, "%m"),
-      days      = format(all_obs_span, "%d"),
-      cache     = cache,
-      path      = path,
-      prefix    = "observation"
-    )
-  }
-
-  # Load global observation raster and reproject to original CRS
-  obs_raster <- .safe_rast(obs_path)
-  if (!inherits(terra::time(obs_raster), "POSIXt")) {
-    obs_raster <- raster_timestamp(
-      obs_raster,
-      days   = format(all_obs_span, "%d"),
-      months = format(all_obs_span, "%m"),
-      years  = format(all_obs_span, "%Y"),
-      span   = all_obs_span
-    )
-  }
+  obs_path   <- .request_climate_daily(
+    indicator = indicator,
+    catalogue = catalogue,
+    extent    = global_extent,
+    years     = format(all_obs_span, "%Y"),
+    months    = format(all_obs_span, "%m"),
+    days      = format(all_obs_span, "%d"),
+    prefix    = "observation",
+    cache     = cache,
+    path      = path,
+    statistic = statistic,
+    time_zone = time_zone,
+    verbose   = verbose
+  )
+  obs_raster <- .load_climate_raster(obs_path, all_obs_span, daily = TRUE)
   obs_raster <- .align_crs_raster(.data, obs_raster)
 
   baseline_raster <- NULL
   if (!isFALSE(baseline)) {
-    baseline_years <- format(
-      make_dates(seq(baseline[1], baseline[2]), months = 1, days = 1),
-      "%Y"
-    )
-    all_baseline_span <- sort(unique(do.call(c, lapply(baseline_years, function(y) {
-      as.Date(paste(y, format(all_obs_span, "%m-%d"), sep = "-"))
-    }))))
+    all_baseline_span <- .compute_baseline_span(baseline, all_obs_span, daily = TRUE)
 
     if (verbose) {
       cli::cli_progress_message(
@@ -636,41 +544,21 @@ link_daily.SpatRaster <- function(.data,
       )
     }
 
-    baseline_path <- if (.catalogue_source(catalogue) == "era5") {
-      baseline_request <- .build_era5_daily_request(
-        indicator = indicator,
-        catalogue = catalogue,
-        extent    = global_extent,
-        years     = format(all_baseline_span, "%Y"),
-        months    = format(all_baseline_span, "%m"),
-        days      = format(all_baseline_span, "%d"),
-        prefix    = "baseline",
-        statistic = statistic,
-        time_zone = time_zone
-      )
-      .submit_era5_batch(
-        baseline_request, path = path, cache = cache, verbose = verbose
-      )
-    } else {
-      .request_dwd_daily(
-        indicator = indicator,
-        years     = format(all_baseline_span, "%Y"),
-        months    = format(all_baseline_span, "%m"),
-        days      = format(all_baseline_span, "%d"),
-        cache     = cache,
-        path      = path,
-        prefix    = "baseline"
-      )
-    }
-
-    baseline_raster <- .safe_rast(baseline_path)
-    baseline_raster <- raster_timestamp(
-      baseline_raster,
-      days   = format(all_baseline_span, "%d"),
-      months = format(all_baseline_span, "%m"),
-      years  = format(all_baseline_span, "%Y"),
-      span   = all_baseline_span
+    baseline_path   <- .request_climate_daily(
+      indicator = indicator,
+      catalogue = catalogue,
+      extent    = global_extent,
+      years     = format(all_baseline_span, "%Y"),
+      months    = format(all_baseline_span, "%m"),
+      days      = format(all_baseline_span, "%d"),
+      prefix    = "baseline",
+      cache     = cache,
+      path      = path,
+      statistic = statistic,
+      time_zone = time_zone,
+      verbose   = verbose
     )
+    baseline_raster <- .load_climate_raster(baseline_path, all_baseline_span, daily = TRUE)
     baseline_raster <- .align_crs_raster(.data, baseline_raster)
   }
 
@@ -715,7 +603,6 @@ link_daily.SpatRaster <- function(.data,
   .data <- c(.data, baseline_ph, warn = FALSE)
   .data <- c(.data, result_ph,   warn = FALSE)
 
-  # Keep .linked for internal baseline comparison
   .data[[".linked"]] <- study_layer
 
   if (!isFALSE(baseline)) {
@@ -737,10 +624,8 @@ link_daily.SpatRaster <- function(.data,
     )
   }
 
-  # Remove internal .linked layer
   .data[[".linked"]] <- NULL
 
-  # Store metadata via metags
   terra::metags(.data) <- c(
     indicator      = indicator,
     unit           = .indicator_units[[indicator]] %||% NA_character_,
@@ -755,7 +640,6 @@ link_daily.SpatRaster <- function(.data,
   )
 
   if (!cache) unlink(obs_path)
-
   .data
 }
 

@@ -432,3 +432,74 @@ psum <- function(..., na.rm=FALSE) {
     })
   }
 }
+
+# Loads a vector of raster file paths into a single SpatRaster and sets the
+# time dimension if not already present. For daily rasters the full date is
+# used; for monthly rasters only the first of the month.
+.load_climate_raster <- function(paths, span, daily = TRUE) {
+  r <- .safe_rast(paths)
+  if (!inherits(terra::time(r), "POSIXt")) {
+    r <- raster_timestamp(
+      r,
+      days   = if (daily) format(span, "%d") else "01",
+      months = format(span, "%m"),
+      years  = format(span, "%Y"),
+      span   = span
+    )
+  }
+  r
+}
+
+
+# Computes the baseline date span from a baseline year range and an
+# observation span. For daily data the month-day is preserved; for monthly
+# data dates are normalised to the first of the month.
+.compute_baseline_span <- function(baseline, obs_span, daily = TRUE) {
+  baseline_years <- format(
+    make_dates(seq(baseline[1], baseline[2]), months = 1, days = 1),
+    "%Y"
+  )
+  sort(unique(do.call(c, lapply(baseline_years, function(y) {
+    if (daily) {
+      as.Date(paste(y, format(obs_span, "%m-%d"), sep = "-"))
+    } else {
+      as.Date(paste(y, format(obs_span, "%m"), "01", sep = "-"))
+    }
+  }))))
+}
+
+
+# Writes metadata columns to an sf result dataframe. Returns the modified
+# dataframe.
+.write_metadata_sf <- function(.data,
+                               prefix,
+                               indicator,
+                               baseline,
+                               stat_wrangling,
+                               study_fun_name,
+                               baseline_fun_name,
+                               time_span,
+                               time_lag,
+                               buffer,
+                               time_unit,
+                               months = NULL) {
+  .data[[.col("indicator",      prefix)]] <- indicator
+  .data[[.col("unit",           prefix)]] <-
+    .indicator_units[[indicator]] %||% NA_character_
+  .data[[.col("time_unit",      prefix)]] <- time_unit
+  .data[[.col("result_unit",    prefix)]] <-
+    if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator)
+  .data[[.col("study_fun",      prefix)]] <- study_fun_name
+  .data[[.col("baseline_fun",   prefix)]] <-
+    if (isFALSE(baseline)) NA_character_ else baseline_fun_name
+  .data[[.col("baseline_years", prefix)]] <-
+    if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2])
+  .data[[.col("time_span",      prefix)]] <- time_span
+  if (!is.null(months)) {
+    .data[[.col("months",       prefix)]] <-
+      if (is.null(months)) NA_character_ else paste(months, collapse = ",")
+  }
+  .data[[.col("time_lag",       prefix)]] <- time_lag
+  .data[[.col("buffer",         prefix)]] <- buffer
+  .data
+}

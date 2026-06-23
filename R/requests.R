@@ -421,3 +421,83 @@
 
   as.character(all_paths)
 }
+
+# Dispatches a daily climate data request to either ERA5 or DWD depending
+# on the catalogue source.
+.request_climate_daily <- function(indicator,
+                                   catalogue,
+                                   extent,
+                                   years,
+                                   months,
+                                   days,
+                                   prefix,
+                                   cache,
+                                   path,
+                                   statistic = "daily_mean",
+                                   time_zone = "utc+00:00",
+                                   verbose   = TRUE) {
+  if (.catalogue_source(catalogue) == "era5") {
+    request <- .build_era5_daily_request(
+      indicator = indicator,
+      catalogue = catalogue,
+      extent    = extent,
+      years     = years,
+      months    = months,
+      days      = days,
+      prefix    = prefix,
+      statistic = statistic,
+      time_zone = time_zone
+    )
+    .submit_era5_batch(request, path = path, cache = cache, verbose = verbose)
+  } else {
+    .request_dwd_daily(
+      indicator = indicator,
+      years     = years,
+      months    = months,
+      days      = days,
+      cache     = cache,
+      path      = path,
+      prefix    = prefix
+    )
+  }
+}
+
+
+# Dispatches a monthly climate data request to either ERA5 or DWD depending
+# on the catalogue source.
+.request_climate_monthly <- function(indicator,
+                                     catalogue,
+                                     extent,
+                                     years,
+                                     months,
+                                     prefix,
+                                     cache,
+                                     path,
+                                     product_type = "monthly_averaged_reanalysis",
+                                     request_time = "00:00",
+                                     verbose      = TRUE) {
+  if (.catalogue_source(catalogue) == "era5") {
+    .request_era5_monthly(
+      indicator,
+      catalogue    = catalogue,
+      extent       = extent,
+      years        = years,
+      months       = months,
+      cache        = cache,
+      path         = path,
+      prefix       = prefix,
+      product_type = product_type,
+      request_time = request_time,
+      verbose      = verbose
+    )
+  } else {
+    .request_dwd_monthly(
+      indicator = indicator,
+      years     = years,
+      months    = months,
+      cache     = cache,
+      path      = path,
+      prefix    = prefix
+    )
+  }
+}
