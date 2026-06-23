@@ -1,3 +1,5 @@
+# Named list of aggregation functions available for baseline and study period
+# summarisation. Accessible via the baseline_fun and study_fun arguments.
 .baseline_funs <- list(
   mean   = function(x) mean(x,   na.rm = TRUE),
   median = function(x) median(x, na.rm = TRUE),
@@ -12,13 +14,19 @@
   p95    = function(x) quantile(x, 0.95, na.rm = TRUE)
 )
 
+
+# Resolves the baseline_fun / study_fun argument to a named list with
+# the function itself and its label for output metadata.
 .resolve_baseline_fun <- function(x, arg = "baseline_fun") {
   if (is.function(x)) return(list(fun = x, name = "custom"))
   x <- match.arg(x, choices = names(.baseline_funs))
   list(fun = .baseline_funs[[x]], name = x)
 }
 
-# Returns the physical unit of the result given stat_wrangling and indicator
+
+# Returns the unit of the result column given stat_wrangling and indicator.
+# For deviation the unit matches the indicator unit; for count modes it is
+# always "days".
 .result_unit <- function(stat_wrangling, indicator) {
   indicator_unit <- .indicator_units[[indicator]] %||% NA_character_
   switch(stat_wrangling,
@@ -29,10 +37,16 @@
   )
 }
 
+
+# Constructs a column name with an optional prefix, e.g. .study or
+# .study_temp_7d when prefix = "temp_7d".
 .col <- function(name, prefix = NULL) {
   if (is.null(prefix)) paste0(".", name) else paste0(".", name, "_", prefix)
 }
 
+
+# S3 generic for computing stat_wrangling results. Dispatches on the class
+# of baseline_values (numeric for sf path, SpatRaster for raster path).
 #' @noRd
 .compute_stat_wrangling <- function(
     baseline_values,
@@ -42,6 +56,7 @@
 ) {
   UseMethod(".compute_stat_wrangling")
 }
+
 
 #' @noRd
 .compute_stat_wrangling.numeric <- function(
@@ -62,6 +77,7 @@
 
   list(reference_stat = reference_stat, result = result)
 }
+
 
 #' @noRd
 .compute_stat_wrangling.SpatRaster <- function(
@@ -89,6 +105,22 @@
   list(reference_stat = reference_stat, result = result)
 }
 
+
+# The following is a sketch for a future pipe-based interface where linking
+# is split into separate steps:
+#
+#   pts |>
+#     add_timelag(5) |>
+#     add_eod("2m_temperature") |>
+#     add_baseline(c(1980, 2010)) |>
+#     link()
+#
+# In this design each step would enrich the object with attributes (similar
+# to the .make_lnk approach below) and link() would resolve them into a
+# single download + extraction call. This would require a clean separation
+# between configuration and execution that the current architecture does not
+# yet provide.
+#
 # add_baseline <- function(.data, baseline, baseline_fun) {
 #   lnk <- .make_lnk(.data, baseline = baseline)
 #   .check_lnk(lnk, "baseline")
@@ -117,6 +149,11 @@
 #   )
 # }
 
+
+# Internal baseline computation. Called by link_daily and link_monthly after
+# observation extraction. If baseline_raster is already loaded (the common
+# case) it is used directly; otherwise it falls back to a fresh ERA5 request,
+# which is the path the future pipe-based add_baseline() would take.
 .add_baseline <- function(.data,
                           baseline,
                           baseline_fun,
@@ -134,8 +171,9 @@
                           chunk_size      = 50,
                           verbose         = TRUE) {
 
-  # If baseline_raster is not provided, fall back to request-based approach
-  # (used by add_baseline public function)
+  # If baseline_raster is not provided, download it on the fly. This path is
+  # currently unused but will be needed once the pipe-based interface is
+  # implemented (see commented-out add_baseline() above).
   if (is.null(baseline_raster)) {
     min_year <- baseline[1]
     max_year <- baseline[2]
@@ -163,7 +201,7 @@
     )
 
     baseline_path   <- do.call(.request_era5_daily, request_args)
-    baseline_raster <- terra::rast(baseline_path)
+    baseline_raster <- .safe_rast(baseline_path)
     baseline_raster <- .align_crs_raster(.data, baseline_raster)
 
     if (!inherits(terra::time(baseline_raster), "POSIXt")) {
@@ -213,6 +251,8 @@
     .data[[.col("result",   prefix)]] <- result_layer
   }
 
-  if (!cache && exists("baseline_path")) unlink(baseline_path)
+  baseline_path <- if (exists("baseline_path")) baseline_path else NULL
+  if (!cache && !is.null(baseline_path)) unlink(baseline_path)
+
   .data
 }
