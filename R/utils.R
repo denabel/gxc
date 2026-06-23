@@ -426,24 +426,9 @@ supscript <- function(x) {
   x
 }
 
-# Decompresses a .gz file to a target path using base R
-.decompress_gz <- function(path_gz, path_out) {
-  con_in  <- gzcon(file(path_gz, "rb"))
-  con_out <- file(path_out, "wb")
-  on.exit({
-    close(con_in)
-    close(con_out)
-  }, add = TRUE)
-  repeat {
-    chunk <- readBin(con_in, "raw", n = 65536L)
-    if (length(chunk) == 0L) break
-    writeBin(chunk, con_out)
-  }
-  invisible(path_out)
-}
-
 # Safely loads a vector of raster file paths into a single SpatRaster,
 # resampling to a common extent if files have mismatched extents
+#' @noRd
 .safe_rast <- function(paths) {
   if (length(paths) == 1) return(terra::rast(paths))
 
@@ -464,6 +449,7 @@ supscript <- function(x) {
 # Extracts study values from raster_values — handles both the case where
 # raster_values is a single dataframe (all observations share the same
 # link_date and time_span == 0) and a list (all other cases)
+#' @noRd
 .extract_study_values <- function(raster_values, study_fun) {
   if (is.data.frame(raster_values)) {
     raster_values[[1]]
