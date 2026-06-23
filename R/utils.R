@@ -416,18 +416,8 @@ psum <- function(..., na.rm=FALSE) {
   res
 }
 
-
-supscript <- function(x) {
-  matches <- gregexpr("(\\*\\*.+?)(?:\\s|$)", x)
-  substrings <- regmatches(x, matches)[[1]]
-  substrings <- gsub("**", "", substrings, fixed = TRUE)
-  substrings <- common::supsc(substrings)
-  regmatches(x, matches) <- list(substrings)
-  x
-}
-
-# Safely loads a vector of raster file paths into a single SpatRaster,
-# resampling to a common extent if files have mismatched extents
+#' Safely loads a vector of raster file paths into a single SpatRaster,
+#' resampling to a common extent if files have mismatched extents
 #' @noRd
 .safe_rast <- function(paths) {
   if (length(paths) == 1) return(terra::rast(paths))
