@@ -337,10 +337,24 @@ link_daily.sf <- function(.data,
   # Phase 2: Extract — rasters already loaded
   # -------------------------------------------------------------------------
 
+  t_start <- proc.time()[["elapsed"]]
+
+  if (verbose) {
+    pb <- cli::cli_progress_bar(
+      name   = "Processing dates",
+      total  = n_splits,
+      format = paste0(
+        "{cli::pb_spin} {cli::pb_name} [{cli::pb_current}/{cli::pb_total}]",
+        " \u00b7 {.val {current_date}} {cli::pb_bar} {cli::pb_percent}"
+      )
+    )
+    current_date <- splits[[1]][[date_var]][1]
+  }
+
   for (i in seq_along(splits)) {
     if (verbose) {
-      if (i > 1) cli::cli_text("")
-      cli::cli_rule(left = "Date {i}/{n_splits} ({splits[[i]][[date_var]][1]})")
+      current_date <- splits[[i]][[date_var]][1]
+      cli::cli_progress_update(id = pb)
     }
 
     splitted <- splits[[i]]
@@ -354,13 +368,6 @@ link_daily.sf <- function(.data,
       )
 
       prepared <- .align_crs_vector(prepared, obs_raster)
-
-      info(
-        "Extracting values from raster",
-        msg_done   = "Extracted values from raster.",
-        msg_failed = "Failed to extract values from raster.",
-        level      = "step"
-      )
 
       raster_values <- .toi_extract(
         prepared,
@@ -419,6 +426,14 @@ link_daily.sf <- function(.data,
       if (!cache) unlink(obs_path)
       prepared
     }
+  }
+
+  if (verbose) {
+    cli::cli_progress_done(id = pb)
+    elapsed <- round(proc.time()[["elapsed"]] - t_start, 1)
+    cli::cli_alert_success(
+      "Done. {nrow(.data)} observation{?s} across {n_splits} date{?s} linked in {elapsed}s."
+    )
   }
 
   prepared <- do.call(rbind, result)
