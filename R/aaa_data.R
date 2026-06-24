@@ -166,3 +166,80 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   )
   folders[as.integer(month)]
 }
+
+# Spatial resolution of the underlying raster data per catalogue
+.catalogue_resolution <- list(
+  "derived-era5-land-daily-statistics"          = "0.1\u00b0 x 0.1\u00b0",
+  "derived-era5-single-levels-daily-statistics" = "0.25\u00b0 x 0.25\u00b0",
+  "reanalysis-era5-land-monthly-means"          = "0.1\u00b0 x 0.1\u00b0",
+  "reanalysis-era5-single-levels-monthly-means" = "0.25\u00b0 x 0.25\u00b0",
+  "dwd-hyras-daily"                             = "1 km x 1 km",
+  "dwd-monthly"                                 = "1 km x 1 km"
+)
+
+# Returns the citation string for a given catalogue and indicator.
+# ERA5 citations include the access date dynamically.
+# DWD daily (HYRAS) and monthly citations differ per indicator.
+.catalogue_citation <- function(catalogue, indicator = NULL) {
+  year <- format(Sys.Date(), "%Y")
+  date <- format(Sys.Date(), "%d.%m.%Y")
+
+  era5 <- list(
+    "derived-era5-land-daily-statistics" = paste0(
+      "Copernicus Climate Change Service (C3S) (", year, "): ",
+      "ERA5-Land post-processed daily statistics from 1950 to present. ",
+      "Copernicus Climate Change Service Climate Data Store (CDS). ",
+      "Accessed ", date, ". doi:10.24381/cds.e2161bac"
+    ),
+    "derived-era5-single-levels-daily-statistics" = paste0(
+      "Copernicus Climate Change Service (C3S) (", year, "): ",
+      "ERA5 post-processed daily statistics on single levels from 1940 to present. ",
+      "Copernicus Climate Change Service Climate Data Store (CDS). ",
+      "Accessed ", date, ". doi:10.24381/cds.adbb2d47"
+    ),
+    "reanalysis-era5-land-monthly-means" = paste0(
+      "Copernicus Climate Change Service (C3S) (", year, "): ",
+      "ERA5-Land monthly averaged data from 1950 to present. ",
+      "Copernicus Climate Change Service Climate Data Store (CDS). ",
+      "Accessed ", date, ". doi:10.24381/cds.68d2bb30"
+    ),
+    "reanalysis-era5-single-levels-monthly-means" = paste0(
+      "Copernicus Climate Change Service (C3S) (", year, "): ",
+      "ERA5 monthly averaged data on single levels from 1940 to present. ",
+      "Copernicus Climate Change Service Climate Data Store (CDS). ",
+      "Accessed ", date, ". doi:10.24381/cds.f17050d7"
+    )
+  )
+
+  dwd_daily <- list(
+    air_temperature_mean =
+      "Raster data set of mean temperature in \u00b0C for Germany - HYRAS-DE-TAS v6-1, Version v6-1",
+    air_temperature_max  =
+      "Raster data set of maximum temperature in \u00b0C for Germany - HYRAS-DE-TASMAX v6-1, Version v6-1",
+    air_temperature_min  =
+      "Raster data set of minimum temperature in \u00b0C for Germany - HYRAS-DE-TASMIN v6-1, Version v6-1",
+    precipitation        =
+      "Raster data set precipitation sums in mm for Germany - HYRAS-DE-PR v6-1, Version v6-1"
+  )
+
+  dwd_monthly <- list(
+    air_temperature_mean =
+      "DWD Climate Data Center (CDC): Grids of monthly averaged daily air temperature (2m) over Germany, version v1.0",
+    air_temperature_max  =
+      "DWD Climate Data Center (CDC): Grids of monthly averaged daily maximum air temperature (2m) over Germany, version v1.0",
+    air_temperature_min  =
+      "DWD Climate Data Center (CDC): Grids of monthly averaged daily minimum air temperature (2m) over Germany, version v1.0",
+    precipitation        =
+      "DWD Climate Data Center (CDC): Grids of monthly total precipitation over Germany, version v1.0",
+    drought_index        =
+      "DWD Climate Data Center (CDC): Grids of monthly drought index (de Martonne) over Germany, version v1.0"
+  )
+
+  if (.catalogue_source(catalogue) == "era5") {
+    era5[[catalogue]] %||% NA_character_
+  } else if (catalogue == "dwd-hyras-daily") {
+    dwd_daily[[indicator]] %||% NA_character_
+  } else {
+    dwd_monthly[[indicator]] %||% NA_character_
+  }
+}

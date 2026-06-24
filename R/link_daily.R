@@ -405,6 +405,7 @@ link_daily.sf <- function(.data,
         prepared,
         prefix            = prefix,
         indicator         = indicator,
+        catalogue         = catalogue,
         baseline          = baseline,
         stat_wrangling    = stat_wrangling,
         study_fun_name    = study_fun_name,
@@ -629,6 +630,7 @@ link_daily.SpatRaster <- function(.data,
   terra::metags(.data) <- c(
     indicator      = indicator,
     unit           = .indicator_units[[indicator]] %||% NA_character_,
+    resolution     = .catalogue_resolution[[catalogue]] %||% NA_character_,
     time_unit      = "days",
     result_unit    = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
     study_fun      = study_fun_name,
@@ -636,7 +638,8 @@ link_daily.SpatRaster <- function(.data,
     baseline_years = if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2]),
     time_span      = as.character(time_span),
     time_lag       = as.character(time_lag),
-    prefix         = prefix %||% ""
+    prefix         = prefix %||% "",
+    source         = .catalogue_citation(catalogue, indicator)
   )
 
   if (!cache) unlink(obs_path)

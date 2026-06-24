@@ -474,6 +474,7 @@ psum <- function(..., na.rm=FALSE) {
 .write_metadata_sf <- function(.data,
                                prefix,
                                indicator,
+                               catalogue,
                                baseline,
                                stat_wrangling,
                                study_fun_name,
@@ -486,6 +487,8 @@ psum <- function(..., na.rm=FALSE) {
   .data[[.col("indicator",      prefix)]] <- indicator
   .data[[.col("unit",           prefix)]] <-
     .indicator_units[[indicator]] %||% NA_character_
+  .data[[.col("resolution",     prefix)]] <-
+    .catalogue_resolution[[catalogue]] %||% NA_character_
   .data[[.col("time_unit",      prefix)]] <- time_unit
   .data[[.col("result_unit",    prefix)]] <-
     if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator)
@@ -501,5 +504,7 @@ psum <- function(..., na.rm=FALSE) {
   }
   .data[[.col("time_lag",       prefix)]] <- time_lag
   .data[[.col("buffer",         prefix)]] <- buffer
+  .data[[.col("source",         prefix)]] <-
+    .catalogue_citation(catalogue, indicator)
   .data
 }

@@ -352,6 +352,7 @@ link_monthly.sf <- function(.data,
         prepared,
         prefix            = prefix,
         indicator         = indicator,
+        catalogue         = catalogue,
         baseline          = baseline,
         stat_wrangling    = stat_wrangling,
         study_fun_name    = study_fun_name,
@@ -589,6 +590,7 @@ link_monthly.SpatRaster <- function(.data,
   terra::metags(.data) <- c(
     indicator      = indicator,
     unit           = .indicator_units[[indicator]] %||% NA_character_,
+    resolution     = .catalogue_resolution[[catalogue]] %||% NA_character_,
     time_unit      = "months",
     result_unit    = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
     study_fun      = study_fun_name,
@@ -597,7 +599,8 @@ link_monthly.SpatRaster <- function(.data,
     time_span      = as.character(time_span),
     months         = if (is.null(months)) "" else paste(months, collapse = ","),
     time_lag       = as.character(time_lag),
-    prefix         = prefix %||% ""
+    prefix         = prefix %||% "",
+    source         = .catalogue_citation(catalogue, indicator)
   )
 
   if (!cache) unlink(obs_path)
