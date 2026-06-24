@@ -16,24 +16,6 @@
 }
 
 
-# Decompresses a .gz file to a target path using base R connections,
-# reading in 64 KB chunks to support arbitrarily large files.
-.decompress_gz <- function(path_gz, path_out) {
-  con_in  <- gzcon(file(path_gz, "rb"))
-  con_out <- file(path_out, "wb")
-  on.exit({
-    close(con_in)
-    close(con_out)
-  }, add = TRUE)
-  repeat {
-    chunk <- readBin(con_in, "raw", n = 65536L)
-    if (length(chunk) == 0L) break
-    writeBin(chunk, con_out)
-  }
-  invisible(path_out)
-}
-
-
 # Splits a multi-day ERA5 request into individual per-day requests.
 # wf_request_batch requires one request object per day.
 .split_request_by_day <- function(request) {
@@ -144,73 +126,188 @@
 }
 
 
+# Internal replacement for ecmwfr::wf_request_batch with per-file progress
+# reporting and an optional callback after each completed request. This
+# allows immediate cache storage and clean interrupt handling without
+# relying on capture.output or external chunking.
+.wf_request_batch <- function(request_list,
+                              workers     = 3L,
+                              path        = tempdir(),
+                              time_out    = 3600,
+                              retry       = 30,
+                              already_done = 0L,
+                              total        = length(request_list),
+                              on_progress  = NULL) {
+  N     <- length(request_list)
+  slots <- as.list(rep(FALSE, min(workers, N)))
+  queue <- request_list
+  done  <- list()
+
+  total_timeout <- Sys.time() + N * time_out / workers
+
+  # Progress bar shows position relative to total request_length,
+  # offset by already_done so it starts where the previous run left off
+  pb <- cli::cli_progress_bar(
+    name   = "Downloading from CDS",
+    total  = total,
+    format = paste0(
+      "{cli::pb_spin} {cli::pb_name} ",
+      "{cli::pb_current}/{cli::pb_total} ",
+      "[{cli::pb_elapsed}] {cli::pb_bar}"
+    )
+  )
+  if (already_done > 0L) cli::cli_progress_update(id = pb, set = already_done)
+  on.exit(cli::cli_progress_done(id = pb), add = TRUE)
+
+  tryCatch(
+    while (length(done) < N && Sys.time() < total_timeout) {
+      for (w in seq_along(slots)) {
+        Sys.sleep(retry)
+
+        # Assign next pending request to free slot
+        if (isFALSE(slots[[w]]) && length(queue) > 0) {
+          invisible(capture.output(
+            suppressMessages(
+              slots[[w]] <- ecmwfr::wf_request(
+                queue[[1]],
+                user     = "ecmwfr",
+                time_out = time_out,
+                retry    = retry,
+                path     = path,
+                transfer = FALSE
+              )
+            ),
+            type = "output"
+          ))
+          queue <- queue[-1]
+        }
+
+        # Try to download
+        if (!isFALSE(slots[[w]])) {
+          invisible(capture.output(
+            suppressMessages(slots[[w]]$download()),
+            type = "output"
+          ))
+        }
+
+        # Request complete — update progress and fire callback
+        if (!isFALSE(slots[[w]]) && !slots[[w]]$is_pending()) {
+          invisible(capture.output(
+            suppressMessages(slots[[w]]$delete()),
+            type = "output"
+          ))
+          done      <- append(done, slots[[w]])
+          file_path <- done[[length(done)]]$get_file()
+          slots[[w]] <- FALSE
+
+          cli::cli_progress_update(id = pb)
+
+          if (!is.null(on_progress)) {
+            on_progress(
+              completed = already_done + length(done),
+              total     = total,
+              file      = file_path
+            )
+          }
+        }
+      }
+    },
+    interrupt = function(e) {
+      cli::cli_progress_done(id = pb)
+      cli::cli_alert_warning(
+        "Download interrupted after {already_done + length(done)}/{total} \\
+        file{?s}."
+      )
+    }
+  )
+
+  unlist(lapply(done, function(x) x$get_file()))
+}
+
+
 # Shared submission logic for both daily and monthly ERA5 batch requests.
-# Checks the stash cache first; submits via wf_request_batch if not cached.
-# split_fn is either .split_request_by_day or .split_request_by_month.
+# Checks the stash cache first; submits via .wf_request_batch if not cached.
+# The on_progress callback stores each file in the cache immediately after
+# download, so partial results survive interrupts and errors.
 .submit_batch <- function(request,
                           split_fn,
                           path,
                           cache   = TRUE,
-                          verbose = TRUE) {
-  request_length <- length(split_fn(request))
+                          verbose = TRUE,
+                          workers = 3L) {
+  all_requests   <- split_fn(request)
+  request_length <- length(all_requests)
 
-  stash    <- new_stash(path, service = "ecmwfr")
+  stash    <- new_stash(file.path(path, "era5"), service = "ecmwfr")
   restored <- stash$restore(request, request_length)
 
   if (!is.null(restored)) {
-    file <- basename(restored)
-    info(
-      "Restoring file {.val {file}} from cache...",
-      msg_done   = "Restored file {.val {file}} from cache.",
-      msg_failed = "Failed to restore file {.val {file}} from cache.",
-      level      = "step"
-    )
+    n_restored <- length(restored)
+    if (verbose) {
+      cli::cli_alert_success(
+        "Restored {n_restored}/{request_length} file{?s} from cache."
+      )
+    }
     return(restored)
+  }
+
+  # Check for partial cache — resume from where we left off
+  partial      <- stash$get()[[stash$make_hash(request)]]
+  n_partial    <- length(partial)
+  already_done <- if (cache && n_partial > 0L) n_partial else 0L
+  todo_requests <- all_requests[seq(already_done + 1L, request_length)]
+
+  if (cache && already_done > 0L) {
+    if (verbose) {
+      cli::cli_alert_success(
+        "Restored {already_done}/{request_length} file{?s} from cache."
+      )
+      cli::cli_alert_info(
+        "Resuming — {length(todo_requests)} file{?s} remaining."
+      )
+    }
   }
 
   prefix <- strsplit(request$target, "_")[[1]][2]
 
   info(
-    "Preparing {prefix} data from ECMWF...",
+    "Preparing {prefix} data from ECMWF \\
+    ({request_length} request{?s} total, \\
+    downloading {length(todo_requests)})...",
     msg_done   = "Successfully prepared {prefix} data from ECMWF.",
     msg_failed = "Failed to prepare {prefix} data from ECMWF.",
     level      = "step"
   )
 
   fail_if_test()
-  capture.output(
-    capture.output(
-      data_path <- ecmwfr::wf_request_batch(
-        split_fn(request),
-        path    = path,
-        workers = 6,
-        retry   = 5
-      ),
-      type = "message"
-    ),
-    type = "output"
+
+  new_paths <- .wf_request_batch(
+    todo_requests,
+    workers      = workers,
+    path         = file.path(path, "era5"),
+    retry        = 30,
+    already_done = already_done,
+    total        = request_length,
+    on_progress  = function(completed, total, file) {
+      if (cache) stash$store_partial(file, request)
+    }
   )
 
-  data_path <- as.character(data_path)
-
-  if (cache) {
-    info("Storing file {.val {basename(data_path)}} in cache.")
-    stash$store(data_path, request)
-  }
-
-  data_path
+  unlist(c(partial, new_paths))
 }
 
 
 # Submits a pre-built daily ERA5 request as a batch, checking cache first.
-.submit_era5_batch <- function(request, path, cache = TRUE, verbose = TRUE) {
-  .submit_batch(request, .split_request_by_day, path, cache, verbose)
+.submit_era5_batch <- function(request, path, cache = TRUE,
+                               verbose = TRUE, workers = 3L) {
+  .submit_batch(request, .split_request_by_day, path, cache, verbose, workers)
 }
 
 
 # Submits a pre-built monthly ERA5 request as a batch, checking cache first.
-.submit_era5_monthly_batch <- function(request, path, cache = TRUE, verbose = TRUE) {
-  .submit_batch(request, .split_request_by_month, path, cache, verbose)
+.submit_era5_monthly_batch <- function(request, path, cache = TRUE,
+                                       verbose = TRUE, workers = 3L) {
+  .submit_batch(request, .split_request_by_month, path, cache, verbose, workers)
 }
 
 
@@ -287,23 +384,42 @@
 }
 
 
-# Downloads a DWD HYRAS year file to a temporary subdirectory. If the file
-# is already present from a previous call within the same session it is
-# reused; it will be deleted after slicing (see .request_dwd_daily).
+# Downloads a DWD HYRAS year file to a temporary subdirectory. Tmp files
+# are always redownloaded if present — a leftover tmp file means a previous
+# run was interrupted mid-download and the file may be incomplete.
 .download_dwd_year_file <- function(indicator, year, path) {
   url_template <- .dwd_url_templates$daily[[indicator]]
   url          <- glue::glue(url_template, year = year)
-  tmp_dir      <- file.path(path, "dwd", "tmp")
+  tmp_dir      <- file.path(path, "tmp")
   year_file    <- file.path(tmp_dir, basename(url))
 
   dir.create(tmp_dir, showWarnings = FALSE, recursive = TRUE)
 
-  if (file.exists(year_file)) return(year_file)
+  # Always redownload — a leftover tmp file is likely incomplete
+  if (file.exists(year_file)) unlink(year_file)
 
   info("Downloading DWD year file for {year}...")
   download.file(url, destfile = year_file, mode = "wb", quiet = TRUE)
 
   year_file
+}
+
+
+# Decompresses a .gz file to a target path using base R connections,
+# reading in 64 KB chunks to support arbitrarily large files.
+.decompress_gz <- function(path_gz, path_out) {
+  con_in  <- gzcon(file(path_gz, "rb"))
+  con_out <- file(path_out, "wb")
+  on.exit({
+    close(con_in)
+    close(con_out)
+  }, add = TRUE)
+  repeat {
+    chunk <- readBin(con_in, "raw", n = 65536L)
+    if (length(chunk) == 0L) break
+    writeBin(chunk, con_out)
+  }
+  invisible(path_out)
 }
 
 
@@ -330,7 +446,7 @@
 
     # Build expected cache paths for all days in this year
     cached_files <- file.path(
-      path, "dwd", "daily",
+      path, "daily",
       paste0(indicator, "_", prefix, "_", format(year_dates, "%Y%m%d"), ".tif")
     )
 
@@ -339,7 +455,7 @@
 
     if (any(missing)) {
       dir.create(
-        file.path(path, "dwd", "daily"),
+        file.path(path, "daily"),
         showWarnings = FALSE,
         recursive    = TRUE
       )
@@ -398,10 +514,10 @@
     )
 
     cached_file <- file.path(
-      path, "dwd", "monthly",
+      path, "monthly",
       paste0(indicator, "_", prefix, "_", yearmonth, ".tif")
     )
-    dir.create(dirname(cached_file), showWarnings = FALSE, recursive = TRUE)
+    dir.create(file.path(path, "monthly"), showWarnings = FALSE, recursive = TRUE)
 
     if (file.exists(cached_file)) return(cached_file)
 
@@ -421,6 +537,7 @@
 
   as.character(all_paths)
 }
+
 
 # Dispatches a daily climate data request to either ERA5 or DWD depending
 # on the catalogue source.
@@ -456,7 +573,7 @@
       months    = months,
       days      = days,
       cache     = cache,
-      path      = path,
+      path      = file.path(path, "dwd"),
       prefix    = prefix
     )
   }
@@ -496,7 +613,7 @@
       years     = years,
       months    = months,
       cache     = cache,
-      path      = path,
+      path      = file.path(path, "dwd"),
       prefix    = prefix
     )
   }
