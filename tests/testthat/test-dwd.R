@@ -1,3 +1,5 @@
+local_key(service = "dwd")
+
 # -------------------------------------------------------------------------
 # link_daily — sf
 # -------------------------------------------------------------------------
@@ -5,7 +7,7 @@
 test_that("link_daily.sf works with DWD simple extraction", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_daily(
@@ -20,9 +22,9 @@ test_that("link_daily.sf works with DWD simple extraction", {
   expect_named(
     result,
     c("date", ".study", ".baseline", ".result",
-      ".indicator", ".unit", ".time_unit", ".result_unit",
+      ".indicator", ".unit", ".resolution", ".time_unit", ".result_unit",
       ".study_fun", ".baseline_fun", ".baseline_years",
-      ".time_span", ".time_lag", ".buffer", "geometry")
+      ".time_span", ".time_lag", ".buffer", ".source", "geometry")
   )
   expect_true(all(is.na(result$.baseline)))
   expect_equal(unique(result$.indicator), "air_temperature_mean")
@@ -35,7 +37,7 @@ test_that("link_daily.sf works with DWD simple extraction", {
 test_that("link_daily.sf works with DWD deviation baseline", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_daily(
@@ -60,7 +62,7 @@ test_that("link_daily.sf works with DWD time_span deviation", {
   fail_on_request()
   pts        <- test_pts(seq = FALSE)
   pts$date   <- pts$date + days(1)
-  cache      <- test_cache("dwd")
+  cache      <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_daily(
@@ -87,7 +89,7 @@ test_that("link_daily.SpatRaster works with DWD simple extraction", {
   grid  <- terra::rast(pts)
   terra::time(grid) <- as_date(pts$date[1])
   terra::crs(grid)  <- sf::st_crs(pts)$wkt
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_daily(
@@ -111,7 +113,7 @@ test_that("link_daily.SpatRaster works with DWD simple extraction", {
 test_that("link_monthly.sf works with DWD simple extraction", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_monthly(
@@ -133,7 +135,7 @@ test_that("link_monthly.sf works with DWD simple extraction", {
 test_that("link_monthly.sf works with DWD deviation baseline", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_monthly(
@@ -156,7 +158,7 @@ test_that("link_monthly.sf works with DWD deviation baseline", {
 test_that("link_monthly.sf works with DWD explicit months", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_monthly(
@@ -183,7 +185,7 @@ test_that("link_monthly.SpatRaster works with DWD simple extraction", {
   grid  <- terra::rast(pts)
   terra::time(grid) <- as_date(pts$date[1])
   terra::crs(grid)  <- sf::st_crs(pts)$wkt
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_monthly(

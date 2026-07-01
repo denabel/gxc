@@ -1,6 +1,7 @@
 # test-ground_truth.R
 
 local_key(service = "ecmwfr")
+local_key(service = "dwd")
 
 # -------------------------------------------------------------------------
 # ERA5 daily ground truth
@@ -10,7 +11,7 @@ test_that("link_daily.sf study values match direct terra::extract (ERA5)", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
   extent <- .test_extent(pts)
 
@@ -35,7 +36,7 @@ test_that("link_daily.sf baseline matches direct terra::extract (ERA5)", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
   extent <- .test_extent(pts)
 
@@ -76,7 +77,7 @@ test_that("link_daily.sf with time_span matches aggregated terra::extract (ERA5)
   fail_on_request()
   pts_lag <- test_pts(seq = FALSE)
   pts_lag$date <- pts_lag$date + days(1)
-  cache      <- test_cache("era5")
+  cache      <- test_cache()
   local_test_index(cache)
   extent <- .test_extent(pts_lag, buffer = 0)
 
@@ -123,7 +124,7 @@ test_that("link_monthly.sf study values match direct terra::extract (ERA5)", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
   extent <- .test_extent(pts)
 
@@ -148,7 +149,7 @@ test_that("link_monthly.sf baseline matches direct terra::extract (ERA5)", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
   extent <- .test_extent(pts)
 
@@ -191,7 +192,7 @@ test_that("link_daily.sf study values match direct terra::extract (DWD)", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts_dwd(seq = FALSE)
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_daily(pts, indicator = "air_temperature_mean",
@@ -219,7 +220,7 @@ test_that("link_daily.sf baseline matches direct terra::extract (DWD)", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts_dwd(seq = FALSE)
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_daily(pts, indicator = "air_temperature_mean",
@@ -263,7 +264,7 @@ test_that("link_monthly.sf study values match direct terra::extract (DWD)", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts_dwd(seq = FALSE)
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_monthly(pts, indicator = "air_temperature_mean",
@@ -286,7 +287,7 @@ test_that("link_monthly.sf baseline matches direct terra::extract (DWD)", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts_dwd(seq = FALSE)
-  cache <- test_cache("dwd")
+  cache <- test_cache()
   local_test_index(cache, service = "dwd")
 
   result <- link_monthly(pts, indicator = "air_temperature_mean",

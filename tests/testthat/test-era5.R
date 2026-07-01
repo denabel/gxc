@@ -7,7 +7,7 @@ local_key(service = "ecmwfr")
 test_that("link_daily.sf works with simple extraction", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <-
@@ -22,9 +22,9 @@ test_that("link_daily.sf works with simple extraction", {
   expect_named(
     result,
     c("date", ".study", ".baseline", ".result",
-      ".indicator", ".unit", ".time_unit", ".result_unit",
+      ".indicator", ".unit", ".resolution", ".time_unit", ".result_unit",
       ".study_fun", ".baseline_fun", ".baseline_years",
-      ".time_span", ".time_lag", ".buffer", "geometry")
+      ".time_span", ".time_lag", ".buffer", ".source", "geometry")
   )
   expect_true(all(is.na(result$.baseline)))
   expect_true(all(is.na(result$.result)))
@@ -38,7 +38,7 @@ test_that("link_daily.sf works with simple extraction", {
 test_that("link_daily.sf works with deviation baseline", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <-
@@ -67,7 +67,7 @@ test_that("link_daily.sf works with deviation baseline", {
 test_that("link_daily.sf works with sd_deviation baseline", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <-
@@ -91,7 +91,7 @@ test_that("link_daily.sf works with count_above and time_span", {
   fail_on_request()
   pts        <- test_pts(seq = FALSE)
   pts$date   <- pts$date + days(1)
-  cache      <- test_cache("era5")
+  cache      <- test_cache()
   local_test_index(cache)
 
   result <-
@@ -115,7 +115,7 @@ test_that("link_daily.sf works with count_above and time_span", {
 test_that("link_daily.sf works with sequential dates", {
   fail_on_request()
   pts   <- test_pts(seq = TRUE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <-
@@ -139,7 +139,7 @@ test_that("link_daily.sf works with time_span", {
   fail_on_request()
   pts        <- test_pts(seq = FALSE)
   pts$date   <- pts$date + days(1)
-  cache      <- test_cache("era5")
+  cache      <- test_cache()
   local_test_index(cache)
 
   result <- link_daily(
@@ -162,7 +162,7 @@ test_that("link_daily.sf works with time_span", {
 test_that("link_daily.sf works with time_lag", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_daily(
@@ -181,7 +181,7 @@ test_that("link_daily.sf works with time_lag", {
 test_that("link_daily.sf works with buffer", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_daily(
@@ -200,7 +200,7 @@ test_that("link_daily.sf works with buffer", {
 test_that("link_daily.sf works with prefix", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_daily(
@@ -228,7 +228,7 @@ test_that("link_daily.SpatRaster works with simple extraction", {
   grid  <- terra::rast(pts)
   terra::time(grid) <- as_date(pts$date[1])
   terra::crs(grid)  <- sf::st_crs(pts)$wkt
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_daily(
@@ -252,7 +252,7 @@ test_that("link_daily.SpatRaster works with deviation baseline", {
   grid  <- terra::rast(pts)
   terra::time(grid) <- as_date(pts$date[1])
   terra::crs(grid)  <- sf::st_crs(pts)$wkt
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_daily(
@@ -278,7 +278,7 @@ test_that("link_daily.SpatRaster works with deviation baseline", {
 test_that("link_monthly.sf works with simple extraction", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_monthly(
@@ -292,9 +292,9 @@ test_that("link_monthly.sf works with simple extraction", {
   expect_named(
     result,
     c("date", ".study", ".baseline", ".result",
-      ".indicator", ".unit", ".time_unit", ".result_unit",
+      ".indicator", ".unit", ".resolution", ".time_unit", ".result_unit",
       ".study_fun", ".baseline_fun", ".baseline_years",
-      ".time_span", ".months", ".time_lag", ".buffer", "geometry")
+      ".time_span", ".time_lag", ".buffer", ".source", "geometry")
   )
   expect_true(all(is.na(result$.baseline)))
   expect_equal(unique(result$.time_unit), "months")
@@ -305,7 +305,7 @@ test_that("link_monthly.sf works with simple extraction", {
 test_that("link_monthly.sf works with deviation baseline", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_monthly(
@@ -328,7 +328,7 @@ test_that("link_monthly.sf works with deviation baseline", {
 test_that("link_monthly.sf works with explicit months", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_monthly(
@@ -351,7 +351,7 @@ test_that("link_monthly.sf works with explicit months", {
 test_that("link_monthly.sf works with buffer", {
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_monthly(
@@ -377,7 +377,7 @@ test_that("link_monthly.SpatRaster works with simple extraction", {
   grid  <- terra::rast(pts)
   terra::time(grid) <- as_date(pts$date[1])
   terra::crs(grid)  <- sf::st_crs(pts)$wkt
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_monthly(
@@ -399,7 +399,7 @@ test_that("link_monthly.SpatRaster works with deviation baseline", {
   grid  <- terra::rast(pts)
   terra::time(grid) <- as_date(pts$date[1])
   terra::crs(grid)  <- sf::st_crs(pts)$wkt
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_monthly(

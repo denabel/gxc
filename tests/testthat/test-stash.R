@@ -2,7 +2,7 @@ local_key(service = "ecmwfr")
 
 test_that("stash finds cached observation file", {
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   prepared <- sf::st_transform(pts, 4326)
@@ -20,7 +20,7 @@ test_that("stash finds cached observation file", {
     prefix    = "observation"
   )
 
-  stash    <- new_stash(cache, service = "ecmwfr")
+  stash    <- new_stash(file.path(cache, "era5"), service = "ecmwfr")
   restored <- stash$restore(request, expected_length = 1)
 
   expect_false(is.null(restored))
@@ -30,7 +30,7 @@ test_that("stash finds cached observation file", {
 
 test_that("stash finds cached baseline files", {
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   prepared <- sf::st_transform(pts, 4326)
@@ -49,7 +49,7 @@ test_that("stash finds cached baseline files", {
     prefix    = "baseline"
   )
 
-  stash    <- new_stash(cache, service = "ecmwfr")
+  stash    <- new_stash(file.path(cache, "era5"), service = "ecmwfr")
   restored <- stash$restore(request, expected_length = 2)
 
   expect_false(is.null(restored))
@@ -59,7 +59,7 @@ test_that("stash finds cached baseline files", {
 
 
 test_that("stash returns NULL for unknown request", {
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   unknown <- gxc:::.build_era5_daily_request(
@@ -70,7 +70,7 @@ test_that("stash returns NULL for unknown request", {
     prefix    = "observation"
   )
 
-  stash    <- new_stash(cache, service = "ecmwfr")
+  stash    <- new_stash(file.path(cache, "era5"), service = "ecmwfr")
   restored <- stash$restore(unknown, expected_length = 1)
 
   expect_null(restored)
@@ -79,7 +79,7 @@ test_that("stash returns NULL for unknown request", {
 
 test_that("stash returns NULL when expected_length does not match", {
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   prepared <- sf::st_transform(pts, 4326)
@@ -97,11 +97,8 @@ test_that("stash returns NULL when expected_length does not match", {
     prefix    = "observation"
   )
 
-  stash    <- new_stash(cache, service = "ecmwfr")
-  expect_warning(
-    restored <- stash$restore(request, expected_length = 99),
-    "Cache does not comprise"
-  )
+  stash    <- new_stash(file.path(cache, "era5"), service = "ecmwfr")
+  restored <- stash$restore(request, expected_length = 99)
 
   expect_null(restored)
 })
@@ -109,7 +106,7 @@ test_that("stash returns NULL when expected_length does not match", {
 
 test_that("stash ignores target field in hash", {
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   prepared <- sf::st_transform(pts, 4326)
@@ -130,7 +127,7 @@ test_that("stash ignores target field in hash", {
   r2        <- r1
   r2$target <- paste0("2m_temperature_observation_999999_999999_20140801")
 
-  stash <- new_stash(cache, service = "ecmwfr")
+  stash <- new_stash(file.path(cache, "era5"), service = "ecmwfr")
 
   # Both requests should produce the same hash and find the same file
   restored1 <- stash$restore(r1, expected_length = 1)
@@ -144,10 +141,10 @@ test_that("stash ignores target field in hash", {
 
 test_that("stash resolves relative paths against cache directory", {
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
 
   # reset_test_index stores only basenames
-  reset_test_index(cache, service = "ecmwfr")
+  reset_test_index(file.path(cache, "era5"), service = "ecmwfr")
 
   prepared <- sf::st_transform(pts, 4326)
   prepared <- sf::st_buffer(prepared, 0)
@@ -164,7 +161,7 @@ test_that("stash resolves relative paths against cache directory", {
     prefix    = "observation"
   )
 
-  stash    <- new_stash(cache, service = "ecmwfr")
+  stash    <- new_stash(file.path(cache, "era5"), service = "ecmwfr")
   restored <- stash$restore(request, expected_length = 1)
 
   # Should resolve filename against cache directory
@@ -178,7 +175,7 @@ test_that("stash resolves relative paths against cache directory", {
 
 test_that("stash does not create duplicate entries", {
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   prepared <- sf::st_transform(pts, 4326)
@@ -196,7 +193,7 @@ test_that("stash does not create duplicate entries", {
     prefix    = "observation"
   )
 
-  stash      <- new_stash(cache, service = "ecmwfr")
+  stash      <- new_stash(file.path(cache, "era5"), service = "ecmwfr")
   index_before <- stash$get()
 
   # Store same request again

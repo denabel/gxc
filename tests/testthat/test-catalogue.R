@@ -17,10 +17,8 @@ for (cat in names(allowed_indicators_by_catalogue)) {
 
   for (ind in indicators) {
     test_that(sprintf("'%s' / '%s' returns data", cat, ind), {
+      fail_on_request()
       skip_on_cran()
-      options(".__gxc_fail_on_request__." = TRUE)
-      on.exit(options(".__gxc_fail_on_request__." = NULL), add = TRUE)
-
       cache <- test_cache()
       local_test_index(cache, service = service)
 

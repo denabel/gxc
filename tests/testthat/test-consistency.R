@@ -4,7 +4,7 @@ test_that("rbind works on two link_daily results with different specs", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result_simple <- link_daily(
@@ -13,7 +13,6 @@ test_that("rbind works on two link_daily results with different specs", {
     cache     = TRUE,
     path      = cache
   )
-
   result_baseline <- link_daily(
     pts,
     indicator      = "2m_temperature",
@@ -35,7 +34,7 @@ test_that("two prefix calls do not overwrite each other", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- pts |>
@@ -48,8 +47,8 @@ test_that("two prefix calls do not overwrite each other", {
                prefix = "temp_baseline",
                cache = TRUE, path = cache)
 
-  expect_true(".study_temp_simple"   %in% names(result))
-  expect_true(".study_temp_baseline" %in% names(result))
+  expect_true(".study_temp_simple"    %in% names(result))
+  expect_true(".study_temp_baseline"  %in% names(result))
   expect_true(".result_temp_baseline" %in% names(result))
   expect_false(".study" %in% names(result))
 })
@@ -59,7 +58,7 @@ test_that("link_daily and link_monthly produce consistent column structure", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   daily <- link_daily(
@@ -68,7 +67,6 @@ test_that("link_daily and link_monthly produce consistent column structure", {
     cache     = TRUE,
     path      = cache
   )
-
   monthly <- link_monthly(
     pts,
     indicator = "2m_temperature",
@@ -79,7 +77,6 @@ test_that("link_daily and link_monthly produce consistent column structure", {
   # All columns except .time_unit and .months should match
   daily_cols   <- setdiff(names(daily),   c(".time_unit", "geometry"))
   monthly_cols <- setdiff(names(monthly), c(".time_unit", ".months", "geometry"))
-
   expect_equal(daily_cols, monthly_cols)
 })
 
@@ -88,7 +85,7 @@ test_that("result with baseline is always study minus baseline for deviation", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result <- link_daily(
@@ -112,7 +109,7 @@ test_that("prefix produces same values as no prefix", {
   skip_on_cran()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
-  cache <- test_cache("era5")
+  cache <- test_cache()
   local_test_index(cache)
 
   result_no_prefix <- link_daily(
@@ -121,7 +118,6 @@ test_that("prefix produces same values as no prefix", {
     cache     = TRUE,
     path      = cache
   )
-
   result_prefix <- link_daily(
     pts,
     indicator = "2m_temperature",
@@ -132,4 +128,3 @@ test_that("prefix produces same values as no prefix", {
 
   expect_equal(result_no_prefix$.study, result_prefix$.study_temp)
 })
-
