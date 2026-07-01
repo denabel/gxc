@@ -179,15 +179,6 @@ link_monthly.sf <- function(.data,
     request_time <- by_hour
   }
 
-  crs_data <- terra::crs(.data)
-  old_geom <- sf::st_geometry(.data)
-  prepared <- sf::st_transform(.data, 4326)
-  prepared <- sf::st_buffer(prepared, buffer)
-
-  splits   <- split(prepared, prepared[[date_var]])
-  n_splits <- length(splits)
-  result   <- vector("list", n_splits)
-
   if (verbose) {
     cli::cli_rule(left = "Link with monthly indicators")
     cli::cli_dl(c(
@@ -202,13 +193,25 @@ link_monthly.sf <- function(.data,
       "Study function"    = "{.val {study_fun_name}}",
       "Stat wrangling"    = "{.val {stat_wrangling}}",
       "Prefix"            = "{.val {prefix %||% '(none)'}}",
-      "Observations"      =
-        "{.val {nrow(.data)} clustered across {n_splits} unique date{?s}}",
+      "Observations"      = "{.val {nrow(.data)}}",
       "Buffer"            = "{.val {buffer} m}",
       "Caching enabled"   = "{.val {cache}}",
       "Storage path"      = "{.path {path}}"
     ))
     cli::cli_text("")
+  }
+
+  crs_data <- terra::crs(.data)
+  old_geom <- sf::st_geometry(.data)
+  prepared <- sf::st_transform(.data, 4326)
+  prepared <- sf::st_buffer(prepared, buffer)
+
+  splits   <- split(prepared, prepared[[date_var]])
+  n_splits <- length(splits)
+  result   <- vector("list", n_splits)
+
+  if (verbose) {
+    cli::cli_alert_info("Observations clustered across {n_splits} unique date{?s}.")
   }
 
   # -------------------------------------------------------------------------
