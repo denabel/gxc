@@ -32,19 +32,20 @@ test_pts_dwd <- function(seq = FALSE) {
   )
 }
 
-test_cache <- function(source = "era5") {
-  test_path(file.path("fixtures", source))
+test_cache <- function() {
+  test_path(file.path("fixtures"))
 }
 
 # Updates the stash index to use absolute paths for the current environment,
 # and restores the original index on exit
 local_test_index <- function(cache, service = "ecmwfr", .envir = parent.frame()) {
-  stash <- new_stash(cache, service = service)
-  old   <- stash$get()
-  new   <- lapply(old, function(paths) {
+  cache_sub <- file.path(cache, if (service == "dwd") "dwd" else "era5")
+  stash     <- new_stash(cache_sub, service = service)
+  old       <- stash$get()
+  new       <- lapply(old, function(paths) {
     sapply(paths, function(x) {
       normalizePath(
-        file.path(cache, basename(x)),
+        file.path(cache_sub, basename(x)),
         mustWork = FALSE
       )
     }, USE.NAMES = FALSE)
@@ -107,7 +108,8 @@ reset_test_index <- function(cache, service = "ecmwfr") {
     expected_length <- length(unique(paste(years, months, days)))
   }
 
-  stash    <- new_stash(cache, service = service)
+  cache_sub <- file.path(cache, if (service == "dwd") "dwd" else "era5")
+  stash    <- new_stash(cache_sub, service = service)
   restored <- stash$restore(request, expected_length)
 
   if (is.null(restored)) {
@@ -158,7 +160,8 @@ reset_test_index <- function(cache, service = "ecmwfr") {
     expected_length <- length(unique(paste(years, months, days)))
   }
 
-  stash    <- new_stash(cache, service = service)
+  cache_sub <- file.path(cache, if (service == "dwd") "dwd" else "era5")
+  stash    <- new_stash(cache_sub, service = service)
   restored <- stash$restore(request, expected_length)
 
   if (is.null(restored)) {
