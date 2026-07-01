@@ -79,11 +79,14 @@
     dates     <- as_date(terra::time(raster))
     link_date <- unique(.data$link_date)
 
-    # Try exact match first, then normalize to first of month (for monthly rasters)
+    # For monthly rasters, ERA5 may store values on a different day than
+    # requested (e.g. total_precipitation for July -> June 30). Fall back to
+    # the nearest layer within 31 days if no exact match is found.
     lyr_idx <- which(dates == link_date)
     if (length(lyr_idx) == 0) {
-      link_month <- as.Date(format(link_date, "%Y-%m-01"))
-      lyr_idx    <- which(dates == link_month)
+      gaps    <- abs(as.integer(dates - link_date))
+      nearest <- which.min(gaps)
+      if (gaps[[nearest]] <= 31L) lyr_idx <- nearest
     }
 
     if (length(lyr_idx) == 0) {
@@ -166,9 +169,11 @@
                               method         = "bilinear") {
   dates <- as_date(terra::time(raster))
 
-  # Detect whether raster has monthly or daily resolution
-  is_monthly <- all(as.integer(format(dates, "%d")) == 1) &&
-    length(unique(format(dates, "%Y-%m"))) == length(dates)
+  # Detect whether raster has monthly or daily resolution.
+  # Do not rely on day == 1: some ERA5 indicators store values on the last
+  # day of the month. Instead check that each year-month appears only once.
+  is_monthly <- length(unique(format(dates, "%Y-%m"))) == length(dates) &&
+    (length(dates) == 1L || median(as.numeric(diff(sort(dates)))) >= 20)
 
   # Normalize raster dates for matching
   dates_norm <- if (is_monthly) {
@@ -283,9 +288,11 @@
 
   dates <- as_date(terra::time(raster))
 
-  # Detect whether raster has monthly or daily resolution
-  is_monthly <- all(as.integer(format(dates, "%d")) == 1) &&
-    length(unique(format(dates, "%Y-%m"))) == length(dates)
+  # Detect whether raster has monthly or daily resolution.
+  # Do not rely on day == 1: some ERA5 indicators store values on the last
+  # day of the month. Instead check that each year-month appears only once.
+  is_monthly <- length(unique(format(dates, "%Y-%m"))) == length(dates) &&
+    (length(dates) == 1L || median(as.numeric(diff(sort(dates)))) >= 20)
 
   # Normalize dates for matching
   dates_norm <- if (is_monthly) {
@@ -474,14 +481,13 @@
     lapply(seq_len(nrow(vector)), function(i) {
       vector_sliced <- vector[i, ]
 
-      # Normalize link_date for monthly rasters
-      link_date <- if (is_monthly) {
-        as.Date(format(vector_sliced$link_date, "%Y-%m-01"))
+      # For monthly rasters match on year-month only
+      link_date <- as_date(vector_sliced$link_date)
+      lyr_idx <- if (is_monthly) {
+        which(format(dates, "%Y-%m") == format(link_date, "%Y-%m"))
       } else {
-        vector_sliced$link_date
+        which(dates == link_date)
       }
-
-      lyr_idx <- which(dates_norm == link_date)
 
       if (length(lyr_idx) == 0) return(NA_real_)
 
