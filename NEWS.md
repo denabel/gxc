@@ -31,11 +31,10 @@ link_daily(
 Two new arguments control how values are aggregated before comparison:
 
 - `baseline_fun`: how the baseline layers are collapsed to a reference value.
-  This is a completely new argument — previously no explicit control over
-  baseline aggregation existed. Accepts `"mean"` (default), `"median"`,
-  `"min"`, `"max"`, `"sd"`, or percentiles `"p05"`, `"p10"`, `"p20"`,
-  `"p80"`, `"p90"`, `"p95"`. Custom functions are also accepted but receive
-  the label `"custom"` in the output metadata.
+  Accepts `"mean"` (default), `"median"`, `"min"`, `"max"`, `"sd"`, or
+  percentiles `"p05"`, `"p10"`, `"p20"`, `"p80"`, `"p90"`, `"p95"`. Custom
+  functions are also accepted but receive the label `"custom"` in the output
+  metadata.
 - `study_fun`: how the focal layers are collapsed to a single summary value
   (same options). Only relevant when `time_span > 0` or `months` is specified.
 
@@ -70,10 +69,10 @@ thrown if both are provided.
 ```r
 link_monthly(
   pts,
-  indicator    = "2m_temperature",
-  months       = c(3, 4, 5),
-  baseline     = c("1980", "2010"),
-  baseline_fun = "mean",
+  indicator      = "2m_temperature",
+  months         = c(3, 4, 5),
+  baseline       = c("1980", "2010"),
+  baseline_fun   = "mean",
   stat_wrangling = "deviation"
 )
 ```
@@ -150,6 +149,7 @@ The primary result columns come first, followed by metadata:
 | `.result` | Result of `stat_wrangling` (`NA` if no baseline) |
 | `.indicator` | Indicator name (e.g. `"2m_temperature"`, `"air_temperature_mean"`) |
 | `.unit` | Physical unit of the indicator (e.g. `"K"`, `"degC"`, `"mm"`) |
+| `.resolution` | Spatial resolution of the source dataset (e.g. `"0.1° x 0.1°"`, `"1 km x 1 km"`) |
 | `.time_unit` | Temporal unit of the study period (`"days"` or `"months"`) |
 | `.result_unit` | Unit of `.result` (e.g. `"K"`, `"sd"`, `"days"`) |
 | `.study_fun` | Aggregation function used for focal period |
@@ -159,6 +159,7 @@ The primary result columns come first, followed by metadata:
 | `.months` | `months` argument value — `link_monthly()` only (`NA` if not used) |
 | `.time_lag` | `time_lag` argument value |
 | `.buffer` | `buffer` argument value |
+| `.source` | Dynamic citation string including the dataset name and access date |
 
 When `prefix` is specified, all column names gain the prefix suffix (e.g.
 `.study_temp_7d`).
@@ -167,33 +168,56 @@ For `link_daily.SpatRaster()` and `link_monthly.SpatRaster()`, metadata is
 stored via `terra::metags()` instead of columns, since raster layers cannot hold
 character data.
 
+#### Progress reporting
+
+The split-loop in `link_daily()` and `link_monthly()` uses a live progress bar
+instead of a `cli_rule()` per date, keeping output concise regardless of how
+many unique dates the dataset contains. The progress bar shows the current date
+and overall progress, and a summary line is printed on completion:
+
+```
+⠸ Processing dates [34/62] · 2014-09-14 ██████████░░░░░░ 55%
+✔ Done. 1000 observations across 62 dates linked in 8.4s.
+```
+
+The header block is printed immediately after input validation — before
+`st_buffer()` and `split()` — so the user sees output right away instead of
+waiting several seconds for spatial preprocessing to complete silently.
+
 #### Batched API requests
 
-Previously, all requested days or months were submitted as a single API request
-containing the full date range. This caused two problems: date ranges spanning
-year boundaries were not correctly represented, and large combined requests are
-discouraged by the Copernicus API.
+Requests are split into individual API calls — one per day for `link_daily()`
+and one per month for `link_monthly()` — which is the approach recommended by
+the Copernicus CDS. These individual requests are submitted as a single batch
+before extraction begins, so the API's parallel download capacity (`workers = 6`)
+is used across all dates simultaneously.
 
-Requests are now split into individual API calls — one per day for
-`link_daily()` and one per month for `link_monthly()` — which is the approach
-recommended by the Copernicus CDS. These individual requests are submitted as a
-single batch before extraction begins, so the API's parallel download capacity
-(`workers = 6`) is used across all dates simultaneously.
-
-Additionally, all observation and baseline requests are now submitted upfront
-before the extraction loop starts, rather than one request per date group. A
-global spatial extent is computed once over the full dataset and reused across
-all splits, eliminating redundant downloads and significantly reducing total
-download time for datasets with many unique dates.
+All observation and baseline requests are submitted upfront before the extraction
+loop starts. A global spatial extent is computed once over the full dataset and
+reused across all splits, eliminating redundant downloads and significantly
+reducing total download time for datasets with many unique dates.
 
 ---
 
 ### Bug fixes
 
+- Fixed ERA5 monthly date matching for indicators that store values on the last
+  day of the preceding month (e.g. `total_precipitation`, `instantaneous_10m_wind_gust`,
+  `snowfall`). A nearest-neighbour fallback within 31 days is now used when no
+  exact date match is found.
+- Fixed `is_monthly` detection in `extract.R` — previously relied on `day == 1`,
+  which excluded indicators stored on the last day of the month. Detection now
+  uses the median gap between dates (≥ 20 days) instead.
+- Fixed `.safe_rast()` failing to set a correct spatial extent for ERA5
+  Single-Levels NetCDF files, where terra reports `cells are not equally spaced`
+  due to the Gaussian grid. The extent is now reconstructed from the `longitude`
+  and `latitude` coordinate variables when the default 0–1 unit square is
+  detected.
+- Fixed a `cli` pluralization error (`Cannot pluralize without a quantity`) in
+  `stash$restore()` when warning about missing cached files.
 - Fixed year-boundary issues when `time_span` or `months` spans across a
-  calendar year (e.g. a December date with a window reaching into November of
-  the previous year). Years, months, and days are now passed as paired vectors
-  rather than independently, preventing incorrect cross-product combinations.
+  calendar year. Years, months, and days are now passed as paired vectors rather
+  than independently, preventing incorrect cross-product combinations.
 - Fixed `raster_timestamp()` failing when the number of date combinations
   produced by `make_dates()` did not match the number of raster layers.
 - Fixed `link_daily.SpatRaster()` sending coordinates in the wrong CRS to the
@@ -203,8 +227,7 @@ download time for datasets with many unique dates.
   `.submit_era5_monthly_batch()` function with per-month splitting.
 - Fixed slow extraction for datasets where all observations share the same
   date and `time_span > 0`. `terra::app` and `terra::extract` are now called
-  once for all points in a split rather than once per point, reducing
-  extraction time by an order of magnitude.
+  once for all points in a split rather than once per point.
 
 ---
 
@@ -237,22 +260,30 @@ default remains `"derived-era5-land-daily-statistics"` for `link_daily()` and
   download, decompression, CRS assignment, and per-day/per-month caching.
 - New `.decompress_gz()` decompresses `.gz` files using base R without
   external dependencies.
-- New `.safe_rast()` safely loads multiple raster files into a single
-  `SpatRaster`, resampling to a common extent if files have mismatched extents.
+- `.safe_rast()` now uses an internal `load_one()` helper that detects and
+  corrects malformed extents in ERA5 Single-Levels NetCDF files by reading
+  `longitude`/`latitude` variables directly via `ncdf4`.
 - New `.resolve_baseline_fun()` resolves string or function arguments for
   `baseline_fun` and `study_fun`.
 - New `.resolve_months()` handles year-boundary logic for explicit month windows.
 - New `.catalogue_source()` derives the data source (`"era5"` or `"dwd"`) from
   the catalogue name, enabling dispatch to the correct requester.
-- New `.indicator_units` lookup table maps indicator names to physical units.
+- New `.catalogue_citation()` generates dynamic citation strings with ERA5 DOIs
+  and DWD dataset names, stored in the `.source` output column.
+- New `.indicator_units` lookup table maps indicator names to physical units,
+  stored in the `.unit` output column.
 - `compute_stat_wrangling()` is now an S3 generic with `.numeric` and
   `.SpatRaster` methods.
 - `.toi_extract_impl()` now vectorises extraction over all points in a split
   when they share the same `time_span_seq`, with a row-wise fallback for
   datasets with varying date windows.
-- `.toi_extract_grid()` and `.toi_extract_impl()` handle both daily and monthly
-  rasters via an `is_monthly` flag, normalising dates for correct layer matching.
+- `is_monthly` detection uses median gap between dates (≥ 20 days) rather than
+  checking `day == 1`, making it robust to indicators stored on the last day of
+  the month.
 - `.transform_time()` gains a `months` argument for explicit month windows.
+- Daily ERA5 requests include `data_format = "netcdf"` and
+  `download_format = "unarchived"` to ensure consistent NetCDF output across
+  all ERA5 catalogues.
 - Internal data objects (`allowed_catalogues_*`, `allowed_indicators_*`,
   `allowed_hours`, etc.) moved to `aaa_data.R` to ensure they are loaded before
-  all other files, fixing documentation generation errors.
+  all other files.
