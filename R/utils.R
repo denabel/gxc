@@ -401,9 +401,33 @@ psum <- function(..., na.rm=FALSE) {
 #' resampling to a common extent if files have mismatched extents
 #' @noRd
 .safe_rast <- function(paths) {
-  if (length(paths) == 1) return(terra::rast(paths))
+  load_one <- function(path) {
+    r <- terra::rast(path)
+    # terra can fail to set the extent for NetCDF files from ERA5-Single-Levels
+    # because the grid is treated as unequally spaced. Detect this by checking
+    # whether the extent is the default 0-1 unit square, and if so reconstruct
+    # it from the lon/lat coordinate variables stored in the file.
+    e <- terra::ext(r)
+    if (isTRUE(all.equal(as.vector(e), c(0, 1, 0, 1)))) {
+      nc  <- ncdf4::nc_open(path)
+      lon <- try(ncdf4::ncvar_get(nc, "longitude"), silent = TRUE)
+      lat <- try(ncdf4::ncvar_get(nc, "latitude"),  silent = TRUE)
+      ncdf4::nc_close(nc)
+      if (!inherits(lon, "try-error") && !inherits(lat, "try-error") &&
+          length(lon) > 0 && length(lat) > 0) {
+        res <- 0.25  # ERA5-Single-Levels native resolution
+        terra::ext(r) <- terra::ext(
+          min(lon) - res / 2, max(lon) + res / 2,
+          min(lat) - res / 2, max(lat) + res / 2
+        )
+      }
+    }
+    r
+  }
 
-  rasters   <- lapply(paths, terra::rast)
+  if (length(paths) == 1) return(load_one(paths))
+
+  rasters   <- lapply(paths, load_one)
   reference <- rasters[[1]]
 
   rasters <- lapply(rasters, function(r) {
