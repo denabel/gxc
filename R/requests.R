@@ -83,6 +83,8 @@
 
   list(
     variable           = indicator,
+    data_format        = "netcdf",
+    download_format    = "unarchived",
     product_type       = "reanalysis",
     year               = years,
     month              = months,
@@ -113,6 +115,7 @@
 
   list(
     variable           = indicator,
+    data_format        = "grib",
     download_format    = "unarchived",
     product_type       = product_type,
     time               = request_time,
