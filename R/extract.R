@@ -152,7 +152,6 @@
     }
   }
 }
-}
 
 
 #' Focal extraction for gridded data input
