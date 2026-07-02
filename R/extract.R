@@ -288,11 +288,9 @@
 
   dates <- as_date(terra::time(raster))
 
-  # Detect whether raster has monthly or daily resolution.
-  # Do not rely on day == 1: some ERA5 indicators store values on the last
-  # day of the month. Instead check that each year-month appears only once.
-  is_monthly <- length(unique(format(dates, "%Y-%m"))) == length(dates) &&
-    (length(dates) == 1L || median(as.numeric(diff(sort(dates)))) >= 20)
+  # Detect whether raster has monthly or daily resolution
+  is_monthly <- all(as.integer(format(dates, "%d")) == 1) &&
+    length(unique(format(dates, "%Y-%m"))) == length(dates)
 
   # Normalize dates for matching
   dates_norm <- if (is_monthly) {
@@ -326,17 +324,20 @@
       }
 
       if (stat_wrangling %in% c("count_above", "count_below")) {
-        # Return uncollapsed focal values per point
-        lapply(seq_len(nrow(vector)), function(i) {
-          sapply(lyr_idx, function(idx) {
-            terra::extract(
-              raster[[idx]],
-              vector[i, ],
-              fun   = mean,
-              na.rm = TRUE,
-              ID    = FALSE
-            )[1, 1]
-          })
+        # FIX: all rows share the same lyr_idx here (same time_span_seq),
+        # so this is extracted in ONE vectorized terra::extract() call for
+        # all points x all layers at once -- same pattern already used for
+        # the baseline branch below -- instead of one separate
+        # terra::extract() call PER POINT PER LAYER (nrow(vector) *
+        # length(lyr_idx) calls, e.g. 1243 * 92 = ~114k calls for a typical
+        # GLES-sized daily count_above spec). This was the main bottleneck:
+        # a warm raster cache doesn't help here at all, since the cost is
+        # in the sheer number of extract() calls, not in re-reading data.
+        focal_matrix <- terra::extract(
+          raster[[lyr_idx]], vector, fun = mean, na.rm = TRUE, ID = FALSE
+        )
+        lapply(seq_len(nrow(focal_matrix)), function(i) {
+          as.numeric(focal_matrix[i, ])
         })
       } else {
         # Aggregate once, extract all points at once
@@ -348,7 +349,14 @@
       }
 
     } else {
-      # Different time_span_seq per row — row-wise loop
+      # Different time_span_seq per row — row-wise loop. NOTE: this branch
+      # has the same per-point/per-layer terra::extract() pattern as the
+      # fixed one above, but since each row can have a DIFFERENT lyr_idx
+      # here, it can't be collapsed into a single extract() call the same
+      # way. Left as-is for now; flagging as a secondary, lower-priority
+      # hot spot if this branch is ever hit with many rows/layers (e.g.
+      # datasets where individual observations don't share one focal
+      # window).
       lapply(seq_len(nrow(vector)), function(i) {
         vector_sliced <- vector[i, ]
         target_dates  <- as_date(unlist(vector_sliced$time_span_seq))
@@ -430,7 +438,9 @@
       })
 
     } else {
-      # Different time_span_seq per row — row-wise loop
+      # Different time_span_seq per row — row-wise loop. Same caveat as
+      # above: per-row varying lyr_idx makes this harder to fully
+      # vectorize; flagged as a secondary hot spot, not fixed here.
       lapply(seq_len(nrow(vector)), function(i) {
         vector_sliced <- vector[i, ]
         target_dates  <- as_date(unlist(vector_sliced$time_span_seq))
@@ -481,13 +491,14 @@
     lapply(seq_len(nrow(vector)), function(i) {
       vector_sliced <- vector[i, ]
 
-      # For monthly rasters match on year-month only
-      link_date <- as_date(vector_sliced$link_date)
-      lyr_idx <- if (is_monthly) {
-        which(format(dates, "%Y-%m") == format(link_date, "%Y-%m"))
+      # Normalize link_date for monthly rasters
+      link_date <- if (is_monthly) {
+        as.Date(format(vector_sliced$link_date, "%Y-%m-01"))
       } else {
-        which(dates == link_date)
+        vector_sliced$link_date
       }
+
+      lyr_idx <- which(dates_norm == link_date)
 
       if (length(lyr_idx) == 0) return(NA_real_)
 
