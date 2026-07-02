@@ -1,3 +1,60 @@
+# .drop_heavy_columns ----
+# Removes list-type attribute columns (e.g. `time_span_seq`, a nested list
+# of ~93 dates per row) from an sf object before it's handed to
+# terra::extract()/exactextractr::exact_extract(). Those extraction
+# functions only ever need the geometry -- but empirically, having such a
+# heavy list column along for the ride made extraction ~100x slower
+# (~1.4s vs. ~107-123s for the exact same raster + points), presumably due
+# to sf/terra's internal conversion trying to carry it along.
+#
+# Stays a normal sf object throughout (not bare geometry, not a
+# SpatVector) -- so there's no separate geometry-type dispatch quirk to
+# worry about (terra::extract()/exact_extract() both handle sf directly,
+# for any geometry type).
+.drop_heavy_columns <- function(vector) {
+  geom_col   <- attr(vector, "sf_column")
+  attr_names <- setdiff(names(vector), geom_col)
+
+  is_list_col <-
+    vapply(sf::st_drop_geometry(vector)[attr_names], is.list, logical(1))
+
+  heavy <- attr_names[is_list_col]
+
+  if (length(heavy) > 0) vector[setdiff(names(vector), heavy)] else vector
+}
+
+# .extract_values ----
+# Dispatches to the appropriate extraction method based on geometry type,
+# and always returns a matrix (nrow = number of features, ncol = number of
+# raster layers) -- the shape .toi_extract_impl() needs everywhere. Expects
+# `geom` to already be "light" (see .drop_heavy_columns() above) -- this
+# function itself only handles the point-vs-polygon dispatch.
+#
+# - POINT geometries: terra::extract(raster, geom, fun=mean, na.rm=TRUE,
+#   ID=FALSE). Cheap: one cell lookup per point per layer.
+# - POLYGON geometries (real buffers > 0, produced by gxc's own
+#   sf::st_buffer() step): exactextractr::exact_extract(raster, geom,
+#   fun="mean"). Computes each polygon's cell-coverage fractions ONCE and
+#   reuses them across all layers, instead of terra::extract() which
+#   redoes the (expensive) polygon-raster intersection per layer -- for
+#   many polygons x many layers x large buffer radii, that repetition is
+#   what was exhausting memory (std::bad_alloc).
+.extract_values <- function(raster, geom) {
+
+  geom_type <- as.character(sf::st_geometry_type(geom, by_geometry = FALSE))
+
+  if (geom_type == "POINT") {
+    as.matrix(
+      terra::extract(raster, geom, fun = mean, na.rm = TRUE, ID = FALSE)
+    )
+  } else {
+    as.matrix(
+      exactextractr::exact_extract(raster, geom, fun = "mean", progress = FALSE)
+    )
+  }
+}
+
+
 .toi_extract_baseline <- function(.data,
                                   raster,
                                   baseline_fun,
@@ -93,18 +150,11 @@
       ))
     }
 
-    # FIX: same geometry-only fix as .toi_extract_impl() -- .data carries
-    # heavy attribute columns (time_span_seq etc.) that terra::extract()
-    # doesn't need and that were found to massively slow down its internal
-    # sf-to-SpatVector conversion. Not currently hit by the count_above
-    # daily-season case (that has time_span > 0), but the same anti-pattern
-    # would apply to any time_span = 0 spec with a shared link_date.
-    terra::extract(
+    # Same fix as .toi_extract_impl(): drop heavy list-columns (time_span_seq
+    # etc.) before extraction, and dispatch point vs. polygon appropriately.
+    .extract_values(
       raster[[lyr_idx[[1]]]],
-      terra::vect(sf::st_geometry(.data)),
-      fun   = mean,
-      na.rm = TRUE,
-      ID    = FALSE
+      .drop_heavy_columns(.data)
     )
 
   } else if (length(unique(.data$link_date)) > 1 && time_span == 0) {
@@ -312,20 +362,11 @@
     length(unique(sapply(v$time_span_seq, paste, collapse = "-"))) == 1
   }
 
-  # FIX (2): `vector` carries heavy attribute columns alongside the
-  # geometry -- most notably `time_span_seq`, a nested list column holding
-  # the full sequence of dates for each row's study/baseline window (e.g.
-  # ~93 dates x 1243 rows here). terra::extract() converts its `y` argument
-  # to a SpatVector internally, and profiling showed this conversion (or
-  # something downstream of it) becomes drastically slower when `vector`
-  # carries these columns -- empirically confirmed: identical raster,
-  # identical points, but extraction went from ~1.4s (geometry only) to
-  # ~107-123s (full vector with time_span_seq etc.) for the exact same
-  # 93-layer extraction. `vector_geom` is used everywhere a `terra::
-  # extract()` call only needs point locations, never the attribute
-  # columns (those are still read from the original `vector`/
-  # `vector_sliced` wherever actually needed, e.g. `vector$.linked[i]`).
-  vector_geom <- terra::vect(sf::st_geometry(vector))
+  # Strip heavy list-columns (time_span_seq etc.) before any extraction --
+  # `vector` itself (with those columns intact) is still used everywhere
+  # else in this function (e.g. `vector$time_span_seq`, `vector$.linked`),
+  # only `vector_geom` (passed to .extract_values()) is the lightened copy.
+  vector_geom <- .drop_heavy_columns(vector)
 
   if (agg) {
     if (.all_same_seq(vector)) {
@@ -342,40 +383,29 @@
       }
 
       if (stat_wrangling %in% c("count_above", "count_below")) {
-        # FIX (1): all rows share the same lyr_idx here (same
-        # time_span_seq), so this is extracted in ONE vectorized
-        # terra::extract() call for all points x all layers at once --
-        # same pattern already used for the baseline branch below --
-        # instead of one separate terra::extract() call PER POINT PER
-        # LAYER (nrow(vector) * length(lyr_idx) calls, e.g. 1243 * 92 =
-        # ~114k calls for a typical GLES-sized daily count_above spec).
-        focal_matrix <- terra::extract(
-          raster[[lyr_idx]], vector_geom, fun = mean, na.rm = TRUE, ID = FALSE
-        )
+        # All rows share the same lyr_idx here (same time_span_seq), so
+        # this is one extraction call for all points/polygons x all layers
+        # at once, instead of nrow(vector) * length(lyr_idx) separate
+        # calls.
+        focal_matrix <- .extract_values(raster[[lyr_idx]], vector_geom)
         lapply(seq_len(nrow(focal_matrix)), function(i) {
           as.numeric(focal_matrix[i, ])
         })
       } else {
-        # Aggregate once, extract all points at once
+        # Aggregate once, extract all points/polygons at once
         raster_agg <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
-        result     <- terra::extract(
-          raster_agg, vector_geom, fun = mean, na.rm = TRUE, ID = FALSE
-        )
+        result     <- .extract_values(raster_agg, vector_geom)
         lapply(seq_len(nrow(result)), function(i) result[i, , drop = FALSE])
       }
 
     } else {
-      # Different time_span_seq per row — row-wise loop. NOTE: this branch
-      # has the same per-point/per-layer terra::extract() pattern as the
-      # fixed one above, but since each row can have a DIFFERENT lyr_idx
-      # here, it can't be collapsed into a single extract() call the same
-      # way. Left as-is for now; flagging as a secondary, lower-priority
-      # hot spot if this branch is ever hit with many rows/layers (e.g.
-      # datasets where individual observations don't share one focal
-      # window). Geometry-only fix (2) still applied here.
+      # Different time_span_seq per row -- each row can need a different
+      # lyr_idx, so this stays a per-row loop, but each iteration now does
+      # ONE .extract_values() call across all of that row's layers at once
+      # (instead of one terra::extract() call PER LAYER as before).
       lapply(seq_len(nrow(vector)), function(i) {
-        vector_sliced <- vector[i, ]
-        vector_sliced_geom <- vector_geom[i]
+        vector_sliced      <- vector[i, ]
+        vector_sliced_geom <- vector_geom[i, ]
         target_dates  <- as_date(unlist(vector_sliced$time_span_seq))
         target_norm   <- if (is_monthly) {
           as.Date(format(target_dates, "%Y-%m-01"))
@@ -387,24 +417,10 @@
         if (length(lyr_idx) == 0) return(NA_real_)
 
         if (stat_wrangling %in% c("count_above", "count_below")) {
-          sapply(lyr_idx, function(idx) {
-            terra::extract(
-              raster[[idx]],
-              vector_sliced_geom,
-              fun   = mean,
-              na.rm = TRUE,
-              ID    = FALSE
-            )[1, 1]
-          })
+          as.numeric(.extract_values(raster[[lyr_idx]], vector_sliced_geom))
         } else {
           raster_agg <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
-          terra::extract(
-            raster_agg,
-            vector_sliced_geom,
-            fun   = mean,
-            na.rm = TRUE,
-            ID    = FALSE
-          )
+          .extract_values(raster_agg, vector_sliced_geom)
         }
       })
     }
@@ -427,14 +443,14 @@
         }))
       }
 
-      # Extract all baseline layers for all points at once
-      baseline_matrix <- terra::extract(
-        raster[[lyr_idx]],
-        vector_geom,
-        fun   = NULL,
-        na.rm = TRUE,
-        ID    = FALSE
-      )
+      # Extract all baseline layers for all points/polygons at once.
+      # NOTE: this used to call terra::extract(..., fun = NULL, ...) to get
+      # raw per-cell values -- which only makes sense for points (exactly
+      # one cell per point). For polygons that returns a variable number of
+      # cells per feature, incompatible with `baseline_matrix[i, ]` below.
+      # .extract_values() always collapses to one (area-weighted, for
+      # polygons) mean value per feature per layer, for both geometry types.
+      baseline_matrix <- .extract_values(raster[[lyr_idx]], vector_geom)
 
       lapply(seq_len(nrow(vector)), function(i) {
         baseline_values <- as.numeric(baseline_matrix[i, ])
@@ -455,13 +471,12 @@
       })
 
     } else {
-      # Different time_span_seq per row — row-wise loop. Same caveat as
-      # above: per-row varying lyr_idx makes this harder to fully
-      # vectorize; flagged as a secondary hot spot, not fixed here.
-      # Geometry-only fix (2) still applied.
+      # Different time_span_seq per row -- same per-row loop as above, but
+      # now one .extract_values() call per row across all of that row's
+      # baseline layers, instead of one terra::extract() call per layer.
       lapply(seq_len(nrow(vector)), function(i) {
-        vector_sliced <- vector[i, ]
-        vector_sliced_geom <- vector_geom[i]
+        vector_sliced      <- vector[i, ]
+        vector_sliced_geom <- vector_geom[i, ]
         target_dates  <- as_date(unlist(vector_sliced$time_span_seq))
 
         if (is_monthly) {
@@ -478,15 +493,7 @@
           return(list(reference_stat = NA_real_, result = NA_real_))
         }
 
-        baseline_values <- sapply(lyr_idx, function(idx) {
-          terra::extract(
-            raster[[idx]],
-            vector_sliced_geom,
-            fun   = mean,
-            na.rm = TRUE,
-            ID    = FALSE
-          )[1, 1]
-        })
+        baseline_values <- as.numeric(.extract_values(raster[[lyr_idx]], vector_sliced_geom))
 
         focal_val <- if (
           stat_wrangling %in% c("count_above", "count_below") &&
@@ -508,8 +515,8 @@
 
   } else {
     lapply(seq_len(nrow(vector)), function(i) {
-      vector_sliced <- vector[i, ]
-      vector_sliced_geom <- vector_geom[i]
+      vector_sliced      <- vector[i, ]
+      vector_sliced_geom <- vector_geom[i, ]
 
       # Normalize link_date for monthly rasters
       link_date <- if (is_monthly) {
@@ -522,13 +529,7 @@
 
       if (length(lyr_idx) == 0) return(NA_real_)
 
-      terra::extract(
-        raster[[lyr_idx[[1]]]],
-        vector_sliced_geom,
-        fun   = mean,
-        na.rm = TRUE,
-        ID    = FALSE
-      )
+      as.numeric(.extract_values(raster[[lyr_idx[[1]]]], vector_sliced_geom))
     })
   }
 }
