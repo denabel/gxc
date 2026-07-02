@@ -59,8 +59,6 @@
 
 #' Focal extraction
 #' @noRd
-#' Focal extraction
-#' @noRd
 .toi_extract <- function(.data,
                          raster,
                          raster_path,
@@ -103,7 +101,7 @@
     # would apply to any time_span = 0 spec with a shared link_date.
     terra::extract(
       raster[[lyr_idx[[1]]]],
-      sf::st_geometry(.data),
+      sf::st_as_sf(sf::st_geometry(.data)),
       fun   = mean,
       na.rm = TRUE,
       ID    = FALSE
@@ -153,6 +151,7 @@
       do.call(c, raster_values)
     }
   }
+}
 }
 
 
@@ -327,7 +326,7 @@
   # extract()` call only needs point locations, never the attribute
   # columns (those are still read from the original `vector`/
   # `vector_sliced` wherever actually needed, e.g. `vector$.linked[i]`).
-  vector_geom <- sf::st_geometry(vector)
+  vector_geom <- sf::st_as_sf(sf::st_geometry(vector))
 
   if (agg) {
     if (.all_same_seq(vector)) {
