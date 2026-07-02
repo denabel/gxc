@@ -24,34 +24,33 @@
 }
 
 # .extract_values ----
-# Dispatches to the appropriate extraction method based on geometry type,
-# and always returns a matrix (nrow = number of features, ncol = number of
-# raster layers) -- the shape .toi_extract_impl() needs everywhere. Expects
-# `geom` to already be "light" (see .drop_heavy_columns() above) -- this
-# function itself only handles the point-vs-polygon dispatch.
+# Always returns a matrix (nrow = number of features, ncol = number of
+# raster layers) via a single terra::extract(..., fun = mean, ...) call --
+# works correctly for BOTH points and polygons: for points, "mean of one
+# cell" is just that cell's value; for polygons, terra computes the
+# (area-weighted) mean natively. No separate library/geometry-type
+# dispatch needed.
 #
-# - POINT geometries: terra::extract(raster, geom, fun=mean, na.rm=TRUE,
-#   ID=FALSE). Cheap: one cell lookup per point per layer.
-# - POLYGON geometries (real buffers > 0, produced by gxc's own
-#   sf::st_buffer() step): exactextractr::exact_extract(raster, geom,
-#   fun="mean"). Computes each polygon's cell-coverage fractions ONCE and
-#   reuses them across all layers, instead of terra::extract() which
-#   redoes the (expensive) polygon-raster intersection per layer -- for
-#   many polygons x many layers x large buffer radii, that repetition is
-#   what was exhausting memory (std::bad_alloc).
+# This replaces an earlier baseline-extraction call that used
+# `fun = NULL` (raw per-cell values). That's fine for points (exactly one
+# cell each) but for polygons keeps ALL intersecting cell values in memory
+# per feature per layer -- almost certainly the actual cause of the
+# `std::bad_alloc` we hit (e.g. a 100km buffer can overlap tens of
+# thousands of 1km cells; times 92 layers times 1243 polygons, that's a lot
+# of raw values retained instead of being aggregated away immediately).
+# Aggregating with `fun = mean` right away should avoid that blowup without
+# needing a different extraction library.
 .extract_values <- function(raster, geom) {
 
-  geom_type <- as.character(sf::st_geometry_type(geom, by_geometry = FALSE))
+  # terra::extract() with fun=mean doesn't care about layer names, but
+  # keeping this defensive rename anyway in case that ever changes, and
+  # since downstream code always indexes by column position anyway, never
+  # by name.
+  names(raster) <- paste0("layer_", seq_len(terra::nlyr(raster)))
 
-  if (geom_type == "POINT") {
-    as.matrix(
-      terra::extract(raster, geom, fun = mean, na.rm = TRUE, ID = FALSE)
-    )
-  } else {
-    as.matrix(
-      exactextractr::exact_extract(raster, geom, fun = "mean", progress = FALSE)
-    )
-  }
+  as.matrix(
+    terra::extract(raster, geom, fun = mean, na.rm = TRUE, ID = FALSE)
+  )
 }
 
 
