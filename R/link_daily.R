@@ -259,7 +259,9 @@ link_daily.sf <- function(.data,
   crs_data <- terra::crs(.data)
   old_geom <- sf::st_geometry(.data)
   prepared <- sf::st_transform(.data, 4326)
-  prepared <- sf::st_buffer(prepared, buffer)
+  if (buffer > 0) {
+    prepared <- sf::st_buffer(prepared, buffer)
+  }
 
   splits   <- split(prepared, prepared[[date_var]])
   n_splits <- length(splits)
