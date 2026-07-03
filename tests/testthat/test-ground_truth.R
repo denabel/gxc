@@ -319,3 +319,4 @@ test_that("link_monthly.sf baseline matches direct terra::extract (DWD)", {
   expect_equal(round(result$.result,   4),
                round(expected_study - expected_baseline, 4))
 })
+

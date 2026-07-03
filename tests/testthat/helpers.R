@@ -118,10 +118,12 @@ reset_test_index <- function(cache, service = "ecmwfr") {
 
   obs_raster <- gxc:::.safe_rast(restored)
   pts_r      <- sf::st_transform(pts, terra::crs(obs_raster))
-  terra::extract(
-    obs_raster[[layer]], pts_r,
-    fun = mean, na.rm = TRUE, ID = FALSE
-  )[[1]]
+  # FIX: .extract_values() (mit .drop_heavy_columns()) statt terra::extract()
+  # direkt -- dieselbe Dispatch-Logik (Punkt/Polygon) wie im
+  # Produktionscode (extract.R). Bei `pts` hier zwar meist ueberfluessig
+  # (schlankes Test-Fixture, keine schweren Spalten), aber konsistent mit
+  # dem Rest von gxc.
+  .extract_values(obs_raster[[layer]], .drop_heavy_columns(pts_r))[[1]]
 }
 
 # Direct extraction from cached baseline rasters using same request hash
@@ -171,7 +173,8 @@ reset_test_index <- function(cache, service = "ecmwfr") {
   rasters <- lapply(restored, function(f) gxc:::.safe_rast(f)[[1]])
   values  <- sapply(rasters, function(r) {
     pts_r <- sf::st_transform(pts, terra::crs(r))
-    terra::extract(r, pts_r, fun = mean, na.rm = TRUE, ID = FALSE)[[1]]
+    # FIX: gleiche Aenderung wie oben
+    .extract_values(r, .drop_heavy_columns(pts_r))[[1]]
   })
 
   if (is.null(dim(values))) {
@@ -183,7 +186,16 @@ reset_test_index <- function(cache, service = "ecmwfr") {
 # Returns the extent of a set of points in WGS84
 .test_extent <- function(pts, buffer = 0) {
   prepared <- sf::st_transform(pts, 4326)
-  prepared <- sf::st_buffer(prepared, buffer)
+  # Keep in sync with the buffer=0 fix in link_daily.sf()/link_monthly.sf():
+  # sf::st_buffer(x, 0) does NOT return x unchanged, it converts points to
+  # (near-zero-area) polygons, which can shift the computed extent by a
+  # tiny floating-point amount -- enough to change the request hash and
+  # cause cache lookups here to miss requests that link_daily()/
+  # link_monthly() itself found fine (since those also now skip buffering
+  # entirely when buffer = 0).
+  if (buffer > 0) {
+    prepared <- sf::st_buffer(prepared, buffer)
+  }
   gxc:::.get_extent(prepared)
 }
 

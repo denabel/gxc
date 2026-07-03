@@ -34,7 +34,6 @@ test_that("stash finds cached baseline files", {
   local_test_index(cache)
 
   prepared <- sf::st_transform(pts, 4326)
-  prepared <- sf::st_buffer(prepared, 0)
   extent   <- gxc:::.get_extent(prepared)
 
   baseline_span <- as.Date(c("1980-08-01", "1981-08-01"))
@@ -83,7 +82,6 @@ test_that("stash returns NULL when expected_length does not match", {
   local_test_index(cache)
 
   prepared <- sf::st_transform(pts, 4326)
-  prepared <- sf::st_buffer(prepared, 0)
   extent   <- gxc:::.get_extent(prepared)
   span     <- as.Date("2014-08-01")
 
@@ -110,7 +108,6 @@ test_that("stash ignores target field in hash", {
   local_test_index(cache)
 
   prepared <- sf::st_transform(pts, 4326)
-  prepared <- sf::st_buffer(prepared, 0)
   extent   <- gxc:::.get_extent(prepared)
   span     <- as.Date("2014-08-01")
 
@@ -147,7 +144,6 @@ test_that("stash resolves relative paths against cache directory", {
   reset_test_index(file.path(cache, "era5"), service = "ecmwfr")
 
   prepared <- sf::st_transform(pts, 4326)
-  prepared <- sf::st_buffer(prepared, 0)
   extent   <- gxc:::.get_extent(prepared)
   span     <- as.Date("2014-08-01")
 
@@ -179,7 +175,6 @@ test_that("stash does not create duplicate entries", {
   local_test_index(cache)
 
   prepared <- sf::st_transform(pts, 4326)
-  prepared <- sf::st_buffer(prepared, 0)
   extent   <- gxc:::.get_extent(prepared)
   span     <- as.Date("2014-08-01")
 
