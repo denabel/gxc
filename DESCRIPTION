@@ -25,6 +25,7 @@ Imports:
     cli,
     rlang,
     ecmwfr,
+    exactextractr,
     keyring,
     sf,
     terra
