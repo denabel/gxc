@@ -154,11 +154,14 @@
     dates     <- as_date(terra::time(raster))
     link_date <- unique(.data$link_date)
 
-    # Try exact match first, then normalize to first of month (for monthly rasters)
+    # For monthly rasters, ERA5 may store values on a different day than
+    # requested (e.g. total_precipitation for July -> June 30). Fall back to
+    # the nearest layer within 31 days if no exact match is found.
     lyr_idx <- which(dates == link_date)
     if (length(lyr_idx) == 0) {
-      link_month <- as.Date(format(link_date, "%Y-%m-01"))
-      lyr_idx    <- which(dates == link_month)
+      gaps    <- abs(as.integer(dates - link_date))
+      nearest <- which.min(gaps)
+      if (gaps[[nearest]] <= 31L) lyr_idx <- nearest
     }
 
     if (length(lyr_idx) == 0) {
