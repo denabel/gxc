@@ -25,9 +25,12 @@
 
 # .extract_values ----
 # Dispatches to the appropriate extraction method based on geometry type,
-# and always returns a matrix (nrow = number of features, ncol = number of
-# raster layers) -- the shape .toi_extract_impl() needs everywhere. Expects
-# `geom` to already be "light" (see .drop_heavy_columns() above).
+# and always returns a data.frame (nrow = number of features, ncol =
+# number of raster layers) -- the same type terra::extract()/
+# exact_extract() already return natively, so downstream code that
+# branches on is.data.frame() (e.g. .extract_study_values() in utils.R)
+# keeps taking the same code path as before. Expects `geom` to already be
+# "light" (see .drop_heavy_columns() above).
 #
 # - POINT geometries (buffer = 0, given the fix in link_daily.sf()/
 #   link_monthly.sf() that skips st_buffer() entirely when buffer = 0):
@@ -62,13 +65,9 @@
   geom_type <- as.character(sf::st_geometry_type(geom, by_geometry = FALSE))
 
   if (geom_type == "POINT") {
-    as.matrix(
-      terra::extract(raster, geom, fun = mean, na.rm = TRUE, ID = FALSE)
-    )
+    terra::extract(raster, geom, fun = mean, na.rm = TRUE, ID = FALSE)
   } else {
-    as.matrix(
-      exactextractr::exact_extract(raster, geom, fun = "mean", progress = FALSE)
-    )
+    exactextractr::exact_extract(raster, geom, fun = "mean", progress = FALSE)
   }
 }
 
