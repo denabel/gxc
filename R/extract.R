@@ -24,33 +24,52 @@
 }
 
 # .extract_values ----
-# Always returns a matrix (nrow = number of features, ncol = number of
-# raster layers) via a single terra::extract(..., fun = mean, ...) call --
-# works correctly for BOTH points and polygons: for points, "mean of one
-# cell" is just that cell's value; for polygons, terra computes the
-# (area-weighted) mean natively. No separate library/geometry-type
-# dispatch needed.
+# Dispatches to the appropriate extraction method based on geometry type,
+# and always returns a matrix (nrow = number of features, ncol = number of
+# raster layers) -- the shape .toi_extract_impl() needs everywhere. Expects
+# `geom` to already be "light" (see .drop_heavy_columns() above).
 #
-# This replaces an earlier baseline-extraction call that used
-# `fun = NULL` (raw per-cell values). That's fine for points (exactly one
-# cell each) but for polygons keeps ALL intersecting cell values in memory
-# per feature per layer -- almost certainly the actual cause of the
-# `std::bad_alloc` we hit (e.g. a 100km buffer can overlap tens of
-# thousands of 1km cells; times 92 layers times 1243 polygons, that's a lot
-# of raw values retained instead of being aggregated away immediately).
-# Aggregating with `fun = mean` right away should avoid that blowup without
-# needing a different extraction library.
+# - POINT geometries (buffer = 0, given the fix in link_daily.sf()/
+#   link_monthly.sf() that skips st_buffer() entirely when buffer = 0):
+#   terra::extract(raster, geom, fun=mean, na.rm=TRUE, ID=FALSE). Cheap:
+#   one cell lookup per point per layer.
+# - POLYGON geometries (real buffers > 0): exactextractr::exact_extract(
+#   raster, geom, fun="mean"). Computes each polygon's cell-coverage
+#   fractions ONCE and reuses them across all layers. Empirically
+#   confirmed via a head-to-head benchmark (20 points, 5000m buffer, 276
+#   layers): terra::extract() took 4.04s, exact_extract() took 0.88s --
+#   ~4.6x faster, with near-identical results (differences only in the
+#   3rd-4th decimal, from a slightly different area-weighting
+#   implementation). terra::extract() appears to redo the polygon-raster
+#   intersection per layer rather than reusing it across a multi-layer
+#   stack, so the gap should widen further at your real scale (2790
+#   layers x 1243 points) -- this was the actual cause of the
+#   std::bad_alloc crash for large buffers, and of extraction still being
+#   the dominant cost (~4571s of ~4631s total) even after fixing the
+#   fun=NULL correctness issue and the heavy-column issue.
 .extract_values <- function(raster, geom) {
 
-  # terra::extract() with fun=mean doesn't care about layer names, but
-  # keeping this defensive rename anyway in case that ever changes, and
-  # since downstream code always indexes by column position anyway, never
-  # by name.
+  # exactextractr::exact_extract() requires unique layer names (unlike
+  # terra::extract(), which doesn't care) -- layers selected via
+  # raster[[lyr_idx]] for a multi-year baseline can end up with duplicate
+  # names if the underlying files are named by day-of-year without the
+  # year (e.g. 30 layers all named "tas_59", one per baseline year).
+  # Downstream code always indexes results by column POSITION
+  # (baseline_matrix[i, ], focal_matrix[i, ]), never by name, so forcing
+  # unique placeholder names here is always safe.
   names(raster) <- paste0("layer_", seq_len(terra::nlyr(raster)))
 
-  as.matrix(
-    terra::extract(raster, geom, fun = mean, na.rm = TRUE, ID = FALSE)
-  )
+  geom_type <- as.character(sf::st_geometry_type(geom, by_geometry = FALSE))
+
+  if (geom_type == "POINT") {
+    as.matrix(
+      terra::extract(raster, geom, fun = mean, na.rm = TRUE, ID = FALSE)
+    )
+  } else {
+    as.matrix(
+      exactextractr::exact_extract(raster, geom, fun = "mean", progress = FALSE)
+    )
+  }
 }
 
 
