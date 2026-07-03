@@ -397,42 +397,60 @@ psum <- function(..., na.rm=FALSE) {
   res
 }
 
+.raster_memo_cache <- new.env(parent = emptyenv())
+
 #' Safely loads a vector of raster file paths into a single SpatRaster,
-#' resampling to a common extent if files have mismatched extents
+#' resampling to a common extent if files have mismatched extents.
+#' Memoized: repeated calls with the EXACT same set of file paths (e.g.
+#' the same indicator + baseline years + months across many grid specs)
+#' return the cached result instead of re-reading file headers.
 #' @noRd
 .safe_rast <- function(paths) {
   if (length(paths) == 1) return(terra::rast(paths))
 
-  # FIX: try the fast, vectorized path first -- terra::rast(paths) loads
-  # all files in a single call, which is dramatically cheaper than opening
-  # each file individually (measured: ~23s for 2790 files in one call vs.
-  # opening them one-by-one in a loop, which is what the code below does
-  # unconditionally). This works whenever all files already share the same
-  # geometry (extent/resolution/CRS) -- the common case for same-indicator
-  # DWD/ERA5 files across years/days, since they all come from the same
-  # source grid. Only fall back to the slow per-file + resample path if
-  # that actually fails or produces an unexpected number of layers (i.e.
-  # geometry genuinely differs somewhere).
-  combined <- tryCatch(terra::rast(paths), error = function(e) NULL)
+  # Cache key: hash of the sorted path vector PLUS each file's modification
+  # time (computed on the SAME sorted order, so the key is stable
+  # regardless of the order paths happen to arrive in). Including mtime
+  # means that if a file gets re-downloaded/overwritten during the same
+  # session (e.g. replacing a corrupted slice) the key changes and the
+  # cache correctly rebuilds, instead of silently serving a stale cached
+  # raster for the same path. file.mtime() is a cheap stat() call per file
+  # (milliseconds for thousands of files) -- nowhere near the cost of
+  # actually opening them.
+  sorted_paths <- sort(paths)
+  cache_key    <- rlang::hash(list(sorted_paths, file.mtime(sorted_paths)))
 
-  if (!is.null(combined) && terra::nlyr(combined) == length(paths)) {
-    return(combined)
+  if (exists(cache_key, envir = .raster_memo_cache, inherits = FALSE)) {
+    return(get(cache_key, envir = .raster_memo_cache, inherits = FALSE))
   }
 
-  # Fallback: something's actually mismatched -- load and resample
-  # individually (slow, but only hit when genuinely needed).
-  rasters   <- lapply(paths, terra::rast)
-  reference <- rasters[[1]]
+  # Fast path: try loading all files in a single vectorized call (see
+  # earlier fix -- this is what made a single .safe_rast() call itself
+  # ~23s for 2760 files, down from opening each file individually).
+  combined <- tryCatch(terra::rast(paths), error = function(e) NULL)
 
-  rasters <- lapply(rasters, function(r) {
-    if (!terra::compareGeom(r, reference, stopOnError = FALSE)) {
-      terra::resample(r, reference, method = "bilinear")
+  result <-
+    if (!is.null(combined) && terra::nlyr(combined) == length(paths)) {
+      combined
     } else {
-      r
-    }
-  })
+      # Fallback: something's actually mismatched -- load and resample
+      # individually (slow, but only hit when genuinely needed).
+      rasters   <- lapply(paths, terra::rast)
+      reference <- rasters[[1]]
 
-  do.call(c, rasters)
+      rasters <- lapply(rasters, function(r) {
+        if (!terra::compareGeom(r, reference, stopOnError = FALSE)) {
+          terra::resample(r, reference, method = "bilinear")
+        } else {
+          r
+        }
+      })
+
+      do.call(c, rasters)
+    }
+
+  assign(cache_key, result, envir = .raster_memo_cache)
+  result
 }
 
 #' Extracts study values from raster_values — handles both the case where
