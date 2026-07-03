@@ -77,6 +77,13 @@ link_monthly(
 )
 ```
 
+Note: `months` combined with `stat_wrangling = "count_above"`/`"count_below"`
+compares against a monthly-resolution baseline, so the resulting count is out
+of the number of *months* in the window (e.g. out of 3 for `c(3, 4, 5)`), not
+out of the number of days. For a day-level count over a calendar-month season,
+use `link_daily()` with an explicit `time_span`/`time_lag` covering the same
+date range instead.
+
 #### Output column naming (`prefix`)
 
 A new `prefix` argument allows naming the output columns when calling
@@ -197,6 +204,21 @@ loop starts. A global spatial extent is computed once over the full dataset and
 reused across all splits, eliminating redundant downloads and significantly
 reducing total download time for datasets with many unique dates.
 
+#### Raster caching within a session
+
+`.safe_rast()` now memoizes its result for the duration of the R session,
+keyed by the exact set of file paths and their modification times. Repeated
+calls that need the same underlying files — e.g. many `link_daily()` calls
+sharing the same indicator, baseline years, and months, but differing in
+`buffer` or `stat_wrangling` — reuse the cached raster instead of re-reading
+file headers from disk every time. For a typical 30-year daily baseline
+(~2,800 files), this turns a repeated ~20s raster-assembly cost into a
+one-time cost per unique file set.
+
+The cache automatically invalidates if any underlying file's modification
+time changes (e.g. a corrupted file gets re-downloaded mid-session), so it
+never silently serves stale data.
+
 ---
 
 ### Bug fixes
@@ -228,6 +250,49 @@ reducing total download time for datasets with many unique dates.
 - Fixed slow extraction for datasets where all observations share the same
   date and `time_span > 0`. `terra::app` and `terra::extract` are now called
   once for all points in a split rather than once per point.
+- Fixed extraction becoming extremely slow — and, for large buffers,
+  exhausting memory (`std::bad_alloc`) — because `.toi_extract_impl()` and
+  `.toi_extract()` passed the full input `sf` object, including heavy nested
+  list columns such as `time_span_seq`, into `terra::extract()`/
+  `exactextractr::exact_extract()`. These only ever need the geometry;
+  carrying the full attribute table along was measured to slow extraction
+  down by roughly two orders of magnitude for a typical daily-linkage
+  dataset. A new internal `.drop_heavy_columns()` strips list-type columns
+  before extraction.
+- Fixed polygon (`buffer > 0`) extraction using `terra::extract()`, which
+  recomputes the polygon–raster cell overlap separately for every layer.
+  This does not scale to baseline extractions with hundreds or thousands of
+  layers, and can exhaust memory for large buffer radii (a large buffer can
+  overlap tens of thousands of 1 km grid cells). Polygon geometries are now
+  routed through `exactextractr::exact_extract()`, which computes each
+  polygon's cell-coverage weights once and reuses them across all layers
+  (~4.6x faster in benchmarking on a real buffered extraction, in addition
+  to no longer crashing on large buffers). Point geometries (`buffer = 0`)
+  continue to use `terra::extract()`, which is already efficient for them.
+- Fixed `buffer = 0` unexpectedly triggering polygon-based rather than
+  point-based extraction. `sf::st_buffer(x, 0)` converts point geometries
+  into (zero-area) polygon geometries rather than leaving them unchanged.
+  `link_daily.sf()` and `link_monthly.sf()` now skip the buffering step
+  entirely when `buffer = 0`.
+- Fixed baseline extraction using `terra::extract(..., fun = NULL)` to
+  retrieve raw per-cell values. This is only meaningful for point geometries
+  (exactly one cell per point); for polygons it returns a variable number of
+  raw cell values per feature, which downstream code incorrectly assumed was
+  always exactly one value per feature per layer. Baseline extraction now
+  always aggregates to one (area-weighted, for polygons) value per feature
+  per layer via `.extract_values()`.
+- Fixed `.safe_rast()` loading every file individually in a loop
+  (`lapply(paths, terra::rast)`), even in the common case where all files
+  share identical geometry. `.safe_rast()` now attempts a single vectorized
+  `terra::rast(paths)` call first, and only falls back to the slower
+  per-file-plus-resample path if that fails or produces an unexpected number
+  of layers (i.e. geometry genuinely differs somewhere).
+- Fixed `exactextractr::exact_extract()` erroring with `names of input
+  rasters must be unique` when raster layers selected for baseline
+  extraction (e.g. the same day-of-year across many baseline years) share
+  identical layer names. `.extract_values()` now assigns unique placeholder
+  layer names before extraction; no downstream code relies on layer names,
+  only on column position, so this is always safe.
 
 ---
 
@@ -245,6 +310,9 @@ The output column names have changed. Code that referenced `.linked`,
 The `catalogue` argument now accepts DWD catalogues in addition to ERA5. The
 default remains `"derived-era5-land-daily-statistics"` for `link_daily()` and
 `"reanalysis-era5-land-monthly-means"` for `link_monthly()`.
+
+`exactextractr` is now a required dependency (used for polygon/buffer
+extraction).
 
 ---
 
@@ -277,7 +345,22 @@ default remains `"derived-era5-land-daily-statistics"` for `link_daily()` and
 - `.toi_extract_impl()` now vectorises extraction over all points in a split
   when they share the same `time_span_seq`, with a row-wise fallback for
   datasets with varying date windows.
-- `is_monthly` detection uses median gap between dates (≥ 20 days) rather than
+- New internal `.drop_heavy_columns()` (in `extract.R`) strips list-type
+  attribute columns (e.g. `time_span_seq`) from an `sf` object before
+  extraction, keeping it a plain `sf` object throughout rather than
+  converting to a bare geometry/`SpatVector`.
+- New internal `.extract_values()` (in `extract.R`) consolidates all
+  point/polygon extraction into a single helper: `terra::extract()` for
+  point geometries, `exactextractr::exact_extract()` for polygon geometries,
+  always returning a `nrow(features) x nlyr(raster)` data.frame (the same
+  type `terra::extract()`/`exact_extract()` already return natively).
+  Replaces direct
+  `terra::extract()` calls throughout `.toi_extract_impl()` and
+  `.toi_extract()`.
+- `.safe_rast()` gains an in-memory, session-scoped cache
+  (`.raster_memo_cache`), keyed by a hash of the sorted file paths and their
+  modification times.
+- is_monthly detection uses median gap between dates (≥ 20 days) rather than
   checking `day == 1`, making it robust to indicators stored on the last day of
   the month.
 - `.transform_time()` gains a `months` argument for explicit month windows.
