@@ -14,6 +14,11 @@ if (FALSE) {
   pts_lag <- test_pts(seq = FALSE)
   pts_lag$date <- pts_lag$date + days(1)
 
+  # Two distinct months, for the row-order regression test on link_monthly()
+  # (analogous to pts_seq for link_daily()) -- see test-consistency.R
+  pts_seq_monthly <- test_pts(seq = TRUE)
+  pts_seq_monthly$date <- as_date(c("2014-08-01", "2014-09-01"))
+
   grid <- terra::rast(pts)
   terra::time(grid) <- as_date(pts$date[1])
   terra::crs(grid)  <- sf::st_crs(pts)$wkt
@@ -85,6 +90,13 @@ if (FALSE) {
 
   # Monthly — deviation baseline
   link_monthly(pts, indicator = "2m_temperature",
+               baseline = c(1980, 1981), baseline_fun = "mean",
+               stat_wrangling = "deviation",
+               cache = TRUE, path = cache_path)
+
+  # Monthly — sequential dates (two distinct months), for the row-order
+  # regression test in test-consistency.R
+  link_monthly(pts_seq_monthly, indicator = "2m_temperature",
                baseline = c(1980, 1981), baseline_fun = "mean",
                stat_wrangling = "deviation",
                cache = TRUE, path = cache_path)

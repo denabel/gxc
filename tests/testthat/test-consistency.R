@@ -128,3 +128,66 @@ test_that("prefix produces same values as no prefix", {
 
   expect_equal(result_no_prefix$.study, result_prefix$.study_temp)
 })
+
+
+# -------------------------------------------------------------------------
+# Row-order / geometry-matching regression tests
+#
+# link_daily.sf()/link_monthly.sf() internally split() the input by
+# date_var, which reorders rows by sorted date value. Results are rbind()'d
+# back together in that (sorted-date) order, then the original geometry --
+# still in original input order -- used to be written back onto that
+# reordered object, silently pairing rows with the wrong feature. These
+# tests use inputs where row order does NOT match date order, which is
+# exactly the condition that used to trigger the mismatch.
+# -------------------------------------------------------------------------
+
+test_that("link_daily.sf keeps geometries aligned with input order when dates are unsorted", {
+  skip_on_cran()
+  fail_on_request()
+  pts_seq <- test_pts(seq = TRUE)          # row 1: 2014-08-01, row 2: 2014-08-02
+  pts     <- pts_seq[rev(seq_len(nrow(pts_seq))), ]   # reversed -> dates unsorted
+  pts$id  <- c("second_date", "first_date")
+  cache   <- test_cache()
+  local_test_index(cache)
+
+  result <- link_daily(
+    pts,
+    indicator      = "2m_temperature",
+    baseline       = c(1980, 1981),
+    baseline_fun   = "mean",
+    stat_wrangling = "deviation",
+    cache          = TRUE,
+    path           = cache
+  )
+
+  expect_equal(sf::st_geometry(result), sf::st_geometry(pts))
+  expect_equal(result$date, pts$date)
+  expect_equal(result$id,   pts$id)
+})
+
+
+test_that("link_monthly.sf keeps geometries aligned with input order when dates are unsorted", {
+  skip_on_cran()
+  fail_on_request()
+  pts_seq_monthly <- test_pts(seq = TRUE)
+  pts_seq_monthly$date <- as_date(c("2014-08-01", "2014-09-01"))
+  pts    <- pts_seq_monthly[rev(seq_len(nrow(pts_seq_monthly))), ]  # reversed
+  pts$id <- c("second_month", "first_month")
+  cache  <- test_cache()
+  local_test_index(cache)
+
+  result <- link_monthly(
+    pts,
+    indicator      = "2m_temperature",
+    baseline       = c(1980, 1981),
+    baseline_fun   = "mean",
+    stat_wrangling = "deviation",
+    cache          = TRUE,
+    path           = cache
+  )
+
+  expect_equal(sf::st_geometry(result), sf::st_geometry(pts))
+  expect_equal(result$date, pts$date)
+  expect_equal(result$id,   pts$id)
+})
