@@ -203,6 +203,16 @@ link_monthly.sf <- function(.data,
 
   crs_data <- terra::crs(.data)
   old_geom <- sf::st_geometry(.data)
+
+  # split() below groups rows by date_var, which reorders them (sorted by
+  # unique date values) relative to the input. .row_id records the original
+  # position so the output can be restored to input order before old_geom
+  # (which is still in input order) is written back -- otherwise geometries
+  # get silently mismatched to the wrong rows whenever .data isn't already
+  # sorted by date_var. Carried through unchanged by .transform_time() (only
+  # adds columns) and rbind() (preserves all columns).
+  .data$.row_id <- seq_len(nrow(.data))
+
   prepared <- sf::st_transform(.data, 4326)
   if (buffer > 0) { prepared <- sf::st_buffer(prepared, buffer) }
 
@@ -388,8 +398,14 @@ link_monthly.sf <- function(.data,
   }
 
   prepared <- do.call(rbind, result)
+
+  # Restore original input order (split() above grouped rows by date_var,
+  # sorted by unique date values) before old_geom -- which is still in
+  # original input order -- gets written back below.
+  prepared <- prepared[order(prepared$.row_id), ]
+
   prepared <- sf::st_transform(prepared, crs = crs_data)
-  prepared[c("link_date", "link_date_end", "time_span_seq")] <- NULL
+  prepared[c("link_date", "link_date_end", "time_span_seq", ".row_id")] <- NULL
   prepared <- move_to_back(prepared, attr(prepared, "sf_column"))
   sf::st_geometry(prepared) <- old_geom
   as_sf_tibble(prepared)
