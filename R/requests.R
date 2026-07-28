@@ -137,7 +137,7 @@
                               workers     = 3L,
                               path        = tempdir(),
                               time_out    = 3600,
-                              retry       = 30,
+                              retry       = 60,
                               already_done = 0L,
                               total        = length(request_list),
                               on_progress  = NULL) {
@@ -164,9 +164,19 @@
 
   tryCatch(
     while (length(done) < N && Sys.time() < total_timeout) {
-      for (w in seq_along(slots)) {
-        Sys.sleep(retry)
+      # Only sleep if a full pass over all slots made no progress at all
+      # (i.e. every active slot is still pending and no free slot has
+      # queued work) -- sleeping unconditionally before every single slot
+      # visit meant even brand-new submissions (nothing to poll yet) paid
+      # the full `retry` delay, and with `workers` slots visited every
+      # iteration, that's `workers * retry` seconds of pure Sys.sleep()
+      # per pass regardless of how fast the API actually responds. For a
+      # multi-year baseline (hundreds to thousands of daily requests) that
+      # adds up to hours of enforced waiting on top of any real network/
+      # CDS processing time.
+      progressed <- FALSE
 
+      for (w in seq_along(slots)) {
         # Assign next pending request to free slot
         if (isFALSE(slots[[w]]) && length(queue) > 0) {
           invisible(capture.output(
@@ -182,7 +192,8 @@
             ),
             type = "output"
           ))
-          queue <- queue[-1]
+          queue      <- queue[-1]
+          progressed <- TRUE
         }
 
         # Try to download
@@ -202,6 +213,7 @@
           done      <- append(done, slots[[w]])
           file_path <- done[[length(done)]]$get_file()
           slots[[w]] <- FALSE
+          progressed <- TRUE
 
           cli::cli_progress_update(id = pb)
 
@@ -214,6 +226,8 @@
           }
         }
       }
+
+      if (!progressed) Sys.sleep(retry)
     },
     interrupt = function(e) {
       cli::cli_progress_done(id = pb)
@@ -288,7 +302,7 @@
     todo_requests,
     workers      = workers,
     path         = file.path(path, "era5"),
-    retry        = 30,
+    retry        = 60,
     already_done = already_done,
     total        = request_length,
     on_progress  = function(completed, total, file) {
