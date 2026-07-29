@@ -146,25 +146,6 @@
       seq_len(nrow(.data)),
       ceiling(seq_len(nrow(.data)) / chunk_size)
     )
-
-    # Decompose .data into plain, state-free pieces ONCE, before splitting
-    # into chunks -- WKT text and a plain data.frame have no C++ objects
-    # attached (unlike sf's geometry column, which can carry cached
-    # "prepared geometry"/S2 state that doesn't survive serialize() /
-    # unserialize() across a future worker process boundary cleanly).
-    # WKT works for ANY geometry type (point or polygon), unlike a raw
-    # coordinate matrix, which only works cleanly for points.
-    data_wkt  <- sf::st_as_text(sf::st_geometry(.data))
-    data_crs  <- sf::st_crs(.data)
-    data_attr <- sf::st_drop_geometry(.data)
-
-    # Rebuilds a fresh sf object for just one chunk, INSIDE the worker --
-    # the geometry gets created new, in-process, from plain text, so there
-    # is no foreign/inherited C++ state to crash on.
-    rebuild_chunk <- function(chunk) {
-      geom <- sf::st_as_sfc(data_wkt[chunk], crs = data_crs)
-      sf::st_sf(data_attr[chunk, , drop = FALSE], geometry = geom)
-    }
   }
 
   if (length(unique(.data$link_date)) == 1 && time_span == 0) {
@@ -206,14 +187,11 @@
     } else {
       raster_values <- future.apply::future_lapply(
         chunks,
-        function(chunk) {
-          sf::sf_use_s2(FALSE)
-          .toi_extract_impl(
-            raster_path, rebuild_chunk(chunk),
-            baseline_fun   = baseline_fun,
-            stat_wrangling = stat_wrangling
-          )
-        },
+        function(chunk) .toi_extract_impl(
+          raster_path, .data[chunk, ],
+          baseline_fun   = baseline_fun,
+          stat_wrangling = stat_wrangling
+        ),
         future.seed     = TRUE,
         future.packages = "sf"
       )
@@ -231,15 +209,12 @@
     } else {
       raster_values <- future.apply::future_lapply(
         chunks,
-        function(chunk) {
-          sf::sf_use_s2(FALSE)
-          .toi_extract_impl(
-            raster_path, rebuild_chunk(chunk),
-            agg            = TRUE,
-            baseline_fun   = baseline_fun,
-            stat_wrangling = stat_wrangling
-          )
-        },
+        function(chunk) .toi_extract_impl(
+          raster_path, .data[chunk, ],
+          agg            = TRUE,
+          baseline_fun   = baseline_fun,
+          stat_wrangling = stat_wrangling
+        ),
         future.seed     = TRUE,
         future.packages = "sf"
       )
