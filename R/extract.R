@@ -187,11 +187,25 @@
     } else {
       raster_values <- future.apply::future_lapply(
         chunks,
-        function(chunk) .toi_extract_impl(
-          raster_path, .data[chunk, ],
-          baseline_fun   = baseline_fun,
-          stat_wrangling = stat_wrangling
-        ),
+        function(chunk) {
+          # FIX: s2 (used internally by sf::st_buffer() and some geometry
+          # ops) holds C++ state that doesn't survive being inherited by a
+          # future::multisession worker -- each worker is a fresh R
+          # session that starts with s2 ON regardless of what the calling
+          # session set, and calling s2 functions on inherited/foreign
+          # pointers crashes with "NULL value passed as symbol address".
+          # Setting this explicitly INSIDE the worker, rather than relying
+          # on inherited session state, fixes it centrally for every
+          # parallel call site instead of requiring every caller to
+          # remember to set it themselves (which doesn't even work, since
+          # the setting doesn't propagate to workers anyway).
+          sf::sf_use_s2(FALSE)
+          .toi_extract_impl(
+            raster_path, .data[chunk, ],
+            baseline_fun   = baseline_fun,
+            stat_wrangling = stat_wrangling
+          )
+        },
         future.seed     = TRUE,
         future.packages = "sf"
       )
@@ -209,12 +223,16 @@
     } else {
       raster_values <- future.apply::future_lapply(
         chunks,
-        function(chunk) .toi_extract_impl(
-          raster_path, .data[chunk, ],
-          agg            = TRUE,
-          baseline_fun   = baseline_fun,
-          stat_wrangling = stat_wrangling
-        ),
+        function(chunk) {
+          # Same fix as above -- see comment there.
+          sf::sf_use_s2(FALSE)
+          .toi_extract_impl(
+            raster_path, .data[chunk, ],
+            agg            = TRUE,
+            baseline_fun   = baseline_fun,
+            stat_wrangling = stat_wrangling
+          )
+        },
         future.seed     = TRUE,
         future.packages = "sf"
       )
