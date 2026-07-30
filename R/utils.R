@@ -397,13 +397,29 @@ psum <- function(..., na.rm=FALSE) {
   res
 }
 
+# Session-scoped raster caches, at two levels:
+# 1. .raster_memo_cache: whole file-SET level (exact repeat requests, e.g.
+#    the same indicator + baseline years + months across many grid specs,
+#    return the assembled stack instantly).
+# 2. .raster_file_cache: individual FILE level, so a DIFFERENT but
+#    overlapping file-set (e.g. two baseline periods that share some years,
+#    like 1961-1990 and 1981-2010) can reuse the individual files it has in
+#    common instead of re-reading them, even though the two file-sets as a
+#    whole are different cache entries.
 .raster_memo_cache <- new.env(parent = emptyenv())
+.raster_file_cache  <- new.env(parent = emptyenv())
+
+.file_cache_key <- function(path) {
+  rlang::hash(list(path, file.mtime(path)))
+}
 
 #' Safely loads a vector of raster file paths into a single SpatRaster,
 #' resampling to a common extent if files have mismatched extents.
-#' Memoized: repeated calls with the EXACT same set of file paths (e.g.
-#' the same indicator + baseline years + months across many grid specs)
-#' return the cached result instead of re-reading file headers.
+#' Memoized at two levels (file-set and individual-file, see
+#' .raster_memo_cache/.raster_file_cache above): repeated calls with the
+#' EXACT same set of file paths return instantly, and calls with a
+#' DIFFERENT but overlapping set of files only re-read the files that
+#' aren't already cached individually.
 #' @noRd
 .safe_rast <- function(paths) {
   if (length(paths) == 1) return(terra::rast(paths))
@@ -418,38 +434,64 @@ psum <- function(..., na.rm=FALSE) {
   # (milliseconds for thousands of files) -- nowhere near the cost of
   # actually opening them.
   sorted_paths <- sort(paths)
-  cache_key    <- rlang::hash(list(sorted_paths, file.mtime(sorted_paths)))
+  set_key      <- rlang::hash(list(sorted_paths, file.mtime(sorted_paths)))
 
-  if (exists(cache_key, envir = .raster_memo_cache, inherits = FALSE)) {
-    return(get(cache_key, envir = .raster_memo_cache, inherits = FALSE))
+  if (exists(set_key, envir = .raster_memo_cache, inherits = FALSE)) {
+    return(get(set_key, envir = .raster_memo_cache, inherits = FALSE))
   }
 
-  # Fast path: try loading all files in a single vectorized call (see
-  # earlier fix -- this is what made a single .safe_rast() call itself
-  # ~23s for 2760 files, down from opening each file individually).
-  combined <- tryCatch(terra::rast(paths), error = function(e) NULL)
+  # Not an exact file-set match -- check the file-level cache for each
+  # individual path, in the ORIGINAL (not sorted) order, since the final
+  # stack must match `paths`' order.
+  cached_layers <- vector("list", length(paths))
+  missing_idx   <- integer(0)
 
-  result <-
-    if (!is.null(combined) && terra::nlyr(combined) == length(paths)) {
-      combined
+  for (idx in seq_along(paths)) {
+    fk <- .file_cache_key(paths[idx])
+    if (exists(fk, envir = .raster_file_cache, inherits = FALSE)) {
+      cached_layers[[idx]] <- get(fk, envir = .raster_file_cache, inherits = FALSE)
+    } else {
+      missing_idx <- c(missing_idx, idx)
+    }
+  }
+
+  if (length(missing_idx) > 0) {
+    # Fast path: try loading all still-missing files in a single vectorized
+    # call (see earlier fix -- this is what made a single .safe_rast() call
+    # itself ~23s for 2760 files, down from opening each file individually).
+    loaded <- tryCatch(terra::rast(paths[missing_idx]), error = function(e) NULL)
+
+    if (!is.null(loaded) && terra::nlyr(loaded) == length(missing_idx)) {
+      for (j in seq_along(missing_idx)) {
+        idx   <- missing_idx[j]
+        layer <- loaded[[j]]
+        cached_layers[[idx]] <- layer
+        assign(.file_cache_key(paths[idx]), layer, envir = .raster_file_cache)
+      }
     } else {
       # Fallback: something's actually mismatched -- load and resample
-      # individually (slow, but only hit when genuinely needed).
-      rasters   <- lapply(paths, terra::rast)
-      reference <- rasters[[1]]
+      # individually against the FIRST resolved layer as reference
+      # (whether that came from the file cache or was just loaded), same
+      # as the previous single-level fallback.
+      for (idx in missing_idx) {
+        r <- terra::rast(paths[idx])
+        cached_layers[[idx]] <- r
+        assign(.file_cache_key(paths[idx]), r, envir = .raster_file_cache)
+      }
 
-      rasters <- lapply(rasters, function(r) {
+      reference <- cached_layers[[1]]
+      cached_layers <- lapply(cached_layers, function(r) {
         if (!terra::compareGeom(r, reference, stopOnError = FALSE)) {
           terra::resample(r, reference, method = "bilinear")
         } else {
           r
         }
       })
-
-      do.call(c, rasters)
     }
+  }
 
-  assign(cache_key, result, envir = .raster_memo_cache)
+  result <- do.call(c, cached_layers)
+  assign(set_key, result, envir = .raster_memo_cache)
   result
 }
 
