@@ -154,22 +154,40 @@
 # observation extraction. If baseline_raster is already loaded (the common
 # case) it is used directly; otherwise it falls back to a fresh ERA5 request,
 # which is the path the future pipe-based add_baseline() would take.
+#
+# baseline_fun_list / stat_wrangling_list are LISTS (length 1 in the normal
+# single-combination case, length N for N baseline_fun/stat_wrangling
+# combinations sharing the same extraction -- see .toi_extract_impl()'s
+# baseline branch, where the actual sharing happens). When length 1, this
+# returns a single sf/SpatRaster object, IDENTICAL to the previous
+# single-combination behaviour. When length > 1, returns a NAMED LIST of
+# such objects, one per combination (each with its own .baseline_*/.result_*
+# columns), matching what link_daily.sf() finalizes and returns.
+#
+# NOTE: the SpatRaster (else) branch below still only supports a single
+# combination -- multi-combination support there would need the same
+# treatment in .compute_stat_wrangling.SpatRaster(), which was out of scope
+# for this change.
 .add_baseline <- function(.data,
                           baseline,
-                          baseline_fun,
-                          baseline_fun_name,
+                          baseline_fun_list,
+                          baseline_fun_names,
+                          stat_wrangling_list,
                           indicator,
                           ...,
                           focal_values    = NULL,
-                          stat_wrangling  = "deviation",
                           prefix          = NULL,
                           obs_raster      = NULL,
                           baseline_raster = NULL,
                           cache           = TRUE,
                           path            = NULL,
+                          buffer                 = 0,
+                          downsample_min_buffer  = 0,
                           parallel        = FALSE,
                           chunk_size      = 50,
                           verbose         = TRUE) {
+
+  n_combos <- length(baseline_fun_list)
 
   # Initialise so the unlink check at the end is always safe
   baseline_path <- NULL
@@ -219,30 +237,64 @@
   }
 
   if (is_sf(.data)) {
+    # baseline_result: list (per observation) of list (per combination) of
+    # list(reference_stat, result). The expensive part (baseline_values/
+    # focal_value extraction) happens ONCE per observation inside
+    # .toi_extract_impl(), shared across all n_combos.
     baseline_result <- .toi_extract_baseline(
       .data,
       baseline_raster,
       ...,
-      parallel       = parallel,
-      chunk_size     = chunk_size,
-      baseline_fun   = baseline_fun,
-      stat_wrangling = stat_wrangling,
-      focal_values   = focal_values
+      parallel               = parallel,
+      chunk_size             = chunk_size,
+      baseline_fun           = baseline_fun_list,
+      stat_wrangling         = stat_wrangling_list,
+      focal_values           = focal_values,
+      buffer                 = buffer,
+      downsample_min_buffer  = downsample_min_buffer
     )
 
-    .data[[.col("baseline", prefix)]] <-
-      sapply(baseline_result, `[[`, "reference_stat")
-    .data[[.col("result", prefix)]] <-
-      sapply(baseline_result, `[[`, "result")
+    combo_labels <-
+      paste0(baseline_fun_names, "_", unlist(stat_wrangling_list))
+
+    result_list <- vector("list", n_combos)
+
+    for (k in seq_len(n_combos)) {
+      combo_prefix <-
+        if (n_combos == 1) {
+          prefix
+        } else if (is.null(prefix)) {
+          combo_labels[k]
+        } else {
+          paste0(prefix, "_", combo_labels[k])
+        }
+
+      combo_data <- .data
+      combo_data[[.col("baseline", combo_prefix)]] <-
+        sapply(baseline_result, function(obs) obs[[k]]$reference_stat)
+      combo_data[[.col("result", combo_prefix)]] <-
+        sapply(baseline_result, function(obs) obs[[k]]$result)
+
+      result_list[[k]] <- combo_data
+    }
 
   } else {
+    if (n_combos > 1) {
+      cli::cli_abort(c(
+        "Multiple baseline_fun/stat_wrangling combinations are not yet ",
+        "supported for {.cls SpatRaster} input.",
+        "i" = "Use a single baseline_fun/stat_wrangling value, or convert ",
+        "to an {.cls sf} object first."
+      ))
+    }
+
     focal_layer <- .data[[.col("study", prefix)]]
 
     baseline_result <- .compute_stat_wrangling(
       baseline_values = baseline_raster,
       focal_value     = focal_layer,
-      stat_wrangling  = stat_wrangling,
-      baseline_fun    = baseline_fun
+      stat_wrangling  = stat_wrangling_list[[1]],
+      baseline_fun    = baseline_fun_list[[1]]
     )
 
     baseline_layer        <- baseline_result$reference_stat
@@ -252,8 +304,16 @@
 
     .data[[.col("baseline", prefix)]] <- baseline_layer
     .data[[.col("result",   prefix)]] <- result_layer
+
+    result_list <- list(.data)
   }
 
   if (!cache && !is.null(baseline_path)) unlink(baseline_path)
-  .data
+
+  if (n_combos == 1) {
+    result_list[[1]]
+  } else {
+    names(result_list) <- combo_labels
+    result_list
+  }
 }

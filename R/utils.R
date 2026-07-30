@@ -511,10 +511,22 @@ psum <- function(..., na.rm=FALSE) {
   }
 }
 
+.raster_coarse_cache <- new.env(parent = emptyenv())  # NEU: aggregierte (downgesampelte) Version, pro (Dateisatz, downsample_factor)
+
 # Loads a vector of raster file paths into a single SpatRaster and sets the
 # time dimension if not already present. For daily rasters the full date is
 # used; for monthly rasters only the first of the month.
-.load_climate_raster <- function(paths, span, daily = TRUE) {
+#
+# downsample_factor (NULL by default = off): if given, an aggregated
+# (coarser-resolution) version is computed ONCE per (file set,
+# downsample_factor) combination -- cached separately in
+# .raster_coarse_cache, so repeated calls sharing the same files and factor
+# (e.g. across many grid specs using the same baseline period) don't pay
+# the terra::aggregate() cost more than once. The coarse version is
+# attached as an attribute on the returned raster (confirmed to survive
+# subsetting via `r[[idx]]`), so .extract_values() can pick it up later
+# without needing it threaded through as a separate argument everywhere.
+.load_climate_raster <- function(paths, span, daily = TRUE, downsample_factor = NULL) {
   r <- .safe_rast(paths)
   if (!inherits(terra::time(r), "POSIXt")) {
     r <- raster_timestamp(
@@ -525,6 +537,23 @@ psum <- function(..., na.rm=FALSE) {
       span   = span
     )
   }
+
+  if (!is.null(downsample_factor)) {
+    sorted_paths  <- sort(paths)
+    coarse_key    <- rlang::hash(list(sorted_paths, file.mtime(sorted_paths), downsample_factor))
+
+    r_coarse <-
+      if (exists(coarse_key, envir = .raster_coarse_cache, inherits = FALSE)) {
+        get(coarse_key, envir = .raster_coarse_cache, inherits = FALSE)
+      } else {
+        aggregated <- terra::aggregate(r, fact = downsample_factor, fun = "mean", na.rm = TRUE)
+        assign(coarse_key, aggregated, envir = .raster_coarse_cache)
+        aggregated
+      }
+
+    attr(r, "coarse") <- r_coarse
+  }
+
   r
 }
 
