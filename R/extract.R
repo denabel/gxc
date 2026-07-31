@@ -300,12 +300,12 @@
 #' @param temporals Dataframe containing time information constructed by
 #'   .transform_time()
 #' @returns A SpatRaster
-#' @noRd
-#'
-#' NOTE: downsampling (downsample_factor/downsample_min_buffer) is NOT
+#' #' NOTE: downsampling (downsample_factor/downsample_min_buffer) is NOT
 #' supported for SpatRaster (grid) input -- same scope limitation as the
 #' multi-combination baseline_fun/stat_wrangling feature. Unchanged from
 #' before.
+#' @noRd
+
 .toi_extract_grid <- function(.data,
                               raster,
                               temporals,
@@ -588,19 +588,25 @@
       # polygons) mean value per feature per layer, for both geometry types.
       baseline_matrix <- extract_fn(.sub_layers(raster, lyr_idx), vector_geom)
 
+      needs_raw_focal <- any(unlist(stat_wrangling) %in% c("count_above", "count_below"))
+
       lapply(seq_len(nrow(vector)), function(i) {
         baseline_values <- as.numeric(baseline_matrix[i, ])
 
-        # Both representations are already available/cheap here (nothing
-        # re-extracted) -- compute both once, then pick the correct one
-        # PER COMBINATION below. This matters if a combination list mixes
-        # count_above/count_below (needs the raw per-day focal_values)
-        # with deviation/sd_deviation (needs the single aggregated
-        # .linked value) -- sharing one `focal_val` across all
-        # combinations would silently be wrong for whichever half didn't
-        # match.
+        # Both representations are computed here, but focal_val_raw is
+        # evaluated LAZILY (only if needs_raw_focal) -- this matters
+        # because focal_values can be a single-column data.frame in the
+        # common case (one layer, all observations share one date), where
+        # focal_values[[i]] for i > 1 is a COLUMN index into a 1-column
+        # data.frame, not a row lookup, and throws "subscript out of
+        # bounds" for i > 1. The ORIGINAL code only ever evaluated this
+        # when stat_wrangling was actually count_above/count_below (where
+        # focal_values has the right shape); eagerly evaluating it
+        # unconditionally (to support mixing count_above with deviation
+        # in one combination list) broke every plain deviation/
+        # sd_deviation call with more than one observation.
         focal_val_scalar <- vector$.linked[i]
-        focal_val_raw    <- if (!is.null(focal_values)) focal_values[[i]] else NULL
+        focal_val_raw    <- if (needs_raw_focal && !is.null(focal_values)) focal_values[[i]] else NULL
 
         purrr::map2(baseline_fun, stat_wrangling, function(bf, sw) {
           focal_val <- if (sw %in% c("count_above", "count_below") && !is.null(focal_val_raw)) {
@@ -624,7 +630,10 @@
       # Same combination-sharing as the .all_same_seq() branch above:
       # baseline_values computed once per row, reused across all
       # baseline_fun/stat_wrangling combinations. Same focal-value-type
-      # caveat as above also applies here.
+      # caveat as above also applies here -- focal_val_raw is evaluated
+      # lazily, only if actually needed (see comment in the other branch).
+      needs_raw_focal <- any(unlist(stat_wrangling) %in% c("count_above", "count_below"))
+
       lapply(seq_len(nrow(vector)), function(i) {
         vector_sliced      <- vector[i, ]
         vector_sliced_geom <- vector_geom[i, ]
@@ -647,7 +656,7 @@
         baseline_values <- as.numeric(extract_fn(.sub_layers(raster, lyr_idx), vector_sliced_geom))
 
         focal_val_scalar <- vector_sliced$.linked
-        focal_val_raw    <- if (!is.null(focal_values)) focal_values[[i]] else NULL
+        focal_val_raw    <- if (needs_raw_focal && !is.null(focal_values)) focal_values[[i]] else NULL
 
         purrr::map2(baseline_fun, stat_wrangling, function(bf, sw) {
           focal_val <- if (sw %in% c("count_above", "count_below") && !is.null(focal_val_raw)) {

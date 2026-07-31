@@ -29,6 +29,15 @@
 #'   aggregate over a rolling window of that many days before the date.
 #' @param time_lag Integer specifying the time lag in days to shift the
 #'   `date_var` backward before extraction. Default is `0`.
+#' @param months Optional integer vector specifying explicit months to use
+#'   as the study period (e.g. `c(3, 4, 5)` for spring), mirroring
+#'   `link_monthly()`'s `months` argument but expanded to the full daily
+#'   sequence spanning those months (needed since `link_daily()` matches
+#'   individual days, not months). If the input date falls within one of
+#'   the specified months, the window is automatically shifted one year
+#'   back to avoid using incomplete data -- months given out of calendar
+#'   order (e.g. `c(12, 1, 2)` for winter) correctly span a year boundary,
+#'   with no special tagging needed. Cannot be combined with `time_span`.
 #' @param buffer Numeric value specifying the buffer radius in metres to
 #'   be applied around each geometry. The default is `0`, corresponding to a
 #'   direct cell match; values greater than 0 generate a spatial buffer
@@ -250,6 +259,7 @@ link_daily.sf <- function(.data,
                           date_var       = "date",
                           time_span      = 0,
                           time_lag       = 0,
+                          months         = NULL,
                           buffer         = 0,
                           downsample_factor      = NULL,
                           downsample_min_buffer  = 0,
@@ -277,6 +287,8 @@ link_daily.sf <- function(.data,
   .check_parallel(parallel)
   .check_column(.data, date_var)
   .check_api_key_if_needed(catalogue)
+  .check_months_time_span(months, time_span)
+  .check_valid_months(months)
   path <- path %||% .default_download_dir(cache, service = "ecmwfr")
 
   # ---------------------------------------------------------------------
@@ -291,10 +303,11 @@ link_daily.sf <- function(.data,
   if (!multi_combo) {
     stat_wrangling <- match.arg(stat_wrangling)
 
-    if (stat_wrangling %in% c("count_above", "count_below") && time_span == 0) {
+    if (stat_wrangling %in% c("count_above", "count_below") &&
+        time_span == 0 && is.null(months)) {
       cli::cli_abort(c(
-        "{.val {stat_wrangling}} requires {.arg time_span} > 0.",
-        "i" = "With {.arg time_span = 0} there is only one focal day to compare against the baseline."
+        "{.val {stat_wrangling}} requires {.arg time_span} > 0 or {.arg months} to be specified.",
+        "i" = "With a single focal day there is only one value to compare against the baseline."
       ))
     }
 
@@ -327,10 +340,10 @@ link_daily.sf <- function(.data,
     })
 
     for (sw in stat_wrangling_list) {
-      if (sw %in% c("count_above", "count_below") && time_span == 0) {
+      if (sw %in% c("count_above", "count_below") && time_span == 0 && is.null(months)) {
         cli::cli_abort(c(
-          "{.val {sw}} requires {.arg time_span} > 0.",
-          "i" = "With {.arg time_span = 0} there is only one focal day to compare against the baseline."
+          "{.val {sw}} requires {.arg time_span} > 0 or {.arg months} to be specified.",
+          "i" = "With a single focal day there is only one value to compare against the baseline."
         ))
       }
     }
@@ -357,7 +370,8 @@ link_daily.sf <- function(.data,
     cli::cli_dl(c(
       "Indicator"         = "{.val {indicator}}",
       "Catalogue"         = "{.val {catalogue}}",
-      "Time span"         = "{.val {time_span}}",
+      "Time span"         = "{.val {if (is.null(months)) time_span else 'via months'}}",
+      "Months"            = "{.val {if (is.null(months)) '(none)' else paste(months, collapse = ', ')}}",
       "Time lag"          = "{.val {time_lag}}",
       "Baseline"          =
         "{.val {if (isFALSE(baseline)) 'none' else paste0(baseline[1], '-', baseline[2])}}",
@@ -405,9 +419,11 @@ link_daily.sf <- function(.data,
   all_spans <- lapply(splits, function(splitted) {
     p <- .transform_time(
       splitted,
-      date_var  = date_var,
-      time_span = time_span,
-      time_lag  = time_lag
+      date_var        = date_var,
+      time_span       = time_span,
+      time_lag        = time_lag,
+      months          = months,
+      daily_expansion = TRUE
     )
     sort(unique(as_date(unlist(p$time_span_seq))))
   })
@@ -498,9 +514,11 @@ link_daily.sf <- function(.data,
     result[[i]] <- {
       prepared_i <- .transform_time(
         splitted,
-        date_var  = date_var,
-        time_span = time_span,
-        time_lag  = time_lag
+        date_var        = date_var,
+        time_span       = time_span,
+        time_lag        = time_lag,
+        months          = months,
+        daily_expansion = TRUE
       )
 
       prepared_i <- .align_crs_vector(prepared_i, obs_raster)
@@ -508,12 +526,16 @@ link_daily.sf <- function(.data,
       # baseline_fun/stat_wrangling passed through as LISTS -- the
       # extraction itself is identical regardless of how many combinations
       # are requested; only .add_baseline()'s final aggregation below
-      # varies per combination.
+      # varies per combination. time_span is forced to a positive dummy
+      # value when months is set, mirroring link_monthly.R -- .toi_extract()
+      # only checks time_span > 0 to decide whether to aggregate; the
+      # actual window used comes entirely from time_span_seq (built above
+      # with daily_expansion = TRUE), not from this value.
       raster_values <- .toi_extract(
         prepared_i,
         obs_raster,
         obs_path,
-        time_span              = time_span,
+        time_span              = if (!is.null(months)) 1L else time_span,
         parallel               = parallel,
         chunk_size             = chunk_size,
         baseline_fun           = baseline_fun_list,
@@ -584,7 +606,8 @@ link_daily.sf <- function(.data,
           time_span         = time_span,
           time_lag          = time_lag,
           buffer            = buffer,
-          time_unit         = "days"
+          time_unit         = "days",
+          months            = months
         )
       })
       names(combo_list) <- combo_labels

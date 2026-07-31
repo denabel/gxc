@@ -69,11 +69,12 @@
 #' @returns Modified .data with time columns added
 #' @noRd
 .transform_time <- function(.data,
-                            date_var  = "date",
-                            time_span = 0,
-                            time_lag  = 0,
-                            months    = NULL,
-                            by        = "1 day") {
+                            date_var        = "date",
+                            time_span       = 0,
+                            time_lag        = 0,
+                            months          = NULL,
+                            by              = "1 day",
+                            daily_expansion = FALSE) {
   if (is_sf(.data)) {
     .data$link_date <- .data[[date_var]]
   } else if (is_terra(.data)) {
@@ -84,14 +85,30 @@
   .data$link_date <- .data$link_date - days(time_lag)
 
   if (!is.null(months)) {
-    # Explicit month window: resolve relative to each link_date
-    .data$time_span_seq <- lapply(.data$link_date, function(d) {
-      resolved <- .resolve_months(d, months)
-      format(resolved, "%Y-%m-%d")
-    })
-    .data$link_date_end <- as_date(
-      sapply(.data$time_span_seq, function(x) x[1])
-    )
+    if (daily_expansion) {
+      # link_daily() case: full daily sequence spanning the resolved
+      # months, e.g. months = c(3,4,5) -> every day from March 1 through
+      # May 31 (year-adjusted per .resolve_months()'s existing logic).
+      .data$time_span_seq <- lapply(.data$link_date, function(d) {
+        resolved   <- .resolve_months(d, months)
+        start_date <- min(resolved)
+        end_date   <- lubridate::ceiling_date(max(resolved), "month") - 1
+        format(seq(start_date, end_date, by = "1 day"), "%Y-%m-%d")
+      })
+      .data$link_date_end <- as_date(
+        sapply(.data$time_span_seq, function(x) x[length(x)])
+      )
+    } else {
+      # link_monthly() case: unchanged -- one anchor date per month,
+      # sufficient for matching against monthly-resolution rasters.
+      .data$time_span_seq <- lapply(.data$link_date, function(d) {
+        resolved <- .resolve_months(d, months)
+        format(resolved, "%Y-%m-%d")
+      })
+      .data$link_date_end <- as_date(
+        sapply(.data$time_span_seq, function(x) x[1])
+      )
+    }
   } else {
     .data$link_date_end <- .data$link_date - days(time_span)
     .data$time_span_seq <- Map(

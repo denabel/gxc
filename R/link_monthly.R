@@ -122,6 +122,8 @@ link_monthly.sf <- function(.data,
                             time_lag       = 0,
                             months         = NULL,
                             buffer         = 0,
+                            downsample_factor      = NULL,
+                            downsample_min_buffer  = 0,
                             baseline       = FALSE,
                             baseline_fun   = c("mean", "median", "min", "max", "sd",
                                                "p05", "p10", "p20", "p80", "p90", "p95"),
@@ -263,7 +265,10 @@ link_monthly.sf <- function(.data,
     verbose      = verbose
   )
 
-  obs_raster <- .load_climate_raster(obs_path, all_obs_span, daily = FALSE)
+  obs_raster <- .load_climate_raster(
+    obs_path, all_obs_span, daily = FALSE,
+    downsample_factor = downsample_factor
+  )
 
   baseline_raster <- NULL
   if (!isFALSE(baseline)) {
@@ -288,7 +293,10 @@ link_monthly.sf <- function(.data,
       request_time = request_time,
       verbose      = verbose
     )
-    baseline_raster <- .load_climate_raster(baseline_path, all_baseline_span, daily = FALSE)
+    baseline_raster <- .load_climate_raster(
+      baseline_path, all_baseline_span, daily = FALSE,
+      downsample_factor = downsample_factor
+    )
   }
 
   # -------------------------------------------------------------------------
@@ -333,11 +341,13 @@ link_monthly.sf <- function(.data,
         prepared,
         obs_raster,
         obs_path,
-        time_span      = if (!is.null(months)) 1L else time_span,
-        parallel       = parallel,
-        chunk_size     = chunk_size,
-        baseline_fun   = baseline_fun,
-        stat_wrangling = stat_wrangling
+        time_span              = if (!is.null(months)) 1L else time_span,
+        parallel               = parallel,
+        chunk_size             = chunk_size,
+        baseline_fun           = baseline_fun,
+        stat_wrangling         = stat_wrangling,
+        buffer                 = buffer,
+        downsample_min_buffer  = downsample_min_buffer
       )
 
       prepared[[.col("study",    prefix)]] <-
@@ -349,20 +359,22 @@ link_monthly.sf <- function(.data,
       if (!isFALSE(baseline)) {
         prepared <- .add_baseline(
           prepared,
-          baseline          = baseline,
-          baseline_fun      = baseline_fun,
-          baseline_fun_name = baseline_fun_name,
-          indicator         = indicator,
-          stat_wrangling    = stat_wrangling,
-          focal_values      = raster_values,
-          prefix            = prefix,
-          obs_raster        = obs_raster,
-          baseline_raster   = baseline_raster,
-          cache             = cache,
-          path              = path,
-          parallel          = parallel,
-          chunk_size        = chunk_size,
-          verbose           = verbose
+          baseline               = baseline,
+          baseline_fun_list      = list(baseline_fun),
+          baseline_fun_names     = baseline_fun_name,
+          stat_wrangling_list    = list(stat_wrangling),
+          indicator              = indicator,
+          focal_values           = raster_values,
+          prefix                 = prefix,
+          obs_raster             = obs_raster,
+          baseline_raster        = baseline_raster,
+          cache                  = cache,
+          path                   = path,
+          parallel               = parallel,
+          chunk_size             = chunk_size,
+          verbose                = verbose,
+          buffer                 = buffer,
+          downsample_min_buffer  = downsample_min_buffer
         )
       }
 
@@ -603,19 +615,19 @@ link_monthly.SpatRaster <- function(.data,
   if (!isFALSE(baseline)) {
     .data <- .add_baseline(
       .data,
-      baseline          = baseline,
-      baseline_fun      = baseline_fun,
-      baseline_fun_name = baseline_fun_name,
-      indicator         = indicator,
-      stat_wrangling    = stat_wrangling,
-      prefix            = prefix,
-      obs_raster        = obs_raster,
-      baseline_raster   = baseline_raster,
-      cache             = cache,
-      path              = path,
-      parallel          = parallel,
-      chunk_size        = chunk_size,
-      verbose           = verbose
+      baseline               = baseline,
+      baseline_fun_list      = list(baseline_fun),
+      baseline_fun_names     = baseline_fun_name,
+      stat_wrangling_list    = list(stat_wrangling),
+      indicator              = indicator,
+      prefix                 = prefix,
+      obs_raster             = obs_raster,
+      baseline_raster        = baseline_raster,
+      cache                  = cache,
+      path                   = path,
+      parallel               = parallel,
+      chunk_size             = chunk_size,
+      verbose                = verbose
     )
   }
 
