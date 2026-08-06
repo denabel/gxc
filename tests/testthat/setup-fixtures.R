@@ -115,11 +115,11 @@ if (FALSE) {
              stat_wrangling = "count_above",
              cache = TRUE, path = cache_path)
 
-  # months spanning a year boundary (winter) — new download: Dec (previous
-  # year) through Feb (resolved year)
-  link_daily(pts, indicator = "2m_temperature",
-             months = c(12, 1, 2),
-             cache = TRUE, path = cache_path)
+  # Note: the year-boundary (winter, months = c(12,1,2)) case is covered by
+  # a pure unit test on .transform_time() instead of an end-to-end fixture
+  # download here -- that logic is pure date arithmetic, independent of
+  # any actual raster data, so a ~90-day download would only add fixture
+  # size without adding real test coverage.
 
   # SpatRaster
   link_daily(grid, indicator = "2m_temperature",
@@ -199,17 +199,14 @@ if (FALSE) {
              stat_wrangling = "deviation", time_span = 1,
              cache = TRUE, path = cache_path)
 
-  # Daily — months — needs a full month of daily files, same year-shift
-  # logic as the ERA5 months fixture above
+  # Daily — months — minimal smoke test only (no baseline). The `months`
+  # logic itself (.transform_time()/.resolve_months()) is catalogue-
+  # independent and already fully verified via the ERA5 fixtures above;
+  # this just confirms the DWD code path doesn't error, without paying for
+  # a second full month of (much larger, whole-Germany) DWD daily files.
   link_daily(pts, indicator = "air_temperature_mean",
              catalogue = "dwd-hyras-daily",
              months = c(8),
-             cache = TRUE, path = cache_path)
-
-  link_daily(pts, indicator = "air_temperature_mean",
-             catalogue = "dwd-hyras-daily",
-             months = c(8), baseline = c(1980, 1981), baseline_fun = "mean",
-             stat_wrangling = "deviation",
              cache = TRUE, path = cache_path)
 
   # Daily — downsample_factor — no new download, aggregates already-fetched
