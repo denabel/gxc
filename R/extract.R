@@ -301,11 +301,6 @@
 #'   .transform_time()
 #' @returns A SpatRaster
 #' @noRd
-#'
-#' NOTE: downsampling (downsample_factor/downsample_min_buffer) is NOT
-#' supported for SpatRaster (grid) input -- same scope limitation as the
-#' multi-combination baseline_fun/stat_wrangling feature. Unchanged from
-#' before.
 .toi_extract_grid <- function(.data,
                               raster,
                               temporals,
