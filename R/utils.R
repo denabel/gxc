@@ -590,7 +590,9 @@ psum <- function(..., na.rm=FALSE) {
                                time_lag,
                                buffer,
                                time_unit,
-                               months = NULL) {
+                               months                 = NULL,
+                               downsample_factor      = NULL,
+                               downsample_min_buffer  = 0) {
   .data[[.col("indicator",      prefix)]] <- indicator
   .data[[.col("unit",           prefix)]] <-
     .indicator_units[[indicator]] %||% NA_character_
@@ -611,6 +613,19 @@ psum <- function(..., na.rm=FALSE) {
   }
   .data[[.col("time_lag",       prefix)]] <- time_lag
   .data[[.col("buffer",         prefix)]] <- buffer
+  # NA if downsampling wasn't requested at all, NA if requested but not
+  # actually applied for this call (buffer = 0, i.e. point extraction --
+  # always full resolution regardless -- or buffer < downsample_min_buffer),
+  # otherwise the factor that was genuinely used. Distinguishing "feature
+  # off" from "feature on but not applicable here" matters for
+  # reproducibility -- a reader should be able to tell from the data alone
+  # whether a given result used the native or an aggregated resolution.
+  .data[[.col("downsample_factor", prefix)]] <-
+    if (!is.null(downsample_factor) && buffer > 0 && buffer >= downsample_min_buffer) {
+      downsample_factor
+    } else {
+      NA_real_
+    }
   .data[[.col("source",         prefix)]] <-
     .catalogue_citation(catalogue, indicator)
   .data
