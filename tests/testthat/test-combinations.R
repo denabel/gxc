@@ -74,6 +74,31 @@ test_that("link_daily errors on mismatched baseline_fun/stat_wrangling list leng
       baseline_fun   = list("mean", "median", "p90"),
       stat_wrangling = list("deviation", "count_above")
     ),
-    "same length"
+    "same\\s+length"
   )
+})
+
+test_that("link_daily with baseline_fun list, both count_above and count_below", {
+  skip_on_cran()
+  fail_on_request()
+  pts   <- test_pts(seq = FALSE)
+  cache <- test_cache()
+  local_test_index(cache)
+
+  pts_lag       <- pts
+  pts_lag$date  <- pts_lag$date + days(1)
+
+  # time_span = 1 (not 30) -- reuses the existing count_above fixture
+  # instead of needing a brand-new 31-day download.
+  result <- link_daily(
+    pts_lag, indicator = "2m_temperature", time_span = 1,
+    baseline       = c(1980, 1981),
+    baseline_fun   = list("mean", "mean"),
+    stat_wrangling = list("count_above", "count_below"),
+    cache = TRUE, path = cache
+  )
+
+  expect_named(result, c("mean_count_above", "mean_count_below"))
+  expect_true(all(!is.na(result$mean_count_above$.result)))
+  expect_true(all(!is.na(result$mean_count_below$.result)))
 })
