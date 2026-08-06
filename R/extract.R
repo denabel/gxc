@@ -300,12 +300,12 @@
 #' @param temporals Dataframe containing time information constructed by
 #'   .transform_time()
 #' @returns A SpatRaster
-#' #' NOTE: downsampling (downsample_factor/downsample_min_buffer) is NOT
+#' @noRd
+#'
+#' NOTE: downsampling (downsample_factor/downsample_min_buffer) is NOT
 #' supported for SpatRaster (grid) input -- same scope limitation as the
 #' multi-combination baseline_fun/stat_wrangling feature. Unchanged from
 #' before.
-#' @noRd
-
 .toi_extract_grid <- function(.data,
                               raster,
                               temporals,
@@ -492,7 +492,16 @@
         return(lapply(seq_len(nrow(vector)), function(i) NA_real_))
       }
 
-      if (stat_wrangling %in% c("count_above", "count_below")) {
+      # stat_wrangling can be a LIST here (multi-combo case) -- if ANY
+      # combination needs raw per-day values (count_above/count_below),
+      # we extract raw values for ALL combinations in this call, since
+      # that's a safe superset: a combination that actually wants the
+      # aggregated mean can still compute it from the raw values
+      # downstream, but the reverse (recovering raw values from an
+      # already-aggregated mean) is impossible. A plain scalar `%in%`
+      # check here would return a vector of length > 1 for a list,
+      # which `if()` cannot evaluate.
+      if (any(unlist(stat_wrangling) %in% c("count_above", "count_below"))) {
         # All rows share the same lyr_idx here (same time_span_seq), so
         # this is one extraction call for all points/polygons x all layers
         # at once, instead of nrow(vector) * length(lyr_idx) separate
@@ -541,7 +550,8 @@
 
         if (length(lyr_idx) == 0) return(NA_real_)
 
-        if (stat_wrangling %in% c("count_above", "count_below")) {
+        # Same list-safe check as in the .all_same_seq() branch above.
+        if (any(unlist(stat_wrangling) %in% c("count_above", "count_below"))) {
           as.numeric(extract_fn(.sub_layers(raster, lyr_idx), vector_sliced_geom))
         } else {
           raster_sub <- .sub_layers(raster, lyr_idx)
