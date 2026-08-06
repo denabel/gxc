@@ -629,14 +629,12 @@ link_daily.sf <- function(.data,
           d <- combo_list[[k]]
           d$.linked <- NULL
 
-          this_prefix <-
-            if (n_combos == 1) {
-              prefix
-            } else if (is.null(prefix)) {
-              combo_labels[k]
-            } else {
-              paste0(prefix, "_", combo_labels[k])
-            }
+          # Column/metadata naming stays governed ONLY by the user-supplied
+          # prefix, regardless of n_combos -- disambiguation across
+          # combinations happens via the LIST NAME (combo_labels), not via
+          # column suffixing. See the matching fix in .add_baseline()
+          # (baseline.R) for the full explanation.
+          this_prefix <- prefix
 
           .write_metadata_sf(
             d,
