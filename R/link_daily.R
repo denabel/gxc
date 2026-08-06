@@ -636,6 +636,16 @@ link_daily.sf <- function(.data,
           # (baseline.R) for the full explanation.
           this_prefix <- prefix
 
+          # When months is set, `time_span` itself is just the internal
+          # dummy value (1L) used to trigger the aggregation branch -- the
+          # actual window length lives in prepared_i$time_span_seq instead.
+          # Metadata should reflect what was ACTUALLY used, not this dummy.
+          actual_time_span <- if (!is.null(months)) {
+            lengths(prepared_i$time_span_seq)[1]
+          } else {
+            time_span
+          }
+
           .write_metadata_sf(
             d,
             prefix                 = this_prefix,
@@ -645,7 +655,7 @@ link_daily.sf <- function(.data,
             stat_wrangling         = stat_wrangling_list[[k]],
             study_fun_name         = study_fun_name,
             baseline_fun_name      = baseline_fun_names[k],
-            time_span              = time_span,
+            time_span              = actual_time_span,
             time_lag               = time_lag,
             buffer                 = buffer,
             time_unit              = "days",
