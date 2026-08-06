@@ -260,14 +260,15 @@
     result_list <- vector("list", n_combos)
 
     for (k in seq_len(n_combos)) {
-      combo_prefix <-
-        if (n_combos == 1) {
-          prefix
-        } else if (is.null(prefix)) {
-          combo_labels[k]
-        } else {
-          paste0(prefix, "_", combo_labels[k])
-        }
+      # Column naming stays governed ONLY by the user-supplied prefix,
+      # regardless of n_combos -- disambiguation across combinations
+      # happens via the LIST NAME (combo_labels, assigned below), not via
+      # column suffixing. Previously this appended combo_labels[k] to the
+      # column names too when n_combos > 1, producing e.g.
+      # ".result_mean_deviation" instead of the expected plain ".result"
+      # inside result$mean_deviation -- silently leaving the real ".result"
+      # column at its NA placeholder value.
+      combo_prefix <- prefix
 
       combo_data <- .data
       combo_data[[.col("baseline", combo_prefix)]] <-
