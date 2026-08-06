@@ -113,6 +113,19 @@
 #'   cache. If `NULL` (default), uses a temporary directory when
 #'   `cache = FALSE` or the user data directory
 #'   (\code{\link[tools]{R_user_dir}}) when `cache = TRUE`.
+#' @param cache_results Logical, default `FALSE`. If `TRUE`, caches the
+#'   final per-date result (after extraction and aggregation) to disk, so a
+#'   crash mid-run only loses whatever hasn't been cached yet, and re-runs
+#'   with identical parameters skip computation entirely for already-cached
+#'   dates. Distinct from `cache`, which only caches raw downloaded files --
+#'   this caches the finished output. Not enabled by default because cached
+#'   entries necessarily store the exact geometry of the input observations
+#'   (needed for cache-key uniqueness and an integrity self-check), which
+#'   for survey data can indirectly reveal respondent locations.
+#' @param results_cache_path Character string, required when
+#'   `cache_results = TRUE`. No default is provided deliberately -- the
+#'   storage location for potentially sensitive cached geometry should be
+#'   a conscious choice, not a fallback default.
 #' @param parallel Logical indicating whether to use parallel processing.
 #'   See section **Parallel processing** for details. Default is `FALSE`.
 #' @param chunk_size Integer specifying the number of observations per chunk
@@ -276,6 +289,8 @@ link_daily.sf <- function(.data,
                           time_zone      = "utc+00:00",
                           cache          = TRUE,
                           path           = NULL,
+                          cache_results       = FALSE,
+                          results_cache_path  = NULL,
                           parallel       = FALSE,
                           chunk_size     = 50,
                           verbose        = TRUE) {
@@ -289,6 +304,17 @@ link_daily.sf <- function(.data,
   .check_api_key_if_needed(catalogue)
   .check_months_time_span(months, time_span)
   .check_valid_months(months)
+
+  if (isTRUE(cache_results) && is.null(results_cache_path)) {
+    cli::cli_abort(c(
+      "{.arg results_cache_path} must be set when {.arg cache_results = TRUE}.",
+      "i" = "There is no default location -- cached results contain the ",
+      "exact geometry of your input observations, which for survey data ",
+      "can indirectly reveal respondent locations. Choose the storage ",
+      "location deliberately."
+    ))
+  }
+
   path <- path %||% .default_download_dir(cache, service = "ecmwfr")
 
   # ---------------------------------------------------------------------
@@ -512,108 +538,134 @@ link_daily.sf <- function(.data,
     splitted <- splits[[i]]
 
     result[[i]] <- {
-      prepared_i <- .transform_time(
-        splitted,
-        date_var        = date_var,
-        time_span       = time_span,
-        time_lag        = time_lag,
-        months          = months,
-        daily_expansion = TRUE
-      )
 
-      prepared_i <- .align_crs_vector(prepared_i, obs_raster)
+      cache_key <- NULL
+      cached_combo_list <- NULL
 
-      # baseline_fun/stat_wrangling passed through as LISTS -- the
-      # extraction itself is identical regardless of how many combinations
-      # are requested; only .add_baseline()'s final aggregation below
-      # varies per combination. time_span is forced to a positive dummy
-      # value when months is set, mirroring link_monthly.R -- .toi_extract()
-      # only checks time_span > 0 to decide whether to aggregate; the
-      # actual window used comes entirely from time_span_seq (built above
-      # with daily_expansion = TRUE), not from this value.
-      raster_values <- .toi_extract(
-        prepared_i,
-        obs_raster,
-        obs_path,
-        time_span              = if (!is.null(months)) 1L else time_span,
-        parallel               = parallel,
-        chunk_size             = chunk_size,
-        baseline_fun           = baseline_fun_list,
-        stat_wrangling         = stat_wrangling_list,
-        buffer                 = buffer,
-        downsample_min_buffer  = downsample_min_buffer
-      )
+      if (isTRUE(cache_results)) {
+        cache_key <- .results_cache_key(
+          splitted, "daily", indicator, catalogue, time_span, months, time_lag,
+          buffer, baseline, baseline_fun_names, stat_wrangling_list,
+          study_fun_name, downsample_factor, downsample_min_buffer, prefix,
+          splitted[[date_var]][1]
+        )
+        cached_combo_list <- .read_results_cache(results_cache_path, cache_key, splitted)
+      }
 
-      prepared_i[[.col("study",    prefix)]] <-
-        .extract_study_values(raster_values, study_fun)
-      prepared_i[[.col("baseline", prefix)]] <- NA_real_
-      prepared_i[[.col("result",   prefix)]] <- NA_real_
-      prepared_i$.linked <- prepared_i[[.col("study", prefix)]]
+      if (!is.null(cached_combo_list)) {
+        cached_combo_list
 
-      if (!isFALSE(baseline)) {
-        combo_result <- .add_baseline(
+      } else {
+        prepared_i <- .transform_time(
+          splitted,
+          date_var        = date_var,
+          time_span       = time_span,
+          time_lag        = time_lag,
+          months          = months,
+          daily_expansion = TRUE
+        )
+
+        prepared_i <- .align_crs_vector(prepared_i, obs_raster)
+
+        # baseline_fun/stat_wrangling passed through as LISTS -- the
+        # extraction itself is identical regardless of how many combinations
+        # are requested; only .add_baseline()'s final aggregation below
+        # varies per combination. time_span is forced to a positive dummy
+        # value when months is set, mirroring link_monthly.R -- .toi_extract()
+        # only checks time_span > 0 to decide whether to aggregate; the
+        # actual window used comes entirely from time_span_seq (built above
+        # with daily_expansion = TRUE), not from this value.
+        raster_values <- .toi_extract(
           prepared_i,
-          baseline               = baseline,
-          baseline_fun_list      = baseline_fun_list,
-          baseline_fun_names     = baseline_fun_names,
-          stat_wrangling_list    = stat_wrangling_list,
-          indicator              = indicator,
-          focal_values           = raster_values,
-          prefix                 = prefix,
-          obs_raster             = obs_raster,
-          baseline_raster        = baseline_raster,
-          cache                  = cache,
-          path                   = path,
+          obs_raster,
+          obs_path,
+          time_span              = if (!is.null(months)) 1L else time_span,
           parallel               = parallel,
           chunk_size             = chunk_size,
-          verbose                = verbose,
+          baseline_fun           = baseline_fun_list,
+          stat_wrangling         = stat_wrangling_list,
           buffer                 = buffer,
           downsample_min_buffer  = downsample_min_buffer
         )
-      } else {
-        combo_result <- prepared_i
+
+        prepared_i[[.col("study",    prefix)]] <-
+          .extract_study_values(raster_values, study_fun)
+        prepared_i[[.col("baseline", prefix)]] <- NA_real_
+        prepared_i[[.col("result",   prefix)]] <- NA_real_
+        prepared_i$.linked <- prepared_i[[.col("study", prefix)]]
+
+        if (!isFALSE(baseline)) {
+          combo_result <- .add_baseline(
+            prepared_i,
+            baseline               = baseline,
+            baseline_fun_list      = baseline_fun_list,
+            baseline_fun_names     = baseline_fun_names,
+            stat_wrangling_list    = stat_wrangling_list,
+            indicator              = indicator,
+            focal_values           = raster_values,
+            prefix                 = prefix,
+            obs_raster             = obs_raster,
+            baseline_raster        = baseline_raster,
+            cache                  = cache,
+            path                   = path,
+            parallel               = parallel,
+            chunk_size             = chunk_size,
+            verbose                = verbose,
+            buffer                 = buffer,
+            downsample_min_buffer  = downsample_min_buffer
+          )
+        } else {
+          combo_result <- prepared_i
+        }
+
+        # .add_baseline() returns a single sf object when n_combos == 1, or a
+        # named list of them when n_combos > 1 (see baseline.R). Normalize to
+        # always a named list here, so the rest of this block (and the
+        # re-assembly after the loop) is uniform regardless of n_combos.
+        combo_list <-
+          if (n_combos > 1) combo_result else stats::setNames(list(combo_result), combo_labels[1])
+
+        combo_list <- lapply(seq_along(combo_list), function(k) {
+          d <- combo_list[[k]]
+          d$.linked <- NULL
+
+          this_prefix <-
+            if (n_combos == 1) {
+              prefix
+            } else if (is.null(prefix)) {
+              combo_labels[k]
+            } else {
+              paste0(prefix, "_", combo_labels[k])
+            }
+
+          .write_metadata_sf(
+            d,
+            prefix                 = this_prefix,
+            indicator              = indicator,
+            catalogue              = catalogue,
+            baseline               = baseline,
+            stat_wrangling         = stat_wrangling_list[[k]],
+            study_fun_name         = study_fun_name,
+            baseline_fun_name      = baseline_fun_names[k],
+            time_span              = time_span,
+            time_lag               = time_lag,
+            buffer                 = buffer,
+            time_unit              = "days",
+            months                 = months,
+            downsample_factor      = downsample_factor,
+            downsample_min_buffer  = downsample_min_buffer
+          )
+        })
+        names(combo_list) <- combo_labels
+
+        if (!cache) unlink(obs_path)
+
+        if (isTRUE(cache_results)) {
+          .write_results_cache(results_cache_path, cache_key, splitted, combo_list)
+        }
+
+        combo_list
       }
-
-      # .add_baseline() returns a single sf object when n_combos == 1, or a
-      # named list of them when n_combos > 1 (see baseline.R). Normalize to
-      # always a named list here, so the rest of this block (and the
-      # re-assembly after the loop) is uniform regardless of n_combos.
-      combo_list <-
-        if (n_combos > 1) combo_result else stats::setNames(list(combo_result), combo_labels[1])
-
-      combo_list <- lapply(seq_along(combo_list), function(k) {
-        d <- combo_list[[k]]
-        d$.linked <- NULL
-
-        this_prefix <-
-          if (n_combos == 1) {
-            prefix
-          } else if (is.null(prefix)) {
-            combo_labels[k]
-          } else {
-            paste0(prefix, "_", combo_labels[k])
-          }
-
-        .write_metadata_sf(
-          d,
-          prefix            = this_prefix,
-          indicator         = indicator,
-          catalogue         = catalogue,
-          baseline          = baseline,
-          stat_wrangling    = stat_wrangling_list[[k]],
-          study_fun_name    = study_fun_name,
-          baseline_fun_name = baseline_fun_names[k],
-          time_span         = time_span,
-          time_lag          = time_lag,
-          buffer            = buffer,
-          time_unit         = "days",
-          months            = months
-        )
-      })
-      names(combo_list) <- combo_labels
-
-      if (!cache) unlink(obs_path)
-      combo_list
     }
   }
 
@@ -853,18 +905,19 @@ link_daily.SpatRaster <- function(.data,
   .data[[".linked"]] <- NULL
 
   terra::metags(.data) <- c(
-    indicator      = indicator,
-    unit           = .indicator_units[[indicator]] %||% NA_character_,
-    resolution     = .catalogue_resolution[[catalogue]] %||% NA_character_,
-    time_unit      = "days",
-    result_unit    = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
-    study_fun      = study_fun_name,
-    baseline_fun   = if (isFALSE(baseline)) NA_character_ else baseline_fun_name,
-    baseline_years = if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2]),
-    time_span      = as.character(time_span),
-    time_lag       = as.character(time_lag),
-    prefix         = prefix %||% "",
-    source         = .catalogue_citation(catalogue, indicator)
+    indicator         = indicator,
+    unit              = .indicator_units[[indicator]] %||% NA_character_,
+    resolution        = .catalogue_resolution[[catalogue]] %||% NA_character_,
+    time_unit         = "days",
+    result_unit       = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
+    study_fun         = study_fun_name,
+    baseline_fun      = if (isFALSE(baseline)) NA_character_ else baseline_fun_name,
+    baseline_years    = if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2]),
+    time_span         = as.character(time_span),
+    time_lag          = as.character(time_lag),
+    prefix            = prefix %||% "",
+    downsample_factor = NA_character_,  # not supported for SpatRaster input
+    source            = .catalogue_citation(catalogue, indicator)
   )
 
   if (!cache) unlink(obs_path)

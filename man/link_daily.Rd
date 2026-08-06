@@ -27,7 +27,10 @@ link_daily(
   date_var = "date",
   time_span = 0,
   time_lag = 0,
+  months = NULL,
   buffer = 0,
+  downsample_factor = NULL,
+  downsample_min_buffer = 0,
   baseline = FALSE,
   baseline_fun = c("mean", "median", "min", "max", "sd", "p05", "p10", "p20", "p80",
     "p90", "p95"),
@@ -40,6 +43,8 @@ link_daily(
   time_zone = "utc+00:00",
   cache = TRUE,
   path = NULL,
+  cache_results = FALSE,
+  results_cache_path = NULL,
   parallel = FALSE,
   chunk_size = 50,
   verbose = TRUE
@@ -115,10 +120,35 @@ aggregate over a rolling window of that many days before the date.}
 \item{time_lag}{Integer specifying the time lag in days to shift the
 \code{date_var} backward before extraction. Default is \code{0}.}
 
+\item{months}{Optional integer vector specifying explicit months to use
+as the study period (e.g. \code{c(3, 4, 5)} for spring), mirroring
+\code{link_monthly()}'s \code{months} argument but expanded to the full daily
+sequence spanning those months (needed since \code{link_daily()} matches
+individual days, not months). If the input date falls within one of
+the specified months, the window is automatically shifted one year
+back to avoid using incomplete data -- months given out of calendar
+order (e.g. \code{c(12, 1, 2)} for winter) correctly span a year boundary,
+with no special tagging needed. Cannot be combined with \code{time_span}.}
+
 \item{buffer}{Numeric value specifying the buffer radius in metres to
 be applied around each geometry. The default is \code{0}, corresponding to a
 direct cell match; values greater than 0 generate a spatial buffer
 around each point for aggregated extraction.}
+
+\item{downsample_factor}{Integer (e.g. \code{5}) or \code{NULL} (default, off).
+If set, an aggregated (coarser-resolution) copy of the downloaded
+raster is built once (and cached across calls sharing the same files
+and factor) and used for polygon (buffer > 0) extraction where
+\code{buffer >= downsample_min_buffer}. Point extraction (\code{buffer = 0})
+always stays at full resolution regardless of this setting. Own
+measurement (5-100km buffers, factor 5) showed <0.1\% relative
+difference vs. full resolution, with a 10-32x extraction speedup.}
+
+\item{downsample_min_buffer}{Numeric, default \code{0}. Only used when
+\code{downsample_factor} is set. Minimum buffer radius (metres) for the
+aggregated raster to be used; buffers smaller than this still use
+full resolution. Default \code{0} means every real buffer (> 0) uses the
+aggregated version, and only point extraction is excluded.}
 
 \item{baseline}{Either \code{FALSE} (default) or a character vector of length 2
 specifying the baseline period as start and end year. For example,
@@ -130,7 +160,14 @@ layers are collapsed to a single reference value. Accepts one of
 \code{"mean"} (default), \code{"median"}, \code{"min"}, \code{"max"}, \code{"sd"}, or percentiles
 \code{"p05"}, \code{"p10"}, \code{"p20"}, \code{"p80"}, \code{"p90"}, \code{"p95"}. A custom function
 is also accepted but will be labelled \code{"custom"} in output metadata.
-Ignored when \code{baseline = FALSE}.}
+Ignored when \code{baseline = FALSE}.
+
+Can also be a \strong{list} of such values (e.g.
+\code{list("median", "p90")}) to request multiple baseline_fun/
+stat_wrangling combinations in a single call, sharing the (expensive)
+baseline extraction across all of them -- see the \strong{Multiple
+combinations} section below. \code{stat_wrangling} must then also be a list
+of the same length (or length 1, recycled).}
 
 \item{study_fun}{Character string or function specifying how focal period
 layers are collapsed to a single summary value. Same options as
@@ -148,7 +185,8 @@ the baseline reference value. Requires \code{time_span > 0}.}
 \item{\code{"count_below"}}{Number of days in the focal period that fall
 below the baseline reference value. Requires \code{time_span > 0}.}
 }
-Ignored when \code{baseline = FALSE}.}
+Ignored when \code{baseline = FALSE}. Can also be a \strong{list}, paired
+positionally with \code{baseline_fun} -- see \strong{Multiple combinations} below.}
 
 \item{prefix}{Character string appended to all output column names
 (e.g. \code{prefix = "temp_7d"} produces \code{.study_temp_7d}, \code{.result_temp_7d}
@@ -166,6 +204,21 @@ to download. ERA5 only. Options are \code{"daily_mean"} (default),
 \item{time_zone}{Character string specifying the time zone to use for
 daily aggregation. ERA5 only. Default is \code{"utc+00:00"}.}
 
+\item{cache_results}{Logical, default \code{FALSE}. If \code{TRUE}, caches the
+final per-date result (after extraction and aggregation) to disk, so a
+crash mid-run only loses whatever hasn't been cached yet, and re-runs
+with identical parameters skip computation entirely for already-cached
+dates. Distinct from \code{cache}, which only caches raw downloaded files --
+this caches the finished output. Not enabled by default because cached
+entries necessarily store the exact geometry of the input observations
+(needed for cache-key uniqueness and an integrity self-check), which
+for survey data can indirectly reveal respondent locations.}
+
+\item{results_cache_path}{Character string, required when
+\code{cache_results = TRUE}. No default is provided deliberately -- the
+storage location for potentially sensitive cached geometry should be
+a conscious choice, not a fallback default.}
+
 \item{method}{Character string specifying the resampling method to use
 when aligning the downloaded raster with the input grid. SpatRaster
 input only. Options include \code{"bilinear"} (default), \code{"near"}, \code{"cubic"},
@@ -174,7 +227,9 @@ etc. See \code{\link[terra]{resample}} for details.}
 \value{
 An object of the same class as \code{.data} with additional columns
 (sf input) or layers (SpatRaster input) containing the linked indicator
-values and associated metadata.
+values and associated metadata. A \strong{named list} of such objects if
+multiple baseline_fun/stat_wrangling combinations were requested (sf
+input only) -- see \strong{Multiple combinations} above.
 }
 \description{
 Augments spatio-temporal data with daily indicators from the
@@ -234,6 +289,38 @@ Users must have a CDS account and have their API key configured for
 \code{ecmwfr} when using ERA5 catalogues. DWD catalogues require no
 authentication.
 }
+\section{Multiple combinations}{
+
+\code{baseline_fun} and \code{stat_wrangling} can each be given as a \strong{list} to
+request several baseline_fun/stat_wrangling combinations in a single
+call, e.g.:
+\preformatted{
+link_daily(
+  pts, indicator = "air_temperature_mean", catalogue = "dwd-hyras-daily",
+  baseline = c("1961", "1990"),
+  baseline_fun   = list("median", "p90"),
+  stat_wrangling = list("count_above", "count_above")
+)
+}
+Combinations are paired \strong{positionally} (element 1 with element 1,
+element 2 with element 2 -- not a cross product). If one of the two is
+length 1 and the other is longer, the length-1 one is recycled. The
+expensive part of the computation (downloading and extracting baseline
+values) is shared across all combinations; only the final aggregation
+(\code{baseline_fun}/\code{stat_wrangling}) is repeated per combination, on
+already-extracted values.
+
+The return value changes shape when more than one combination is
+requested: instead of a single \code{sf} object, a \strong{named list} of \code{sf}
+objects is returned, one per combination (named
+\code{"{baseline_fun_name}_{stat_wrangling}"}). A single combination (the
+default, and the case when both arguments are given as plain strings/
+functions) continues to return a single \code{sf} object, unchanged from
+previous versions.
+
+This is currently only supported for \code{sf} input, not \code{SpatRaster} input.
+}
+
 \section{Parallel processing}{
 
 When \code{parallel = TRUE}, chunked parallel processing is performed via
@@ -265,6 +352,17 @@ result2 <- link_daily(
   buffer    = 5000,
   baseline  = c("1980", "2010")
 )
+
+# Multiple baseline_fun/stat_wrangling combinations, sharing extraction
+result2b <- link_daily(
+  pts_sf,
+  indicator      = "2m_temperature",
+  baseline       = c("1980", "2010"),
+  baseline_fun   = list("median", "p90"),
+  stat_wrangling = list("count_above", "count_above")
+)
+result2b$median_count_above
+result2b$p90_count_above
 
 # DWD HYRAS daily data
 result3 <- link_daily(

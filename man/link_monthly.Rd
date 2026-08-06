@@ -29,6 +29,8 @@ link_monthly(
   time_lag = 0,
   months = NULL,
   buffer = 0,
+  downsample_factor = NULL,
+  downsample_min_buffer = 0,
   baseline = FALSE,
   baseline_fun = c("mean", "median", "min", "max", "sd", "p05", "p10", "p20", "p80",
     "p90", "p95"),
@@ -40,6 +42,8 @@ link_monthly(
   by_hour = FALSE,
   cache = TRUE,
   path = NULL,
+  cache_results = FALSE,
+  results_cache_path = NULL,
   parallel = FALSE,
   chunk_size = 50,
   verbose = TRUE
@@ -126,6 +130,21 @@ be applied around each geometry. The default is \code{0}, corresponding to a
 direct cell match; values greater than 0 generate a spatial buffer
 around each point for aggregated extraction.}
 
+\item{downsample_factor}{Integer (e.g. \code{5}) or \code{NULL} (default, off).
+If set, an aggregated (coarser-resolution) copy of the downloaded
+raster is built once (and cached across calls sharing the same files
+and factor) and used for polygon (buffer > 0) extraction where
+\code{buffer >= downsample_min_buffer}. Point extraction (\code{buffer = 0})
+always stays at full resolution regardless of this setting. Own
+measurement (5-100km buffers, factor 5) showed <0.1\% relative
+difference vs. full resolution, with a 10-32x extraction speedup.}
+
+\item{downsample_min_buffer}{Numeric, default \code{0}. Only used when
+\code{downsample_factor} is set. Minimum buffer radius (metres) for the
+aggregated raster to be used; buffers smaller than this still use
+full resolution. Default \code{0} means every real buffer (> 0) uses the
+aggregated version, and only point extraction is excluded.}
+
 \item{baseline}{Either \code{FALSE} (default) or a character vector of length 2
 specifying the baseline period as start and end year. For example,
 \code{baseline = c("1980", "2010")} uses the years 1980 to 2010 as the
@@ -136,7 +155,14 @@ layers are collapsed to a single reference value. Accepts one of
 \code{"mean"} (default), \code{"median"}, \code{"min"}, \code{"max"}, \code{"sd"}, or percentiles
 \code{"p05"}, \code{"p10"}, \code{"p20"}, \code{"p80"}, \code{"p90"}, \code{"p95"}. A custom function
 is also accepted but will be labelled \code{"custom"} in output metadata.
-Ignored when \code{baseline = FALSE}.}
+Ignored when \code{baseline = FALSE}.
+
+Can also be a \strong{list} of such values (e.g.
+\code{list("median", "p90")}) to request multiple baseline_fun/
+stat_wrangling combinations in a single call, sharing the (expensive)
+baseline extraction across all of them -- see the \strong{Multiple
+combinations} section below. \code{stat_wrangling} must then also be a list
+of the same length (or length 1, recycled).}
 
 \item{study_fun}{Character string or function specifying how focal period
 layers are collapsed to a single summary value. Same options as
@@ -154,7 +180,8 @@ the baseline reference value. Requires \code{time_span > 0}.}
 \item{\code{"count_below"}}{Number of days in the focal period that fall
 below the baseline reference value. Requires \code{time_span > 0}.}
 }
-Ignored when \code{baseline = FALSE}.}
+Ignored when \code{baseline = FALSE}. Can also be a \strong{list}, paired
+positionally with \code{baseline_fun} -- see \strong{Multiple combinations} below.}
 
 \item{prefix}{Character string appended to all output column names
 (e.g. \code{prefix = "temp_7d"} produces \code{.study_temp_7d}, \code{.result_temp_7d}
@@ -170,6 +197,21 @@ hourly-based monthly averages. ERA5 only. If \code{FALSE} (default), monthly
 averages are derived from the entire day. If a character string giving a
 full hour (e.g. \code{"03:00"}), only values from that hour of the day are
 included. Not applicable for DWD catalogues.}
+
+\item{cache_results}{Logical, default \code{FALSE}. If \code{TRUE}, caches the
+final per-date result (after extraction and aggregation) to disk, so a
+crash mid-run only loses whatever hasn't been cached yet, and re-runs
+with identical parameters skip computation entirely for already-cached
+dates. Distinct from \code{cache}, which only caches raw downloaded files --
+this caches the finished output. Not enabled by default because cached
+entries necessarily store the exact geometry of the input observations
+(needed for cache-key uniqueness and an integrity self-check), which
+for survey data can indirectly reveal respondent locations.}
+
+\item{results_cache_path}{Character string, required when
+\code{cache_results = TRUE}. No default is provided deliberately -- the
+storage location for potentially sensitive cached geometry should be
+a conscious choice, not a fallback default.}
 
 \item{method}{Character string specifying the resampling method to use
 when aligning the downloaded raster with the input grid. SpatRaster
@@ -239,6 +281,38 @@ Users must have a CDS account and have their API key configured for
 \code{ecmwfr} when using ERA5 catalogues. DWD catalogues require no
 authentication.
 }
+\section{Multiple combinations}{
+
+\code{baseline_fun} and \code{stat_wrangling} can each be given as a \strong{list} to
+request several baseline_fun/stat_wrangling combinations in a single
+call, e.g.:
+\preformatted{
+link_daily(
+  pts, indicator = "air_temperature_mean", catalogue = "dwd-hyras-daily",
+  baseline = c("1961", "1990"),
+  baseline_fun   = list("median", "p90"),
+  stat_wrangling = list("count_above", "count_above")
+)
+}
+Combinations are paired \strong{positionally} (element 1 with element 1,
+element 2 with element 2 -- not a cross product). If one of the two is
+length 1 and the other is longer, the length-1 one is recycled. The
+expensive part of the computation (downloading and extracting baseline
+values) is shared across all combinations; only the final aggregation
+(\code{baseline_fun}/\code{stat_wrangling}) is repeated per combination, on
+already-extracted values.
+
+The return value changes shape when more than one combination is
+requested: instead of a single \code{sf} object, a \strong{named list} of \code{sf}
+objects is returned, one per combination (named
+\code{"{baseline_fun_name}_{stat_wrangling}"}). A single combination (the
+default, and the case when both arguments are given as plain strings/
+functions) continues to return a single \code{sf} object, unchanged from
+previous versions.
+
+This is currently only supported for \code{sf} input, not \code{SpatRaster} input.
+}
+
 \section{Parallel processing}{
 
 When \code{parallel = TRUE}, chunked parallel processing is performed via
