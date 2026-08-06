@@ -469,25 +469,39 @@ psum <- function(..., na.rm=FALSE) {
         assign(.file_cache_key(paths[idx]), layer, envir = .raster_file_cache)
       }
     } else {
-      # Fallback: something's actually mismatched -- load and resample
-      # individually against the FIRST resolved layer as reference
-      # (whether that came from the file cache or was just loaded), same
-      # as the previous single-level fallback.
+      # Something's actually mismatched among the newly-loaded files
+      # themselves -- load individually rather than vectorized.
       for (idx in missing_idx) {
         r <- terra::rast(paths[idx])
         cached_layers[[idx]] <- r
         assign(.file_cache_key(paths[idx]), r, envir = .raster_file_cache)
       }
-
-      reference <- cached_layers[[1]]
-      cached_layers <- lapply(cached_layers, function(r) {
-        if (!terra::compareGeom(r, reference, stopOnError = FALSE)) {
-          terra::resample(r, reference, method = "bilinear")
-        } else {
-          r
-        }
-      })
     }
+  }
+
+  # Always verify ALL layers -- both freshly loaded above AND pulled from
+  # the individual-file cache -- share a common geometry before combining,
+  # regardless of whether any file needed loading this time. Layers
+  # retrieved from .raster_file_cache can originate from an entirely
+  # different earlier .safe_rast() call; nothing guarantees they share
+  # the same grid as this call's other files just because each was
+  # individually fine in its own original context. Skipping this check
+  # whenever missing_idx happened to be empty (previous version) let
+  # genuinely mismatched cached layers reach do.call(c, ...) directly,
+  # which errors with "extents do not match" instead of resampling.
+  reference <- cached_layers[[1]]
+  mismatched <- !vapply(cached_layers, function(r) {
+    terra::compareGeom(r, reference, stopOnError = FALSE)
+  }, logical(1))
+
+  if (any(mismatched)) {
+    cached_layers <- lapply(cached_layers, function(r) {
+      if (!terra::compareGeom(r, reference, stopOnError = FALSE)) {
+        terra::resample(r, reference, method = "bilinear")
+      } else {
+        r
+      }
+    })
   }
 
   result <- do.call(c, cached_layers)
