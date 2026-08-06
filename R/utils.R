@@ -358,6 +358,25 @@ fail_if_test <- function() {
 }
 
 
+# Creates an empty (no-coordinate) sf geometry of the given type -- used
+# by left_merge() below to pad unmatched rows in a spatial column with a
+# valid placeholder, rather than plain NA (which sf::st_as_sfc() can't
+# combine with real geometries of a specific type).
+make_empty_geometry <- function(type) {
+  wkt <- switch(type,
+                POINT               = "POINT EMPTY",
+                MULTIPOINT          = "MULTIPOINT EMPTY",
+                LINESTRING          = "LINESTRING EMPTY",
+                MULTILINESTRING     = "MULTILINESTRING EMPTY",
+                POLYGON             = "POLYGON EMPTY",
+                MULTIPOLYGON        = "MULTIPOLYGON EMPTY",
+                GEOMETRYCOLLECTION  = "GEOMETRYCOLLECTION EMPTY",
+                "GEOMETRYCOLLECTION EMPTY"
+  )
+  sf::st_as_sfc(wkt)[[1]]
+}
+
+
 left_merge <- function(x, y, by.x, by.y, ...) {
   idx <- match(y[[by.y]], x[[by.x]])
   matches <- !is.na(idx)
