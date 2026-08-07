@@ -137,12 +137,18 @@
 
 
 .check_baseline <- function(baseline) {
-  if (!isFALSE(baseline) && !length(baseline) == 2) {
+  if (isFALSE(baseline)) return(invisible())
+
+  valid_length <- length(baseline) == 2
+  valid_type   <- suppressWarnings(!anyNA(as.numeric(baseline)))
+
+  if (!valid_length || !valid_type) {
     cli::cli_abort(c(
       "Invalid `baseline` argument.",
       "i" = paste(
-        "Must be either FALSE or a length-2 vector giving",
-        "a range of years to compare your observations to."
+        "Must be either FALSE or a length-2 numeric vector (or a character",
+        "vector coercible to numeric) giving a range of years to compare",
+        "your observations to."
       )
     ))
   }

@@ -83,7 +83,7 @@
 #'   pts_sf,
 #'   indicator = "2m_temperature",
 #'   buffer    = 5000,
-#'   baseline  = c("1980", "2010")
+#'   baseline  = c(1980, 2010)
 #' )
 #'
 #' # Explicit spring months with baseline deviation
@@ -91,7 +91,7 @@
 #'   pts_sf,
 #'   indicator = "2m_temperature",
 #'   months    = c(3, 4, 5),
-#'   baseline  = c("1980", "2010")
+#'   baseline  = c(1980, 2010)
 #' )
 #'
 #' # DWD monthly data

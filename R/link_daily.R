@@ -57,7 +57,7 @@
 #'   aggregated version, and only point extraction is excluded.
 #' @param baseline Either `FALSE` (default) or a character vector of length 2
 #'   specifying the baseline period as start and end year. For example,
-#'   `baseline = c("1980", "2010")` uses the years 1980 to 2010 as the
+#'   `baseline = c(1980, 2010)` uses the years 1980 to 2010 as the
 #'   baseline. If `FALSE`, no baseline calculation is performed.
 #' @param baseline_fun Character string or function specifying how baseline
 #'   layers are collapsed to a single reference value. Accepts one of

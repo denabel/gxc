@@ -595,6 +595,7 @@ psum <- function(..., na.rm=FALSE) {
 # observation span. For daily data the month-day is preserved; for monthly
 # data dates are normalised to the first of the month.
 .compute_baseline_span <- function(baseline, obs_span, daily = TRUE) {
+  baseline <- as.numeric(baseline)
   baseline_years <- format(
     make_dates(seq(baseline[1], baseline[2]), months = 1, days = 1),
     "%Y"

@@ -196,8 +196,8 @@
   # currently unused but will be needed once the pipe-based interface is
   # implemented (see commented-out add_baseline() above).
   if (is.null(baseline_raster)) {
-    min_year <- baseline[1]
-    max_year <- baseline[2]
+    min_year <- as.numeric(baseline[1])
+    max_year <- as.numeric(baseline[2])
     dates    <- make_dates(seq(min_year, max_year), months = 1, days = 1)
     years    <- format(dates, "%Y")
 
