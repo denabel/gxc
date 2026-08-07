@@ -122,6 +122,8 @@ link_monthly.sf <- function(.data,
                             time_lag       = 0,
                             months         = NULL,
                             buffer         = 0,
+                            downsample_factor      = NULL,
+                            downsample_min_buffer  = 0,
                             baseline       = FALSE,
                             baseline_fun   = c("mean", "median", "min", "max", "sd",
                                                "p05", "p10", "p20", "p80", "p90", "p95"),
@@ -134,6 +136,8 @@ link_monthly.sf <- function(.data,
                             by_hour        = FALSE,
                             cache          = TRUE,
                             path           = NULL,
+                            cache_results       = FALSE,
+                            results_cache_path  = NULL,
                             parallel       = FALSE,
                             chunk_size     = 50,
                             verbose        = TRUE) {
@@ -146,6 +150,17 @@ link_monthly.sf <- function(.data,
   .check_api_key_if_needed(catalogue)
   .check_months_time_span(months, time_span)
   .check_valid_months(months)
+
+  if (isTRUE(cache_results) && is.null(results_cache_path)) {
+    cli::cli_abort(c(
+      "{.arg results_cache_path} must be set when {.arg cache_results = TRUE}.",
+      "i" = "There is no default location -- cached results contain the ",
+      "exact geometry of your input observations, which for survey data ",
+      "can indirectly reveal respondent locations. Choose the storage ",
+      "location deliberately."
+    ))
+  }
+
   path <- path %||% .default_download_dir(cache, service = "ecmwfr")
 
   stat_wrangling <- match.arg(stat_wrangling)
@@ -263,7 +278,10 @@ link_monthly.sf <- function(.data,
     verbose      = verbose
   )
 
-  obs_raster <- .load_climate_raster(obs_path, all_obs_span, daily = FALSE)
+  obs_raster <- .load_climate_raster(
+    obs_path, all_obs_span, daily = FALSE,
+    downsample_factor = downsample_factor
+  )
 
   baseline_raster <- NULL
   if (!isFALSE(baseline)) {
@@ -288,7 +306,10 @@ link_monthly.sf <- function(.data,
       request_time = request_time,
       verbose      = verbose
     )
-    baseline_raster <- .load_climate_raster(baseline_path, all_baseline_span, daily = FALSE)
+    baseline_raster <- .load_climate_raster(
+      baseline_path, all_baseline_span, daily = FALSE,
+      downsample_factor = downsample_factor
+    )
   }
 
   # -------------------------------------------------------------------------
@@ -318,74 +339,104 @@ link_monthly.sf <- function(.data,
     splitted <- splits[[i]]
 
     result[[i]] <- {
-      prepared <- .transform_time(
-        splitted,
-        date_var  = date_var,
-        time_span = time_span,
-        time_lag  = time_lag,
-        months    = months,
-        by        = "1 month"
-      )
 
-      prepared <- .align_crs_vector(prepared, obs_raster)
+      cache_key <- NULL
+      cached_prepared <- NULL
 
-      raster_values <- .toi_extract(
-        prepared,
-        obs_raster,
-        obs_path,
-        time_span      = if (!is.null(months)) 1L else time_span,
-        parallel       = parallel,
-        chunk_size     = chunk_size,
-        baseline_fun   = baseline_fun,
-        stat_wrangling = stat_wrangling
-      )
-
-      prepared[[.col("study",    prefix)]] <-
-        .extract_study_values(raster_values, study_fun)
-      prepared[[.col("baseline", prefix)]] <- NA_real_
-      prepared[[.col("result",   prefix)]] <- NA_real_
-      prepared$.linked <- prepared[[.col("study", prefix)]]
-
-      if (!isFALSE(baseline)) {
-        prepared <- .add_baseline(
-          prepared,
-          baseline          = baseline,
-          baseline_fun      = baseline_fun,
-          baseline_fun_name = baseline_fun_name,
-          indicator         = indicator,
-          stat_wrangling    = stat_wrangling,
-          focal_values      = raster_values,
-          prefix            = prefix,
-          obs_raster        = obs_raster,
-          baseline_raster   = baseline_raster,
-          cache             = cache,
-          path              = path,
-          parallel          = parallel,
-          chunk_size        = chunk_size,
-          verbose           = verbose
+      if (isTRUE(cache_results)) {
+        cache_key <- .results_cache_key(
+          splitted, "monthly", indicator, catalogue, time_span, months, time_lag,
+          buffer, baseline, baseline_fun_name, stat_wrangling,
+          study_fun_name, downsample_factor, downsample_min_buffer, prefix,
+          splitted[[date_var]][1]
         )
+        cached_prepared <- .read_results_cache(results_cache_path, cache_key, splitted)
       }
 
-      prepared$.linked <- NULL
+      if (!is.null(cached_prepared)) {
+        cached_prepared
 
-      prepared <- .write_metadata_sf(
-        prepared,
-        prefix            = prefix,
-        indicator         = indicator,
-        catalogue         = catalogue,
-        baseline          = baseline,
-        stat_wrangling    = stat_wrangling,
-        study_fun_name    = study_fun_name,
-        baseline_fun_name = baseline_fun_name,
-        time_span         = time_span,
-        time_lag          = time_lag,
-        buffer            = buffer,
-        time_unit         = "months",
-        months            = months
-      )
+      } else {
+        prepared <- .transform_time(
+          splitted,
+          date_var  = date_var,
+          time_span = time_span,
+          time_lag  = time_lag,
+          months    = months,
+          by        = "1 month"
+        )
 
-      if (!cache) unlink(obs_path)
-      prepared
+        prepared <- .align_crs_vector(prepared, obs_raster)
+
+        raster_values <- .toi_extract(
+          prepared,
+          obs_raster,
+          obs_path,
+          time_span              = if (!is.null(months)) 1L else time_span,
+          parallel               = parallel,
+          chunk_size             = chunk_size,
+          baseline_fun           = baseline_fun,
+          stat_wrangling         = stat_wrangling,
+          buffer                 = buffer,
+          downsample_min_buffer  = downsample_min_buffer
+        )
+
+        prepared[[.col("study",    prefix)]] <-
+          .extract_study_values(raster_values, study_fun)
+        prepared[[.col("baseline", prefix)]] <- NA_real_
+        prepared[[.col("result",   prefix)]] <- NA_real_
+        prepared$.linked <- prepared[[.col("study", prefix)]]
+
+        if (!isFALSE(baseline)) {
+          prepared <- .add_baseline(
+            prepared,
+            baseline               = baseline,
+            baseline_fun_list      = list(baseline_fun),
+            baseline_fun_names     = baseline_fun_name,
+            stat_wrangling_list    = list(stat_wrangling),
+            indicator              = indicator,
+            focal_values           = raster_values,
+            prefix                 = prefix,
+            obs_raster             = obs_raster,
+            baseline_raster        = baseline_raster,
+            cache                  = cache,
+            path                   = path,
+            parallel               = parallel,
+            chunk_size             = chunk_size,
+            verbose                = verbose,
+            buffer                 = buffer,
+            downsample_min_buffer  = downsample_min_buffer
+          )
+        }
+
+        prepared$.linked <- NULL
+
+        prepared <- .write_metadata_sf(
+          prepared,
+          prefix                 = prefix,
+          indicator              = indicator,
+          catalogue              = catalogue,
+          baseline               = baseline,
+          stat_wrangling         = stat_wrangling,
+          study_fun_name         = study_fun_name,
+          baseline_fun_name      = baseline_fun_name,
+          time_span              = time_span,
+          time_lag               = time_lag,
+          buffer                 = buffer,
+          time_unit              = "months",
+          months                 = months,
+          downsample_factor      = downsample_factor,
+          downsample_min_buffer  = downsample_min_buffer
+        )
+
+        if (!cache) unlink(obs_path)
+
+        if (isTRUE(cache_results)) {
+          .write_results_cache(results_cache_path, cache_key, splitted, prepared)
+        }
+
+        prepared
+      }
     }
   }
 
@@ -603,38 +654,39 @@ link_monthly.SpatRaster <- function(.data,
   if (!isFALSE(baseline)) {
     .data <- .add_baseline(
       .data,
-      baseline          = baseline,
-      baseline_fun      = baseline_fun,
-      baseline_fun_name = baseline_fun_name,
-      indicator         = indicator,
-      stat_wrangling    = stat_wrangling,
-      prefix            = prefix,
-      obs_raster        = obs_raster,
-      baseline_raster   = baseline_raster,
-      cache             = cache,
-      path              = path,
-      parallel          = parallel,
-      chunk_size        = chunk_size,
-      verbose           = verbose
+      baseline               = baseline,
+      baseline_fun_list      = list(baseline_fun),
+      baseline_fun_names     = baseline_fun_name,
+      stat_wrangling_list    = list(stat_wrangling),
+      indicator              = indicator,
+      prefix                 = prefix,
+      obs_raster             = obs_raster,
+      baseline_raster        = baseline_raster,
+      cache                  = cache,
+      path                   = path,
+      parallel               = parallel,
+      chunk_size             = chunk_size,
+      verbose                = verbose
     )
   }
 
   .data[[".linked"]] <- NULL
 
   terra::metags(.data) <- c(
-    indicator      = indicator,
-    unit           = .indicator_units[[indicator]] %||% NA_character_,
-    resolution     = .catalogue_resolution[[catalogue]] %||% NA_character_,
-    time_unit      = "months",
-    result_unit    = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
-    study_fun      = study_fun_name,
-    baseline_fun   = if (isFALSE(baseline)) NA_character_ else baseline_fun_name,
-    baseline_years = if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2]),
-    time_span      = as.character(time_span),
-    months         = if (is.null(months)) "" else paste(months, collapse = ","),
-    time_lag       = as.character(time_lag),
-    prefix         = prefix %||% "",
-    source         = .catalogue_citation(catalogue, indicator)
+    indicator         = indicator,
+    unit              = .indicator_units[[indicator]] %||% NA_character_,
+    resolution        = .catalogue_resolution[[catalogue]] %||% NA_character_,
+    time_unit         = "months",
+    result_unit       = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
+    study_fun         = study_fun_name,
+    baseline_fun      = if (isFALSE(baseline)) NA_character_ else baseline_fun_name,
+    baseline_years    = if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2]),
+    time_span         = as.character(time_span),
+    months            = if (is.null(months)) "" else paste(months, collapse = ","),
+    time_lag          = as.character(time_lag),
+    prefix            = prefix %||% "",
+    downsample_factor = NA_character_,  # not supported for SpatRaster input
+    source            = .catalogue_citation(catalogue, indicator)
   )
 
   if (!cache) unlink(obs_path)

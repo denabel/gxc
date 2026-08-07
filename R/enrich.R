@@ -126,7 +126,7 @@ enrich <- function(.data,
       for (lvl in level) {
         reference <- ffm::bkg_admin(
           level = lvl,
-          ags == args$ags,
+          ags = args$ags,
           ...
         )
 

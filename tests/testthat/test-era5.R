@@ -24,7 +24,7 @@ test_that("link_daily.sf works with simple extraction", {
     c("date", ".study", ".baseline", ".result",
       ".indicator", ".unit", ".resolution", ".time_unit", ".result_unit",
       ".study_fun", ".baseline_fun", ".baseline_years",
-      ".time_span", ".time_lag", ".buffer", ".source", "geometry")
+      ".time_span", ".time_lag", ".buffer", ".downsample_factor", ".source", "geometry")
   )
   expect_true(all(is.na(result$.baseline)))
   expect_true(all(is.na(result$.result)))
@@ -294,7 +294,7 @@ test_that("link_monthly.sf works with simple extraction", {
     c("date", ".study", ".baseline", ".result",
       ".indicator", ".unit", ".resolution", ".time_unit", ".result_unit",
       ".study_fun", ".baseline_fun", ".baseline_years",
-      ".time_span", ".time_lag", ".buffer", ".source", "geometry")
+      ".time_span", ".time_lag", ".buffer", ".downsample_factor", ".source", "geometry")
   )
   expect_true(all(is.na(result$.baseline)))
   expect_equal(unique(result$.time_unit), "months")

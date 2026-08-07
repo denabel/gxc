@@ -204,7 +204,7 @@
           ))
         }
 
-        # Request complete — update progress and fire callback
+        # Request complete -- update progress and fire callback
         if (!isFALSE(slots[[w]]) && !slots[[w]]$is_pending()) {
           invisible(capture.output(
             suppressMessages(slots[[w]]$delete()),
@@ -268,7 +268,7 @@
     return(restored)
   }
 
-  # Check for partial cache — resume from where we left off
+  # Check for partial cache -- resume from where we left off
   partial      <- stash$get()[[stash$make_hash(request)]]
   n_partial    <- length(partial)
   already_done <- if (cache && n_partial > 0L) n_partial else 0L
@@ -280,7 +280,7 @@
         "Restored {already_done}/{request_length} file{?s} from cache."
       )
       cli::cli_alert_info(
-        "Resuming — {length(todo_requests)} file{?s} remaining."
+        "Resuming -- {length(todo_requests)} file{?s} remaining."
       )
     }
   }
@@ -330,7 +330,7 @@
 
 # Convenience wrapper: build + submit a daily ERA5 request in one call.
 # Currently unused but retained for potential use by future pipe-based
-# add_baseline() — see baseline.R.
+# add_baseline() -- see baseline.R.
 .ecmwf_request <- function(indicator,
                            ...,
                            cache   = FALSE,
@@ -402,7 +402,7 @@
 
 
 # Downloads a DWD HYRAS year file to a temporary subdirectory. Tmp files
-# are always redownloaded if present — a leftover tmp file means a previous
+# are always redownloaded if present -- a leftover tmp file means a previous
 # run was interrupted mid-download and the file may be incomplete.
 .download_dwd_year_file <- function(indicator, year, path) {
   url_template <- .dwd_url_templates$daily[[indicator]]
@@ -412,7 +412,7 @@
 
   dir.create(tmp_dir, showWarnings = FALSE, recursive = TRUE)
 
-  # Always redownload — a leftover tmp file is likely incomplete
+  # Always redownload -- a leftover tmp file is likely incomplete
   if (file.exists(year_file)) unlink(year_file)
 
   info("Downloading DWD year file for {year}...")
@@ -443,7 +443,7 @@
 # Downloads DWD HYRAS daily data for the requested dates. Year files are
 # downloaded once per year, sliced into individual per-day .tif files, and
 # then deleted to save disk space. Already-cached day files are skipped.
-# CRS is corrected on write — HYRAS daily nc files declare EPSG:4258 but
+# CRS is corrected on write -- HYRAS daily nc files declare EPSG:4258 but
 # the data is in EPSG:3035.
 .request_dwd_daily <- function(indicator,
                                years,
@@ -509,7 +509,7 @@
 
 # Downloads DWD monthly data for the requested year-month combinations.
 # Files are served as compressed ASCII grids (.asc.gz), decompressed,
-# and cached as .tif files. CRS is set on write — monthly ASC files
+# and cached as .tif files. CRS is set on write -- monthly ASC files
 # have no CRS declaration; data is in EPSG:31467.
 .request_dwd_monthly <- function(indicator,
                                  years,

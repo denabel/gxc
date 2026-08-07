@@ -23,10 +23,17 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:
     cli,
-    rlang,
+    countrycode,
     ecmwfr,
     exactextractr,
+    geodata,
+    geonames,
+    giscoR,
+    glue,
     keyring,
+    lubridate,
+    purrr,
+    rlang,
     sf,
     terra
 Suggests:

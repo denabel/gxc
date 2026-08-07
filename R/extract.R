@@ -23,6 +23,28 @@
   if (length(heavy) > 0) vector[setdiff(names(vector), heavy)] else vector
 }
 
+# .sub_layers ----
+# Subsets a raster to specific layers (raster[[idx]]), AND correctly
+# re-subsets its "coarse" attribute (attached by .load_climate_raster()
+# when downsample_factor is set) with the SAME indices.
+#
+# This matters because attaching an attribute to a SpatRaster does NOT
+# make it automatically track subsetting -- attr(raster[[idx]], "coarse")
+# is just the SAME full, unfiltered coarse raster carried along unchanged,
+# not coarse[[idx]]. Using it directly in .extract_values() would silently
+# extract from the wrong (full) set of coarse layers instead of the ones
+# actually requested. Every raster[[lyr_idx]] subsetting operation that
+# feeds into .extract_values() must go through this helper instead of
+# subsetting directly, whenever downsampling might be in play.
+.sub_layers <- function(raster, idx) {
+  sub    <- raster[[idx]]
+  coarse <- attr(raster, "coarse")
+  if (!is.null(coarse)) {
+    attr(sub, "coarse") <- coarse[[idx]]
+  }
+  sub
+}
+
 # .extract_values ----
 # Dispatches to the appropriate extraction method based on geometry type,
 # and always returns a data.frame (nrow = number of features, ncol =
@@ -35,7 +57,10 @@
 # - POINT geometries (buffer = 0, given the fix in link_daily.sf()/
 #   link_monthly.sf() that skips st_buffer() entirely when buffer = 0):
 #   terra::extract(raster, geom, fun=mean, na.rm=TRUE, ID=FALSE). Cheap:
-#   one cell lookup per point per layer.
+#   one cell lookup per point per layer. Always full resolution -- own
+#   measurement showed point extraction's relative difference from an
+#   aggregated grid is ~10x higher than for any tested real buffer
+#   (5-100km), so downsampling is never applied here.
 # - POLYGON geometries (real buffers > 0): exactextractr::exact_extract(
 #   raster, geom, fun="mean"). Computes each polygon's cell-coverage
 #   fractions ONCE and reuses them across all layers. Empirically
@@ -43,14 +68,24 @@
 #   layers): terra::extract() took 4.04s, exact_extract() took 0.88s --
 #   ~4.6x faster, with near-identical results (differences only in the
 #   3rd-4th decimal, from a slightly different area-weighting
-#   implementation). terra::extract() appears to redo the polygon-raster
-#   intersection per layer rather than reusing it across a multi-layer
-#   stack, so the gap should widen further at your real scale (2790
-#   layers x 1243 points) -- this was the actual cause of the
-#   std::bad_alloc crash for large buffers, and of extraction still being
-#   the dominant cost (~4571s of ~4631s total) even after fixing the
-#   fun=NULL correctness issue and the heavy-column issue.
-.extract_values <- function(raster, geom) {
+#   implementation). If `raster` carries a "coarse" attribute (see
+#   .load_climate_raster()/.sub_layers()) and `buffer >=
+#   downsample_min_buffer`, the aggregated version is used instead --
+#   own measurement (5-100km buffers) showed <0.1% relative difference
+#   vs. full resolution, with a 10-32x extraction speedup depending on
+#   buffer size.
+.extract_values <- function(raster, geom, buffer = 0, downsample_min_buffer = 0) {
+
+  geom_type <- as.character(sf::st_geometry_type(geom, by_geometry = FALSE))
+
+  if (geom_type == "POINT") {
+    names(raster) <- paste0("layer_", seq_len(terra::nlyr(raster)))
+    return(terra::extract(raster, geom, fun = mean, na.rm = TRUE, ID = FALSE))
+  }
+
+  raster_coarse <- attr(raster, "coarse")
+  use_coarse    <- !is.null(raster_coarse) && buffer >= downsample_min_buffer
+  raster_to_use <- if (use_coarse) raster_coarse else raster
 
   # exactextractr::exact_extract() requires unique layer names (unlike
   # terra::extract(), which doesn't care) -- layers selected via
@@ -60,32 +95,51 @@
   # Downstream code always indexes results by column POSITION
   # (baseline_matrix[i, ], focal_matrix[i, ]), never by name, so forcing
   # unique placeholder names here is always safe.
-  names(raster) <- paste0("layer_", seq_len(terra::nlyr(raster)))
+  names(raster_to_use) <- paste0("layer_", seq_len(terra::nlyr(raster_to_use)))
 
-  geom_type <- as.character(sf::st_geometry_type(geom, by_geometry = FALSE))
+  result <- exactextractr::exact_extract(raster_to_use, geom, fun = "mean", progress = FALSE)
 
-  if (geom_type == "POINT") {
-    terra::extract(raster, geom, fun = mean, na.rm = TRUE, ID = FALSE)
-  } else {
-    exactextractr::exact_extract(raster, geom, fun = "mean", progress = FALSE)
+  # Pre-existing gxc bug, unrelated to downsampling: exact_extract()
+  # returns a plain numeric vector (not a data.frame) when the raster has
+  # exactly one layer -- e.g. after terra::app(..., mean) collapses a
+  # focal window to a single layer for stat_wrangling = "deviation"/
+  # "sd_deviation" with buffer > 0. Downstream code (.toi_extract_impl())
+  # always assumes a data.frame (nrow(result), result[i, , drop = FALSE]),
+  # which fails with a cryptic "seq_len(nrow(result))" error on a bare
+  # vector. Force data.frame coercion here so the return type is always
+  # consistent, regardless of layer count.
+  if (is.null(dim(result))) {
+    result <- data.frame(layer_1 = result)
   }
+
+  result
 }
 
 
+# .toi_extract_baseline() -- baseline_fun/stat_wrangling are now expected
+# to be LISTS (length 1 in the normal single-combo case, length N for N
+# combinations sharing the same extraction -- see .toi_extract_impl()'s
+# baseline branch below, where the actual sharing happens). buffer/
+# downsample_min_buffer are new passthrough parameters for downsampling
+# (see .extract_values()). Pure passthrough here, no logic change.
 .toi_extract_baseline <- function(.data,
                                   raster,
-                                  baseline_fun,
-                                  stat_wrangling = "deviation",
-                                  focal_values   = NULL,
-                                  parallel       = FALSE,
-                                  chunk_size     = 50) {
+                                  baseline_fun,    # list of resolved functions
+                                  stat_wrangling         = "deviation",  # list of strings
+                                  focal_values           = NULL,
+                                  parallel               = FALSE,
+                                  chunk_size             = 50,
+                                  buffer                 = 0,
+                                  downsample_min_buffer  = 0) {
   if (!parallel) {
     .toi_extract_impl(
       raster, .data,
-      baseline       = TRUE,
-      baseline_fun   = baseline_fun,
-      stat_wrangling = stat_wrangling,
-      focal_values   = focal_values
+      baseline               = TRUE,
+      baseline_fun           = baseline_fun,
+      stat_wrangling         = stat_wrangling,
+      focal_values           = focal_values,
+      buffer                 = buffer,
+      downsample_min_buffer  = downsample_min_buffer
     )
   } else {
     chunks <- split(
@@ -98,10 +152,12 @@
         .toi_extract_impl(
           raster,
           .data[chunk, ],
-          baseline       = TRUE,
-          baseline_fun   = baseline_fun,
-          stat_wrangling = stat_wrangling,
-          focal_values   = focal_values[chunk]
+          baseline               = TRUE,
+          baseline_fun           = baseline_fun,
+          stat_wrangling         = stat_wrangling,
+          focal_values           = focal_values[chunk],
+          buffer                 = buffer,
+          downsample_min_buffer  = downsample_min_buffer
         )
       },
       future.seed = TRUE
@@ -136,11 +192,13 @@
 .toi_extract <- function(.data,
                          raster,
                          raster_path,
-                         time_span      = 0,
-                         parallel       = FALSE,
-                         chunk_size     = 50,
+                         time_span              = 0,
+                         parallel               = FALSE,
+                         chunk_size             = 50,
                          baseline_fun,
-                         stat_wrangling = "deviation") {
+                         stat_wrangling         = "deviation",
+                         buffer                 = 0,
+                         downsample_min_buffer  = 0) {
   if (parallel) {
     chunks <- split(
       seq_len(nrow(.data)),
@@ -172,25 +230,33 @@
 
     # Same fix as .toi_extract_impl(): drop heavy list-columns (time_span_seq
     # etc.) before extraction, and dispatch point vs. polygon appropriately.
+    # .sub_layers() (not raw [[ ]]) so a "coarse" attribute, if present,
+    # gets correctly re-subset to the same layer.
     .extract_values(
-      raster[[lyr_idx[[1]]]],
-      .drop_heavy_columns(.data)
+      .sub_layers(raster, lyr_idx[[1]]),
+      .drop_heavy_columns(.data),
+      buffer                 = buffer,
+      downsample_min_buffer  = downsample_min_buffer
     )
 
   } else if (length(unique(.data$link_date)) > 1 && time_span == 0) {
     if (!parallel) {
       .toi_extract_impl(
         raster, .data,
-        baseline_fun   = baseline_fun,
-        stat_wrangling = stat_wrangling
+        baseline_fun           = baseline_fun,
+        stat_wrangling         = stat_wrangling,
+        buffer                 = buffer,
+        downsample_min_buffer  = downsample_min_buffer
       )
     } else {
       raster_values <- future.apply::future_lapply(
         chunks,
         function(chunk) .toi_extract_impl(
           raster_path, .data[chunk, ],
-          baseline_fun   = baseline_fun,
-          stat_wrangling = stat_wrangling
+          baseline_fun           = baseline_fun,
+          stat_wrangling         = stat_wrangling,
+          buffer                 = buffer,
+          downsample_min_buffer  = downsample_min_buffer
         ),
         future.seed     = TRUE,
         future.packages = "sf"
@@ -202,18 +268,22 @@
     if (!parallel) {
       .toi_extract_impl(
         raster, .data,
-        agg            = TRUE,
-        baseline_fun   = baseline_fun,
-        stat_wrangling = stat_wrangling
+        agg                    = TRUE,
+        baseline_fun           = baseline_fun,
+        stat_wrangling         = stat_wrangling,
+        buffer                 = buffer,
+        downsample_min_buffer  = downsample_min_buffer
       )
     } else {
       raster_values <- future.apply::future_lapply(
         chunks,
         function(chunk) .toi_extract_impl(
           raster_path, .data[chunk, ],
-          agg            = TRUE,
-          baseline_fun   = baseline_fun,
-          stat_wrangling = stat_wrangling
+          agg                    = TRUE,
+          baseline_fun           = baseline_fun,
+          stat_wrangling         = stat_wrangling,
+          buffer                 = buffer,
+          downsample_min_buffer  = downsample_min_buffer
         ),
         future.seed     = TRUE,
         future.packages = "sf"
@@ -343,16 +413,24 @@
 #'   `link_date`.
 #' @param agg Whether to aggregate the years in a given time span. Requires
 #'   a column `time_span_seq` in `vector`.
-#' @param baseline Whether to aggregate across baseline years.
+#' @param baseline Whether to aggregate across baseline years. `baseline_fun`
+#'   and `stat_wrangling` are LISTS here (length 1 in the normal case, length
+#'   N for N baseline_fun/stat_wrangling combinations sharing the same
+#'   extracted baseline_values/focal_value -- see the `baseline` branch
+#'   below).
+#' @param buffer,downsample_min_buffer Passed through to .extract_values()
+#'   for downsampling dispatch -- see .load_climate_raster()/.extract_values().
 #' @returns A named list.
 #' @noRd
 .toi_extract_impl <- function(raster,
                               vector,
-                              agg            = FALSE,
+                              agg                    = FALSE,
                               baseline_fun,
-                              baseline       = FALSE,
-                              stat_wrangling = "deviation",
-                              focal_values   = NULL) {
+                              baseline               = FALSE,
+                              stat_wrangling         = "deviation",
+                              focal_values           = NULL,
+                              buffer                 = 0,
+                              downsample_min_buffer  = 0) {
   requireNamespace("sf", quietly = TRUE)
 
   if (is.character(raster)) {
@@ -388,6 +466,13 @@
   # only `vector_geom` (passed to .extract_values()) is the lightened copy.
   vector_geom <- .drop_heavy_columns(vector)
 
+  # Wrapper binding buffer/downsample_min_buffer, so every call site below
+  # is a plain extract_fn(raster_sub, geom) -- one less thing to get wrong
+  # by forgetting to pass the two new arguments somewhere.
+  extract_fn <- function(r, g) {
+    .extract_values(r, g, buffer = buffer, downsample_min_buffer = downsample_min_buffer)
+  }
+
   if (agg) {
     if (.all_same_seq(vector)) {
       target_dates <- as_date(unlist(vector$time_span_seq[[1]]))
@@ -402,19 +487,43 @@
         return(lapply(seq_len(nrow(vector)), function(i) NA_real_))
       }
 
-      if (stat_wrangling %in% c("count_above", "count_below")) {
+      # stat_wrangling can be a LIST here (multi-combo case) -- if ANY
+      # combination needs raw per-day values (count_above/count_below),
+      # we extract raw values for ALL combinations in this call, since
+      # that's a safe superset: a combination that actually wants the
+      # aggregated mean can still compute it from the raw values
+      # downstream, but the reverse (recovering raw values from an
+      # already-aggregated mean) is impossible. A plain scalar `%in%`
+      # check here would return a vector of length > 1 for a list,
+      # which `if()` cannot evaluate.
+      if (any(unlist(stat_wrangling) %in% c("count_above", "count_below"))) {
         # All rows share the same lyr_idx here (same time_span_seq), so
         # this is one extraction call for all points/polygons x all layers
         # at once, instead of nrow(vector) * length(lyr_idx) separate
-        # calls.
-        focal_matrix <- .extract_values(raster[[lyr_idx]], vector_geom)
+        # calls. .sub_layers() correctly carries a re-subset "coarse"
+        # attribute along, if present.
+        focal_matrix <- extract_fn(.sub_layers(raster, lyr_idx), vector_geom)
         lapply(seq_len(nrow(focal_matrix)), function(i) {
           as.numeric(focal_matrix[i, ])
         })
       } else {
-        # Aggregate once, extract all points/polygons at once
-        raster_agg <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
-        result     <- .extract_values(raster_agg, vector_geom)
+        # Aggregate once, extract all points/polygons at once. NOTE:
+        # terra::app() here collapses to ONE layer via `mean` -- this is
+        # the *temporal* aggregation across the focal window, unrelated
+        # to the *spatial* downsampling in .extract_values(); the
+        # resulting single-layer raster still carries a (correctly
+        # subset) "coarse" attribute if .sub_layers() was used to build
+        # its input, but terra::app()'s output does NOT automatically
+        # inherit input attributes -- so the coarse attribute has to be
+        # reattached manually here to still enable downsampling at the
+        # subsequent extract_fn() call.
+        raster_sub <- .sub_layers(raster, lyr_idx)
+        raster_agg <- terra::app(raster_sub, mean, na.rm = TRUE)
+        coarse_sub <- attr(raster_sub, "coarse")
+        if (!is.null(coarse_sub)) {
+          attr(raster_agg, "coarse") <- terra::app(coarse_sub, mean, na.rm = TRUE)
+        }
+        result <- extract_fn(raster_agg, vector_geom)
         lapply(seq_len(nrow(result)), function(i) result[i, , drop = FALSE])
       }
 
@@ -436,16 +545,28 @@
 
         if (length(lyr_idx) == 0) return(NA_real_)
 
-        if (stat_wrangling %in% c("count_above", "count_below")) {
-          as.numeric(.extract_values(raster[[lyr_idx]], vector_sliced_geom))
+        # Same list-safe check as in the .all_same_seq() branch above.
+        if (any(unlist(stat_wrangling) %in% c("count_above", "count_below"))) {
+          as.numeric(extract_fn(.sub_layers(raster, lyr_idx), vector_sliced_geom))
         } else {
-          raster_agg <- terra::app(raster[[lyr_idx]], mean, na.rm = TRUE)
-          .extract_values(raster_agg, vector_sliced_geom)
+          raster_sub <- .sub_layers(raster, lyr_idx)
+          raster_agg <- terra::app(raster_sub, mean, na.rm = TRUE)
+          coarse_sub <- attr(raster_sub, "coarse")
+          if (!is.null(coarse_sub)) {
+            attr(raster_agg, "coarse") <- terra::app(coarse_sub, mean, na.rm = TRUE)
+          }
+          extract_fn(raster_agg, vector_sliced_geom)
         }
       })
     }
 
   } else if (baseline) {
+    # baseline_fun/stat_wrangling are LISTS here (length 1 in the normal
+    # single-combo case). The expensive part -- baseline_values/focal_val,
+    # extracted from the raster -- is computed ONCE per observation and
+    # SHARED across all combinations; only the final
+    # .compute_stat_wrangling() call is repeated per combination, on
+    # already-extracted numbers.
     if (.all_same_seq(vector)) {
       target_dates <- as_date(unlist(vector$time_span_seq[[1]]))
 
@@ -459,7 +580,7 @@
 
       if (length(lyr_idx) == 0) {
         return(lapply(seq_len(nrow(vector)), function(i) {
-          list(reference_stat = NA_real_, result = NA_real_)
+          lapply(baseline_fun, function(bf) list(reference_stat = NA_real_, result = NA_real_))
         }))
       }
 
@@ -470,30 +591,54 @@
       # cells per feature, incompatible with `baseline_matrix[i, ]` below.
       # .extract_values() always collapses to one (area-weighted, for
       # polygons) mean value per feature per layer, for both geometry types.
-      baseline_matrix <- .extract_values(raster[[lyr_idx]], vector_geom)
+      baseline_matrix <- extract_fn(.sub_layers(raster, lyr_idx), vector_geom)
+
+      needs_raw_focal <- any(unlist(stat_wrangling) %in% c("count_above", "count_below"))
 
       lapply(seq_len(nrow(vector)), function(i) {
         baseline_values <- as.numeric(baseline_matrix[i, ])
-        focal_val <- if (
-          stat_wrangling %in% c("count_above", "count_below") &&
-          !is.null(focal_values)
-        ) {
-          focal_values[[i]]
-        } else {
-          vector$.linked[i]
-        }
-        .compute_stat_wrangling(
-          baseline_values = baseline_values,
-          focal_value     = focal_val,
-          stat_wrangling  = stat_wrangling,
-          baseline_fun    = baseline_fun
-        )
+
+        # Both representations are computed here, but focal_val_raw is
+        # evaluated LAZILY (only if needs_raw_focal) -- this matters
+        # because focal_values can be a single-column data.frame in the
+        # common case (one layer, all observations share one date), where
+        # focal_values[[i]] for i > 1 is a COLUMN index into a 1-column
+        # data.frame, not a row lookup, and throws "subscript out of
+        # bounds" for i > 1. The ORIGINAL code only ever evaluated this
+        # when stat_wrangling was actually count_above/count_below (where
+        # focal_values has the right shape); eagerly evaluating it
+        # unconditionally (to support mixing count_above with deviation
+        # in one combination list) broke every plain deviation/
+        # sd_deviation call with more than one observation.
+        focal_val_scalar <- vector$.linked[i]
+        focal_val_raw    <- if (needs_raw_focal && !is.null(focal_values)) focal_values[[i]] else NULL
+
+        purrr::map2(baseline_fun, stat_wrangling, function(bf, sw) {
+          focal_val <- if (sw %in% c("count_above", "count_below") && !is.null(focal_val_raw)) {
+            focal_val_raw
+          } else {
+            focal_val_scalar
+          }
+          .compute_stat_wrangling(
+            baseline_values = baseline_values,
+            focal_value     = focal_val,
+            stat_wrangling  = sw,
+            baseline_fun    = bf
+          )
+        })
       })
 
     } else {
       # Different time_span_seq per row -- same per-row loop as above, but
       # now one .extract_values() call per row across all of that row's
       # baseline layers, instead of one terra::extract() call per layer.
+      # Same combination-sharing as the .all_same_seq() branch above:
+      # baseline_values computed once per row, reused across all
+      # baseline_fun/stat_wrangling combinations. Same focal-value-type
+      # caveat as above also applies here -- focal_val_raw is evaluated
+      # lazily, only if actually needed (see comment in the other branch).
+      needs_raw_focal <- any(unlist(stat_wrangling) %in% c("count_above", "count_below"))
+
       lapply(seq_len(nrow(vector)), function(i) {
         vector_sliced      <- vector[i, ]
         vector_sliced_geom <- vector_geom[i, ]
@@ -510,26 +655,27 @@
         }
 
         if (length(lyr_idx) == 0) {
-          return(list(reference_stat = NA_real_, result = NA_real_))
+          return(lapply(baseline_fun, function(bf) list(reference_stat = NA_real_, result = NA_real_)))
         }
 
-        baseline_values <- as.numeric(.extract_values(raster[[lyr_idx]], vector_sliced_geom))
+        baseline_values <- as.numeric(extract_fn(.sub_layers(raster, lyr_idx), vector_sliced_geom))
 
-        focal_val <- if (
-          stat_wrangling %in% c("count_above", "count_below") &&
-          !is.null(focal_values)
-        ) {
-          focal_values[[i]]
-        } else {
-          vector_sliced$.linked
-        }
+        focal_val_scalar <- vector_sliced$.linked
+        focal_val_raw    <- if (needs_raw_focal && !is.null(focal_values)) focal_values[[i]] else NULL
 
-        .compute_stat_wrangling(
-          baseline_values = baseline_values,
-          focal_value     = focal_val,
-          stat_wrangling  = stat_wrangling,
-          baseline_fun    = baseline_fun
-        )
+        purrr::map2(baseline_fun, stat_wrangling, function(bf, sw) {
+          focal_val <- if (sw %in% c("count_above", "count_below") && !is.null(focal_val_raw)) {
+            focal_val_raw
+          } else {
+            focal_val_scalar
+          }
+          .compute_stat_wrangling(
+            baseline_values = baseline_values,
+            focal_value     = focal_val,
+            stat_wrangling  = sw,
+            baseline_fun    = bf
+          )
+        })
       })
     }
 
@@ -549,7 +695,7 @@
 
       if (length(lyr_idx) == 0) return(NA_real_)
 
-      as.numeric(.extract_values(raster[[lyr_idx[[1]]]], vector_sliced_geom))
+      as.numeric(extract_fn(.sub_layers(raster, lyr_idx[[1]]), vector_sliced_geom))
     })
   }
 }

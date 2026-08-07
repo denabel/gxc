@@ -358,6 +358,25 @@ fail_if_test <- function() {
 }
 
 
+# Creates an empty (no-coordinate) sf geometry of the given type -- used
+# by left_merge() below to pad unmatched rows in a spatial column with a
+# valid placeholder, rather than plain NA (which sf::st_as_sfc() can't
+# combine with real geometries of a specific type).
+make_empty_geometry <- function(type) {
+  wkt <- switch(type,
+                POINT               = "POINT EMPTY",
+                MULTIPOINT          = "MULTIPOINT EMPTY",
+                LINESTRING          = "LINESTRING EMPTY",
+                MULTILINESTRING     = "MULTILINESTRING EMPTY",
+                POLYGON             = "POLYGON EMPTY",
+                MULTIPOLYGON        = "MULTIPOLYGON EMPTY",
+                GEOMETRYCOLLECTION  = "GEOMETRYCOLLECTION EMPTY",
+                "GEOMETRYCOLLECTION EMPTY"
+  )
+  sf::st_as_sfc(wkt)[[1]]
+}
+
+
 left_merge <- function(x, y, by.x, by.y, ...) {
   idx <- match(y[[by.y]], x[[by.x]])
   matches <- !is.na(idx)
@@ -469,25 +488,39 @@ psum <- function(..., na.rm=FALSE) {
         assign(.file_cache_key(paths[idx]), layer, envir = .raster_file_cache)
       }
     } else {
-      # Fallback: something's actually mismatched -- load and resample
-      # individually against the FIRST resolved layer as reference
-      # (whether that came from the file cache or was just loaded), same
-      # as the previous single-level fallback.
+      # Something's actually mismatched among the newly-loaded files
+      # themselves -- load individually rather than vectorized.
       for (idx in missing_idx) {
         r <- terra::rast(paths[idx])
         cached_layers[[idx]] <- r
         assign(.file_cache_key(paths[idx]), r, envir = .raster_file_cache)
       }
-
-      reference <- cached_layers[[1]]
-      cached_layers <- lapply(cached_layers, function(r) {
-        if (!terra::compareGeom(r, reference, stopOnError = FALSE)) {
-          terra::resample(r, reference, method = "bilinear")
-        } else {
-          r
-        }
-      })
     }
+  }
+
+  # Always verify ALL layers -- both freshly loaded above AND pulled from
+  # the individual-file cache -- share a common geometry before combining,
+  # regardless of whether any file needed loading this time. Layers
+  # retrieved from .raster_file_cache can originate from an entirely
+  # different earlier .safe_rast() call; nothing guarantees they share
+  # the same grid as this call's other files just because each was
+  # individually fine in its own original context. Skipping this check
+  # whenever missing_idx happened to be empty (previous version) let
+  # genuinely mismatched cached layers reach do.call(c, ...) directly,
+  # which errors with "extents do not match" instead of resampling.
+  reference <- cached_layers[[1]]
+  mismatched <- !vapply(cached_layers, function(r) {
+    terra::compareGeom(r, reference, stopOnError = FALSE)
+  }, logical(1))
+
+  if (any(mismatched)) {
+    cached_layers <- lapply(cached_layers, function(r) {
+      if (!terra::compareGeom(r, reference, stopOnError = FALSE)) {
+        terra::resample(r, reference, method = "bilinear")
+      } else {
+        r
+      }
+    })
   }
 
   result <- do.call(c, cached_layers)
@@ -511,10 +544,22 @@ psum <- function(..., na.rm=FALSE) {
   }
 }
 
+.raster_coarse_cache <- new.env(parent = emptyenv())  # NEU: aggregierte (downgesampelte) Version, pro (Dateisatz, downsample_factor)
+
 # Loads a vector of raster file paths into a single SpatRaster and sets the
 # time dimension if not already present. For daily rasters the full date is
 # used; for monthly rasters only the first of the month.
-.load_climate_raster <- function(paths, span, daily = TRUE) {
+#
+# downsample_factor (NULL by default = off): if given, an aggregated
+# (coarser-resolution) version is computed ONCE per (file set,
+# downsample_factor) combination -- cached separately in
+# .raster_coarse_cache, so repeated calls sharing the same files and factor
+# (e.g. across many grid specs using the same baseline period) don't pay
+# the terra::aggregate() cost more than once. The coarse version is
+# attached as an attribute on the returned raster (confirmed to survive
+# subsetting via `r[[idx]]`), so .extract_values() can pick it up later
+# without needing it threaded through as a separate argument everywhere.
+.load_climate_raster <- function(paths, span, daily = TRUE, downsample_factor = NULL) {
   r <- .safe_rast(paths)
   if (!inherits(terra::time(r), "POSIXt")) {
     r <- raster_timestamp(
@@ -525,6 +570,23 @@ psum <- function(..., na.rm=FALSE) {
       span   = span
     )
   }
+
+  if (!is.null(downsample_factor)) {
+    sorted_paths  <- sort(paths)
+    coarse_key    <- rlang::hash(list(sorted_paths, file.mtime(sorted_paths), downsample_factor))
+
+    r_coarse <-
+      if (exists(coarse_key, envir = .raster_coarse_cache, inherits = FALSE)) {
+        get(coarse_key, envir = .raster_coarse_cache, inherits = FALSE)
+      } else {
+        aggregated <- terra::aggregate(r, fact = downsample_factor, fun = "mean", na.rm = TRUE)
+        assign(coarse_key, aggregated, envir = .raster_coarse_cache)
+        aggregated
+      }
+
+    attr(r, "coarse") <- r_coarse
+  }
+
   r
 }
 
@@ -561,7 +623,9 @@ psum <- function(..., na.rm=FALSE) {
                                time_lag,
                                buffer,
                                time_unit,
-                               months = NULL) {
+                               months                 = NULL,
+                               downsample_factor      = NULL,
+                               downsample_min_buffer  = 0) {
   .data[[.col("indicator",      prefix)]] <- indicator
   .data[[.col("unit",           prefix)]] <-
     .indicator_units[[indicator]] %||% NA_character_
@@ -582,6 +646,19 @@ psum <- function(..., na.rm=FALSE) {
   }
   .data[[.col("time_lag",       prefix)]] <- time_lag
   .data[[.col("buffer",         prefix)]] <- buffer
+  # NA if downsampling wasn't requested at all, NA if requested but not
+  # actually applied for this call (buffer = 0, i.e. point extraction --
+  # always full resolution regardless -- or buffer < downsample_min_buffer),
+  # otherwise the factor that was genuinely used. Distinguishing "feature
+  # off" from "feature on but not applicable here" matters for
+  # reproducibility -- a reader should be able to tell from the data alone
+  # whether a given result used the native or an aggregated resolution.
+  .data[[.col("downsample_factor", prefix)]] <-
+    if (!is.null(downsample_factor) && buffer > 0 && buffer >= downsample_min_buffer) {
+      downsample_factor
+    } else {
+      NA_real_
+    }
   .data[[.col("source",         prefix)]] <-
     .catalogue_citation(catalogue, indicator)
   .data

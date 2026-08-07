@@ -76,6 +76,51 @@ if (FALSE) {
              prefix = "temp",
              cache = TRUE, path = cache_path)
 
+  # baseline_fun/stat_wrangling combination list — no new download, reuses
+  # the deviation baseline files already fetched above. Only the final
+  # aggregation differs between combinations, so no separate fixture call
+  # is strictly required -- included here anyway for clarity/documentation.
+  link_daily(pts, indicator = "2m_temperature",
+             baseline = c(1980, 1981),
+             baseline_fun = list("mean", "median"),
+             stat_wrangling = list("deviation", "deviation"),
+             cache = TRUE, path = cache_path)
+
+  # downsample_factor — no new download, aggregates already-fetched files
+  # in memory. Buffer > 0 needed (downsampling never applies to points).
+  link_daily(pts, indicator = "2m_temperature",
+             buffer = 5000,
+             baseline = c(1980, 1981), baseline_fun = "mean",
+             stat_wrangling = "deviation",
+             downsample_factor = 5, downsample_min_buffer = 0,
+             cache = TRUE, path = cache_path)
+
+  # months — needs a FULL month of daily files (31 days), unlike the
+  # time_span-based fixtures above (0 or 1 day). pts$date is 2014-08-01;
+  # months = c(8) includes the observation's own month, so the window is
+  # shifted back one year to 2013-08-01 through 2013-08-31.
+  link_daily(pts, indicator = "2m_temperature",
+             months = c(8),
+             cache = TRUE, path = cache_path)
+
+  link_daily(pts, indicator = "2m_temperature",
+             months = c(8), baseline = c(1980, 1981), baseline_fun = "mean",
+             stat_wrangling = "deviation",
+             cache = TRUE, path = cache_path)
+
+  # count_above with months — same files as the deviation/months fixture
+  # above, no new download
+  link_daily(pts, indicator = "2m_temperature",
+             months = c(8), baseline = c(1980, 1981), baseline_fun = "mean",
+             stat_wrangling = "count_above",
+             cache = TRUE, path = cache_path)
+
+  # Note: the year-boundary (winter, months = c(12,1,2)) case is covered by
+  # a pure unit test on .transform_time() instead of an end-to-end fixture
+  # download here -- that logic is pure date arithmetic, independent of
+  # any actual raster data, so a ~90-day download would only add fixture
+  # size without adding real test coverage.
+
   # SpatRaster
   link_daily(grid, indicator = "2m_temperature",
              cache = TRUE, path = cache_path)
@@ -112,6 +157,15 @@ if (FALSE) {
                buffer = 5000,
                cache = TRUE, path = cache_path)
 
+  # Monthly — downsample_factor — no new download, aggregates
+  # already-fetched files in memory
+  link_monthly(pts, indicator = "2m_temperature",
+               buffer = 5000,
+               baseline = c(1980, 1981), baseline_fun = "mean",
+               stat_wrangling = "deviation",
+               downsample_factor = 5, downsample_min_buffer = 0,
+               cache = TRUE, path = cache_path)
+
   # Monthly — SpatRaster
   link_monthly(grid, indicator = "2m_temperature",
                cache = TRUE, path = cache_path)
@@ -143,6 +197,26 @@ if (FALSE) {
              catalogue = "dwd-hyras-daily",
              baseline = c(1980, 1981), baseline_fun = "mean",
              stat_wrangling = "deviation", time_span = 1,
+             cache = TRUE, path = cache_path)
+
+  # Daily — months — minimal smoke test only (no baseline). The `months`
+  # logic itself (.transform_time()/.resolve_months()) is catalogue-
+  # independent and already fully verified via the ERA5 fixtures above;
+  # this just confirms the DWD code path doesn't error, without paying for
+  # a second full month of (much larger, whole-Germany) DWD daily files.
+  link_daily(pts, indicator = "air_temperature_mean",
+             catalogue = "dwd-hyras-daily",
+             months = c(8),
+             cache = TRUE, path = cache_path)
+
+  # Daily — downsample_factor — no new download, aggregates already-fetched
+  # files in memory
+  link_daily(pts, indicator = "air_temperature_mean",
+             catalogue = "dwd-hyras-daily",
+             buffer = 5000,
+             baseline = c(1980, 1981), baseline_fun = "mean",
+             stat_wrangling = "deviation",
+             downsample_factor = 5, downsample_min_buffer = 0,
              cache = TRUE, path = cache_path)
 
   # Daily — SpatRaster

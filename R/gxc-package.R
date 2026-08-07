@@ -34,4 +34,7 @@
 #'
 #' - `grid_link_daily`
 #' - `grid_link_monthly`
+#'
+#' @importFrom stats median sd
+#' @importFrom utils capture.output download.file
 "_PACKAGE"
