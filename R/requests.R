@@ -401,6 +401,66 @@
 }
 
 
+# .download_with_retry ----
+# Wraps download.file() with automatic retries and exponential backoff,
+# so a transient network hiccup doesn't abort a run that might otherwise
+# take hours. Treats BOTH errors (e.g. "cannot open URL") and warnings
+# (e.g. "downloaded length ... != reported length", which download.file()
+# signals as a warning rather than an error for a truncated transfer) as
+# failures worth retrying -- a warning here would otherwise silently leave
+# a corrupt partial file that looks like a successful download.
+.download_with_retry <- function(url,
+                                 destfile,
+                                 max_attempts = 5,
+                                 initial_wait = 5,
+                                 ...) {
+  for (attempt in seq_len(max_attempts)) {
+
+    ok <- tryCatch({
+      withCallingHandlers(
+        {
+          download.file(url, destfile = destfile, ...)
+          TRUE
+        },
+        warning = function(w) {
+          cli::cli_warn(
+            "Download attempt {attempt}/{max_attempts} for {.url {url}} ",
+            "produced a warning (treating as failure): {conditionMessage(w)}"
+          )
+          invokeRestart("muffleWarning")
+        }
+      )
+    }, error = function(e) {
+      cli::cli_warn(
+        "Download attempt {attempt}/{max_attempts} for {.url {url}} failed: ",
+        "{conditionMessage(e)}"
+      )
+      FALSE
+    })
+
+    # A warning-only path still reaches here with ok = TRUE from the
+    # withCallingHandlers() block (the restart resumes execution) --
+    # explicitly re-check the file actually landed with non-zero size,
+    # since that's the only reliable signal a warning-flagged download
+    # actually succeeded despite the warning.
+    if (isTRUE(ok) && file.exists(destfile) && file.info(destfile)$size > 0) {
+      return(invisible(destfile))
+    }
+
+    if (attempt < max_attempts) {
+      wait_time <- initial_wait * 2^(attempt - 1)
+      cli::cli_inform("Retrying in {wait_time}s...")
+      if (file.exists(destfile)) unlink(destfile)  # don't leave a partial file behind
+      Sys.sleep(wait_time)
+    }
+  }
+
+  cli::cli_abort(
+    "Download failed after {max_attempts} attempts: {.url {url}}"
+  )
+}
+
+
 # Downloads a DWD HYRAS year file to a temporary subdirectory. Tmp files
 # are always redownloaded if present -- a leftover tmp file means a previous
 # run was interrupted mid-download and the file may be incomplete.
@@ -416,7 +476,7 @@
   if (file.exists(year_file)) unlink(year_file)
 
   info("Downloading DWD year file for {year}...")
-  download.file(url, destfile = year_file, mode = "wb", quiet = TRUE)
+  .download_with_retry(url, destfile = year_file, mode = "wb", quiet = TRUE)
 
   year_file
 }
@@ -541,7 +601,7 @@
     tmp_gz  <- tempfile(fileext = ".asc.gz")
     tmp_asc <- sub("\\.gz$", "", tmp_gz)
 
-    download.file(url, destfile = tmp_gz, mode = "wb", quiet = TRUE)
+    .download_with_retry(url, destfile = tmp_gz, mode = "wb", quiet = TRUE)
     .decompress_gz(tmp_gz, tmp_asc)
 
     r <- terra::rast(tmp_asc)
