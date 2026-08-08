@@ -553,7 +553,18 @@
 
         day_layer <- year_rast[[lyr_idx]]
         terra::crs(day_layer) <- "EPSG:3035"
-        terra::writeRaster(day_layer, cached_files[[idx]], overwrite = FALSE)
+
+        # Atomic write: a process killed mid-writeRaster() (crash,
+        # manual interrupt, OOM on a large run) would otherwise leave a
+        # truncated/corrupt .tif in place under its final name -- terra
+        # can sometimes open such a file without an immediate error, only
+        # to crash later ("NULL value passed as symbol address") when a
+        # property like terra::time() is accessed on the broken pointer.
+        # Writing to a temp path first and renaming into place ensures
+        # cached_files[[idx]] only ever exists once fully written.
+        tmp_tif <- paste0(cached_files[[idx]], ".tmp")
+        terra::writeRaster(day_layer, tmp_tif, overwrite = TRUE)
+        file.rename(tmp_tif, cached_files[[idx]])
       }
 
       # Remove raw year file after all missing days have been sliced
@@ -606,7 +617,10 @@
 
     r <- terra::rast(tmp_asc)
     terra::crs(r) <- "EPSG:31467"
-    terra::writeRaster(r, cached_file, overwrite = FALSE)
+
+    tmp_tif <- paste0(cached_file, ".tmp")
+    terra::writeRaster(r, tmp_tif, overwrite = TRUE)
+    file.rename(tmp_tif, cached_file)
     unlink(c(tmp_gz, tmp_asc))
 
     cached_file
