@@ -152,7 +152,7 @@ aggregated version, and only point extraction is excluded.}
 
 \item{baseline}{Either \code{FALSE} (default) or a character vector of length 2
 specifying the baseline period as start and end year. For example,
-\code{baseline = c("1980", "2010")} uses the years 1980 to 2010 as the
+\code{baseline = c(1980, 2010)} uses the years 1980 to 2010 as the
 baseline. If \code{FALSE}, no baseline calculation is performed.}
 
 \item{baseline_fun}{Character string or function specifying how baseline
