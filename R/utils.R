@@ -362,6 +362,34 @@ fail_if_test <- function() {
 # by left_merge() below to pad unmatched rows in a spatial column with a
 # valid placeholder, rather than plain NA (which sf::st_as_sfc() can't
 # combine with real geometries of a specific type).
+# .write_raster_atomic ----
+# Writes a raster to `path` atomically: writes to a temporary file first,
+# then renames into place. A process killed mid-write (crash, manual
+# interrupt, OOM) leaves at most a stray ".tmp" file, never a truncated/
+# corrupt file under the FINAL name -- terra can sometimes open such a
+# corrupt file without an immediate error, only to crash later with a
+# broken internal pointer ("NULL value passed as symbol address", from
+# e.g. terra::time()) when a property is accessed on it. Used for the DWD
+# daily/monthly cache writes in requests.R; any future raster-writing
+# cache path should use this instead of a direct terra::writeRaster()
+# call.
+.write_raster_atomic <- function(r, path, ...) {
+  # terra::writeRaster() guesses the output file FORMAT from the file
+  # EXTENSION -- a naive paste0(path, ".tmp") replaces/hides that
+  # extension (e.g. "foo.tif" -> "foo.tif.tmp", ending in ".tmp"),
+  # causing "[writeRaster] cannot guess file type from filename". The
+  # temp name must keep the original extension at the end instead
+  # (e.g. "foo.tif" -> "foo.tmp.tif").
+  ext      <- tools::file_ext(path)
+  base     <- tools::file_path_sans_ext(path)
+  tmp_path <- if (nzchar(ext)) paste0(base, ".tmp.", ext) else paste0(path, ".tmp")
+
+  terra::writeRaster(r, tmp_path, overwrite = TRUE, ...)
+  file.rename(tmp_path, path)
+  invisible(path)
+}
+
+
 make_empty_geometry <- function(type) {
   wkt <- switch(type,
                 POINT               = "POINT EMPTY",
@@ -595,7 +623,6 @@ psum <- function(..., na.rm=FALSE) {
 # observation span. For daily data the month-day is preserved; for monthly
 # data dates are normalised to the first of the month.
 .compute_baseline_span <- function(baseline, obs_span, daily = TRUE) {
-  baseline <- as.numeric(baseline)
   baseline_years <- format(
     make_dates(seq(baseline[1], baseline[2]), months = 1, days = 1),
     "%Y"
