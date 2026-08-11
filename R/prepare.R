@@ -93,12 +93,42 @@
   # had NO effect (if it didn't cross a month boundary) or jumped a full
   # month (if it did, e.g. any date on the 1st) -- unpredictable
   # depending on which day of the month the input date happened to fall
-  # on. lubridate::`%m-%` is used (not plain subtraction) for correct
-  # calendar-aware rollback at month-end dates (e.g. subtracting a month
-  # from March 31 rolls back to the last day of February, rather than
-  # producing NA).
+  # on. Implemented manually via year/month/day arithmetic (not
+  # lubridate's period constructors/`%m-%`, to avoid depending on the
+  # exact set of period-constructor functions lubridate happens to
+  # export in a given version) with day clamped to the last valid day of
+  # the resulting month, for correct calendar-aware rollback at
+  # month-end dates (e.g. shifting back a month from March 31 lands on
+  # the last day of February, rather than producing NA).
+  .shift_months_back <- function(date, n) {
+    y <- year(date)
+    m <- month(date)
+    d <- day(date)
+
+    total_months <- (y * 12L + (m - 1L)) - n
+    new_y <- total_months %/% 12L
+    new_m <- total_months %% 12L + 1L
+
+    # Last valid day of the resulting month = one day before the 1st of
+    # the FOLLOWING month -- computed via plain integer arithmetic on
+    # year/month (not months()/period constructors), then a single
+    # days(1) subtraction (days() is already used elsewhere in this file
+    # and is definitely exported, unlike lubridate's month-period
+    # constructors).
+    next_total <- new_y * 12L + (new_m - 1L) + 1L
+    next_y     <- next_total %/% 12L
+    next_m     <- next_total %% 12L + 1L
+    last_day   <- as.integer(format(
+      as_date(sprintf("%04d-%02d-01", next_y, next_m)) - days(1), "%d"
+    ))
+
+    new_d <- pmin(d, last_day)
+
+    as_date(sprintf("%04d-%02d-%02d", new_y, new_m, new_d))
+  }
+
   .data$link_date <- if (time_lag_unit == "months") {
-    lubridate::`%m-%`(.data$link_date, lubridate::months(time_lag))
+    .shift_months_back(.data$link_date, time_lag)
   } else {
     .data$link_date - days(time_lag)
   }
