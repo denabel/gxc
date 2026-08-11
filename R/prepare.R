@@ -74,7 +74,10 @@
                             time_lag        = 0,
                             months          = NULL,
                             by              = "1 day",
-                            daily_expansion = FALSE) {
+                            daily_expansion = FALSE,
+                            time_lag_unit   = c("days", "months")) {
+  time_lag_unit <- match.arg(time_lag_unit)
+
   if (is_sf(.data)) {
     .data$link_date <- .data[[date_var]]
   } else if (is_terra(.data)) {
@@ -82,7 +85,23 @@
   }
 
   .data$link_date <- as_date(.data$link_date)
-  .data$link_date <- .data$link_date - days(time_lag)
+
+  # link_daily() shifts by DAYS (unchanged); link_monthly() shifts by
+  # calendar MONTHS instead -- shifting by "time_lag days" made no sense
+  # for monthly-resolution matching: since the shifted date gets
+  # normalized to its first-of-month afterward, a day-based shift either
+  # had NO effect (if it didn't cross a month boundary) or jumped a full
+  # month (if it did, e.g. any date on the 1st) -- unpredictable
+  # depending on which day of the month the input date happened to fall
+  # on. lubridate::`%m-%` is used (not plain subtraction) for correct
+  # calendar-aware rollback at month-end dates (e.g. subtracting a month
+  # from March 31 rolls back to the last day of February, rather than
+  # producing NA).
+  .data$link_date <- if (time_lag_unit == "months") {
+    lubridate::`%m-%`(.data$link_date, lubridate::months(time_lag))
+  } else {
+    .data$link_date - days(time_lag)
+  }
 
   if (!is.null(months)) {
     if (daily_expansion) {

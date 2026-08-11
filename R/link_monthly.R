@@ -252,7 +252,8 @@ link_monthly.sf <- function(.data,
       time_span = time_span,
       time_lag  = time_lag,
       months    = months,
-      by        = "1 month"
+      by        = "1 month",
+      time_lag_unit = "months"
     )
     sort(unique(as_date(unlist(p$time_span_seq))))
   })
@@ -363,7 +364,8 @@ link_monthly.sf <- function(.data,
           time_span = time_span,
           time_lag  = time_lag,
           months    = months,
-          by        = "1 month"
+          by        = "1 month",
+          time_lag_unit = "months"
         )
 
         prepared <- .align_crs_vector(prepared, obs_raster)
@@ -529,7 +531,7 @@ link_monthly.SpatRaster <- function(.data,
   prepared <- terra::project(.data, "EPSG:4326")
 
   temporals     <- .transform_time(prepared, time_span = time_span, time_lag = time_lag,
-                                   months = months, by = "1 month")
+                                   months = months, by = "1 month", time_lag_unit = "months")
   global_extent <- .get_extent(prepared)
   all_obs_span  <- sort(unique(as.Date(format(
     do.call(c, lapply(temporals$time_span_seq, as_date)), "%Y-%m-01"
