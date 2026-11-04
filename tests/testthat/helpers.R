@@ -71,16 +71,11 @@ reset_test_index <- function(cache, service = "ecmwfr") {
   stash$write(new)
 }
 
-# Direct extraction from cached observation raster using same request hash
-.extract_direct <- function(cache, indicator, catalogue,
-                            extent, years, months, days = NULL,
-                            pts, layer = 1,
-                            service      = "ecmwfr",
-                            prefix       = "observation",
-                            product_type = "monthly_averaged_reanalysis",
-                            request_time = "00:00",
-                            statistic    = "daily_mean",
-                            time_zone    = "utc+00:00") {
+# Builds the request and cache lookup exactly as .submit_batch() does.
+# Daily ERA5 requests are split per month and keyed with .split = "month".
+.restore_era5 <- function(cache, indicator, catalogue, extent, years, months,
+                          days, prefix, service, product_type, request_time,
+                          statistic, time_zone) {
   if (is.null(days)) {
     request         <- gxc:::.build_era5_monthly_request(
       indicator    = indicator,
@@ -105,12 +100,29 @@ reset_test_index <- function(cache, service = "ecmwfr") {
       statistic = statistic,
       time_zone = time_zone
     )
-    expected_length <- length(unique(paste(years, months, days)))
+    request$.split  <- "month"
+    expected_length <- length(unique(paste(years, months)))
   }
 
   cache_sub <- file.path(cache, if (service == "dwd") "dwd" else "era5")
-  stash    <- new_stash(cache_sub, service = service)
-  restored <- stash$restore(request, expected_length)
+  stash     <- new_stash(cache_sub, service = service)
+  stash$restore(request, expected_length)
+}
+
+# Direct extraction from cached observation raster using same request hash
+.extract_direct <- function(cache, indicator, catalogue,
+                            extent, years, months, days = NULL,
+                            pts, layer = 1,
+                            service      = "ecmwfr",
+                            prefix       = "observation",
+                            product_type = "monthly_averaged_reanalysis",
+                            request_time = "00:00",
+                            statistic    = "daily_mean",
+                            time_zone    = "utc+00:00") {
+  restored <- .restore_era5(
+    cache, indicator, catalogue, extent, years, months, days, prefix,
+    service, product_type, request_time, statistic, time_zone
+  )
 
   if (is.null(restored)) {
     cli::cli_abort("Observation files not found in cache.")
@@ -135,51 +147,20 @@ reset_test_index <- function(cache, service = "ecmwfr") {
                                      request_time = "00:00",
                                      statistic    = "daily_mean",
                                      time_zone    = "utc+00:00") {
-  if (is.null(days)) {
-    request         <- gxc:::.build_era5_monthly_request(
-      indicator    = indicator,
-      catalogue    = catalogue,
-      extent       = extent,
-      years        = years,
-      months       = months,
-      prefix       = "baseline",
-      product_type = product_type,
-      request_time = request_time
-    )
-    expected_length <- length(unique(paste(years, months)))
-  } else {
-    request         <- gxc:::.build_era5_daily_request(
-      indicator = indicator,
-      catalogue = catalogue,
-      extent    = extent,
-      years     = years,
-      months    = months,
-      days      = days,
-      prefix    = "baseline",
-      statistic = statistic,
-      time_zone = time_zone
-    )
-    expected_length <- length(unique(paste(years, months, days)))
-  }
-
-  cache_sub <- file.path(cache, if (service == "dwd") "dwd" else "era5")
-  stash    <- new_stash(cache_sub, service = service)
-  restored <- stash$restore(request, expected_length)
+  restored <- .restore_era5(
+    cache, indicator, catalogue, extent, years, months, days, "baseline",
+    service, product_type, request_time, statistic, time_zone
+  )
 
   if (is.null(restored)) {
     cli::cli_abort("Baseline files not found in cache.")
   }
 
-  rasters <- lapply(restored, function(f) gxc:::.safe_rast(f)[[1]])
-  values  <- sapply(rasters, function(r) {
-    pts_r <- sf::st_transform(pts, terra::crs(r))
-    # FIX: gleiche Aenderung wie oben
-    .extract_values(r, .drop_heavy_columns(pts_r))[[1]]
-  })
+  # All layers of all files (monthly files hold one layer per day)
+  r      <- gxc:::.safe_rast(restored)
+  pts_r  <- sf::st_transform(pts, terra::crs(r))
+  values <- as.matrix(.extract_values(r, .drop_heavy_columns(pts_r)))
 
-  if (is.null(dim(values))) {
-    values <- matrix(values, nrow = length(pts[[1]]))
-  }
   apply(values, 1, baseline_fun)
 }
 
