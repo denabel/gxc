@@ -80,7 +80,7 @@
 
   if (geom_type == "POINT") {
     names(raster) <- paste0("layer_", seq_len(terra::nlyr(raster)))
-    return(terra::extract(raster, geom, fun = mean, na.rm = TRUE, ID = FALSE))
+    return(terra::extract(raster, geom, ID = FALSE))
   }
 
   raster_coarse <- attr(raster, "coarse")
