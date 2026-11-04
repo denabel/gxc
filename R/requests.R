@@ -67,17 +67,28 @@
 }
 
 
+# Short unique base name for downloaded files. CRAN limits tarball paths to
+# 100 bytes, so the indicator is truncated and uniqueness comes from an id
+# hashed from indicator, prefix, time and process.
+.target_base <- function(indicator, prefix) {
+  id <- substr(
+    rlang::hash(list(indicator, prefix, as.numeric(Sys.time()), Sys.getpid())),
+    1, 8
+  )
+  paste(substr(indicator, 1, 20), substr(prefix, 1, 3), id, sep = "_")
+}
+
+
 # Splits a multi-month ERA5 request into individual per-month requests.
 # wf_request_batch requires one request object per month.
 .split_request_by_month <- function(request) {
   dates <- sort(as.Date(paste(request$year, request$month, "01", sep = "-")))
-  stamp <- format(Sys.time(), "%y%m%d_%H%M%S")
 
   lapply(dates, function(d) {
     r         <- request
     r$year    <- format(d, "%Y")
     r$month   <- format(d, "%m")
-    r$target  <- paste0(r$variable, "_", r$.prefix, "_", stamp, "_", format(d, "%Y%m"))
+    r$target  <- paste0(request$target, "_", format(d, "%Y%m"))
     r$.prefix <- NULL
     r
   })
@@ -96,8 +107,7 @@
                                       prefix    = "observation",
                                       statistic = "daily_mean",
                                       time_zone = "utc+00:00") {
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp)
+  file_name <- .target_base(indicator, prefix)
 
   list(
     variable           = indicator,
@@ -128,8 +138,7 @@
                                         prefix       = "observation",
                                         product_type = "monthly_averaged_reanalysis",
                                         request_time = "00:00") {
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp)
+  file_name <- .target_base(indicator, prefix)
 
   list(
     variable           = indicator,
@@ -336,7 +345,7 @@
     )
   }
 
-  prefix <- strsplit(request$target, "_")[[1]][2]
+  prefix <- request$variable
 
   info(
     "Preparing {prefix} data from ECMWF \\
@@ -367,7 +376,7 @@
 
 # Submits a pre-built daily ERA5 request as a batch, checking cache first.
 .submit_era5_batch <- function(request, path, cache = TRUE,
-                               verbose = TRUE, workers = 1L) {
+                               verbose = TRUE, workers = 3L) {
   .submit_batch(
     request, .split_daily_request_by_month, path, cache, verbose, workers,
     cache_tag = "month"
@@ -391,8 +400,7 @@
                            path    = tempdir(),
                            prefix  = "toi",
                            verbose = TRUE) {
-  timestamp <- format(Sys.time(), "%y%m%d_%H%M%S")
-  file_name <- paste0(indicator, "_", prefix, "_", timestamp)
+  file_name <- .target_base(indicator, prefix)
   request   <- list(variable = indicator, ..., target = file_name)
   .submit_era5_batch(request, path = path, cache = cache, verbose = verbose)
 }

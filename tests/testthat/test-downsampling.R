@@ -61,7 +61,7 @@ test_that(".sub_layers() correctly re-subsets the coarse attribute", {
   cache <- test_cache()
 
   baseline_files <- list.files(
-    file.path(cache, "era5"), pattern = "baseline.*\\.nc$", full.names = TRUE
+    file.path(cache, "era5"), pattern = "_bas_.*\\.nc$", full.names = TRUE
   )
   skip_if(length(baseline_files) < 3, "Not enough baseline fixture files for this test")
 
