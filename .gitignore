@@ -5,3 +5,4 @@
 inst/doc
 .positai
 /tests/testthat/fixtures_*
+.vscode

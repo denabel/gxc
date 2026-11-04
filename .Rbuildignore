@@ -8,3 +8,4 @@
 ^\.positai$
 ^\.claude$
 ^CONTRIBUTING\.md$
+.vscode
