@@ -117,8 +117,14 @@ climate indicator values prior to linking with the spatial data. A value
 of \code{0} (default) uses only the exact date; values greater than \code{0}
 aggregate over a rolling window of that many days before the date.}
 
-\item{time_lag}{Integer specifying the time lag in days to shift the
-\code{date_var} backward before extraction. Default is \code{0}.}
+\item{time_lag}{Integer specifying the time lag to shift the \code{date_var}
+backward before extraction. Default is \code{0}. For \code{link_daily()}, this
+is in \strong{days}. For \code{link_monthly()}, this is in \strong{calendar months}
+(using calendar-aware month arithmetic, e.g. shifting back a month
+from March 31 correctly lands on the last day of February) -- a
+day-based shift wouldn't make sense there, since the date is
+normalized to its containing month before matching against
+monthly-resolution rasters anyway.}
 
 \item{months}{Optional integer vector specifying explicit months to use
 as the study period (e.g. \code{c(3, 4, 5)} for spring), mirroring
