@@ -672,8 +672,6 @@ link_daily.sf <- function(.data,
         })
         names(combo_list) <- combo_labels
 
-        if (!cache) unlink(obs_path)
-
         if (isTRUE(cache_results)) {
           .write_results_cache(results_cache_path, cache_key, splitted, combo_list)
         }
@@ -682,6 +680,8 @@ link_daily.sf <- function(.data,
       }
     }
   }
+
+  if (!cache) unlink(obs_path)
 
   if (verbose) {
     cli::cli_progress_done(id = pb)
