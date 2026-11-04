@@ -16,9 +16,9 @@
 }
 
 
-# Splits a multi-day ERA5 request into individual per-day requests.
-# wf_request_batch requires one request object per day.
-.split_request_by_day <- function(request) {
+# Reconstructs the requested dates from a daily request's year/month/day
+# vectors.
+.request_dates <- function(request) {
   years  <- as.integer(request$year)
   months <- as.integer(request$month)
   days   <- as.integer(request$day)
@@ -37,16 +37,33 @@
     dates         <- as.Date(paste(year_per_day, month_per_day, days, sep = "-"))
   }
 
-  dates <- sort(dates)
+  sort(unique(dates))
+}
 
-  lapply(dates, function(d) {
+
+# Splits a multi-day ERA5 request into one request per year-month. Each
+# request holds a single year and month, so CDS never expands a
+# year x month x day cartesian product across month boundaries.
+.split_daily_request_by_month <- function(request) {
+  dates  <- .request_dates(request)
+  groups <- split(dates, format(dates, "%Y%m"))
+
+  lapply(names(groups), function(ym) {
+    d        <- groups[[ym]]
     r        <- request
-    r$year   <- format(d, "%Y")
-    r$month  <- format(d, "%m")
+    r$year   <- format(d[1], "%Y")
+    r$month  <- format(d[1], "%m")
     r$day    <- format(d, "%d")
-    r$target <- paste0(request$target, "_", format(d, "%Y%m%d"))
+    r$target <- paste0(request$target, "_", ym)
     r
   })
+}
+
+
+# Extracts the trailing date key (YYYYMM / YYYYMMDD) from a target name or
+# downloaded file path.
+.target_suffix <- function(x) {
+  sub("^.*_(\\d+)(\\.[A-Za-z0-9]+)?$", "\\1", basename(x))
 }
 
 
@@ -54,12 +71,13 @@
 # wf_request_batch requires one request object per month.
 .split_request_by_month <- function(request) {
   dates <- sort(as.Date(paste(request$year, request$month, "01", sep = "-")))
+  stamp <- format(Sys.time(), "%y%m%d_%H%M%S")
 
   lapply(dates, function(d) {
     r         <- request
     r$year    <- format(d, "%Y")
     r$month   <- format(d, "%m")
-    r$target  <- paste0(r$variable, "_", r$.prefix, "_", format(d, "%Y%m"))
+    r$target  <- paste0(r$variable, "_", r$.prefix, "_", stamp, "_", format(d, "%Y%m"))
     r$.prefix <- NULL
     r
   })
@@ -142,11 +160,13 @@
                               total        = length(request_list),
                               on_progress  = NULL) {
   N     <- length(request_list)
+  n_net_errors   <- 0L
+  max_net_errors <- 10L
   slots <- as.list(rep(FALSE, min(workers, N)))
   queue <- request_list
   done  <- list()
 
-  total_timeout <- Sys.time() + N * time_out / workers
+  total_timeout <- Sys.time() + ceiling(N / workers) * time_out
 
   # Progress bar shows position relative to total request_length,
   # offset by already_done so it starts where the previous run left off
@@ -196,20 +216,35 @@
           progressed <- TRUE
         }
 
-        # Try to download
+        # Try to download; tolerate transient network errors while polling
         if (!isFALSE(slots[[w]])) {
-          invisible(capture.output(
-            suppressMessages(slots[[w]]$download()),
-            type = "output"
-          ))
+          poll_err <- tryCatch({
+            invisible(capture.output(
+              suppressMessages(slots[[w]]$download()),
+              type = "output"
+            ))
+            NULL
+          }, error = function(e) e)
+
+          if (is.null(poll_err)) {
+            n_net_errors <- 0L
+          } else {
+            n_net_errors <- n_net_errors + 1L
+            if (n_net_errors > max_net_errors) stop(poll_err)
+            err_msg <- conditionMessage(poll_err)
+            cli::cli_alert_warning(
+              "Network error while polling CDS ({n_net_errors}/{max_net_errors}), retrying: {err_msg}"
+            )
+            next
+          }
         }
 
         # Request complete -- update progress and fire callback
         if (!isFALSE(slots[[w]]) && !slots[[w]]$is_pending()) {
-          invisible(capture.output(
+          try(invisible(capture.output(
             suppressMessages(slots[[w]]$delete()),
             type = "output"
-          ))
+          )), silent = TRUE)
           done      <- append(done, slots[[w]])
           file_path <- done[[length(done)]]$get_file()
           slots[[w]] <- FALSE
@@ -245,18 +280,33 @@
 # Shared submission logic for both daily and monthly ERA5 batch requests.
 # Checks the stash cache first; submits via .wf_request_batch if not cached.
 # The on_progress callback stores each file in the cache immediately after
-# download, so partial results survive interrupts and errors.
+# download, so partial results survive interrupts and errors. Files are
+# matched to requests by their date suffix, since downloads complete out of
+# order. cache_tag versions the cache key when the split scheme changes.
 .submit_batch <- function(request,
                           split_fn,
                           path,
-                          cache   = TRUE,
-                          verbose = TRUE,
-                          workers = 3L) {
+                          cache     = TRUE,
+                          verbose   = TRUE,
+                          workers   = 3L,
+                          cache_tag = NULL) {
   all_requests   <- split_fn(request)
   request_length <- length(all_requests)
+  req_keys       <- vapply(
+    all_requests, function(r) .target_suffix(r$target), character(1)
+  )
+
+  in_request_order <- function(paths) {
+    paths <- as.character(paths)
+    out   <- paths[match(req_keys, .target_suffix(paths))]
+    out[!is.na(out)]
+  }
+
+  cache_key        <- request
+  cache_key$.split <- cache_tag
 
   stash    <- new_stash(file.path(path, "era5"), service = "ecmwfr")
-  restored <- stash$restore(request, request_length)
+  restored <- stash$restore(cache_key, request_length)
 
   if (!is.null(restored)) {
     n_restored <- length(restored)
@@ -265,24 +315,25 @@
         "Restored {n_restored}/{request_length} file{?s} from cache."
       )
     }
-    return(restored)
+    return(in_request_order(restored))
   }
 
-  # Check for partial cache -- resume from where we left off
-  partial      <- stash$get()[[stash$make_hash(request)]]
-  n_partial    <- length(partial)
-  already_done <- if (cache && n_partial > 0L) n_partial else 0L
-  todo_requests <- all_requests[seq(already_done + 1L, request_length)]
+  # Check for partial cache -- resume with the requests not yet downloaded
+  partial <- if (cache) stash$get()[[stash$make_hash(cache_key)]]
+  partial <- as.character(partial)
+  partial <- partial[file.exists(partial) & .target_suffix(partial) %in% req_keys]
 
-  if (cache && already_done > 0L) {
-    if (verbose) {
-      cli::cli_alert_success(
-        "Restored {already_done}/{request_length} file{?s} from cache."
-      )
-      cli::cli_alert_info(
-        "Resuming -- {length(todo_requests)} file{?s} remaining."
-      )
-    }
+  done_idx      <- req_keys %in% .target_suffix(partial)
+  already_done  <- sum(done_idx)
+  todo_requests <- all_requests[!done_idx]
+
+  if (already_done > 0L && verbose) {
+    cli::cli_alert_success(
+      "Restored {already_done}/{request_length} file{?s} from cache."
+    )
+    cli::cli_alert_info(
+      "Resuming -- {length(todo_requests)} file{?s} remaining."
+    )
   }
 
   prefix <- strsplit(request$target, "_")[[1]][2]
@@ -306,18 +357,21 @@
     already_done = already_done,
     total        = request_length,
     on_progress  = function(completed, total, file) {
-      if (cache) stash$store_partial(file, request)
+      if (cache) stash$store_partial(file, cache_key)
     }
   )
 
-  unlist(c(partial, new_paths))
+  in_request_order(c(partial, new_paths))
 }
 
 
 # Submits a pre-built daily ERA5 request as a batch, checking cache first.
 .submit_era5_batch <- function(request, path, cache = TRUE,
-                               verbose = TRUE, workers = 3L) {
-  .submit_batch(request, .split_request_by_day, path, cache, verbose, workers)
+                               verbose = TRUE, workers = 1L) {
+  .submit_batch(
+    request, .split_daily_request_by_month, path, cache, verbose, workers,
+    cache_tag = "month"
+  )
 }
 
 
