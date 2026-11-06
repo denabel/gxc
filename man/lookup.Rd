@@ -12,12 +12,16 @@ e.g. \code{"2m_temperature"}.}
 }
 \value{
 A list with indicator metadata, printed in a human-readable format.
+The element \code{details} is a dataframe with one row per catalogue.
 }
 \description{
-Returns metadata for a given indicator, including its physical
-unit, available catalogues, and temporal resolution.
+Returns metadata for a given indicator and how it differs
+between the catalogues that provide it: temporal and spatial resolution,
+coverage, available daily statistics, and the unit of the returned
+values.
 }
 \examples{
 lookup("2m_temperature")
 lookup("air_temperature_mean")
+lookup("total_precipitation")
 }
