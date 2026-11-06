@@ -366,6 +366,28 @@ Downloads are robust to interruptions: each completed file is cached
 immediately, and a re-run only requests the months still missing. Transient
 network errors while polling the CDS no longer abort the batch.
 
+### Daily sums for accumulated indicators (`statistic = "daily_sum"`)
+
+`link_daily()` accepts `statistic = "daily_sum"` for accumulated ERA5
+indicators (`total_precipitation`, `downward_uv_radiation_at_the_surface`,
+`snowfall`), returning daily totals as provided by the CDS daily statistics
+catalogue. These indicators are stored as hourly amounts, so the default
+`"daily_mean"` returns the mean amount per hour.
+
+```r
+link_daily(
+  pts,
+  indicator = "total_precipitation",
+  catalogue = "derived-era5-single-levels-daily-statistics",
+  statistic = "daily_sum"
+)
+```
+
+The `.unit` and `.result_unit` columns now reflect what the catalogue and
+statistic actually deliver, e.g. `"m/h"` for `daily_mean` of an hourly
+accumulation, `"m/day"` for `daily_sum` and for ERA5 monthly means of
+accumulations, and `"mm/day"`/`"mm/month"` for DWD precipitation.
+
 ### Raster caching within a session
 
 `.safe_rast()` now memoizes its result for the duration of the R session,
@@ -559,6 +581,10 @@ results instead of a single `sf`/`SpatRaster` object, when more than one
 `baseline_fun`/`stat_wrangling` combination is requested (see "Multiple
 `baseline_fun`/`stat_wrangling` combinations" above). Existing single-value
 calls are unaffected and continue to return a single object as before.
+
+Unit labels of accumulated indicators changed (e.g. `"m"` → `"m/h"` or
+`"m/day"`, `"mm"` → `"mm/day"` for DWD precipitation). The values themselves
+are unchanged.
 
 Daily ERA5 files cached by earlier versions (one file per day) are not reused,
 since the cache now stores one file per month. The first run after updating
