@@ -16,6 +16,9 @@ knitr::opts_chunk$set(
   dev = "ragg_png",
   dpi = 300
 )
+
+# Persistent download cache for rendering only; examples show the plain calls
+readme_cache <- "../gxc_test/readme/"
 ```
 
 [![Project Status:
@@ -23,8 +26,7 @@ Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repost
 [![R-CMD-check.yaml](https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml)
 [![Codecov test
 coverage](https://codecov.io/gh/denabel/gxc/graph/badge.svg)](https://app.codecov.io/gh/denabel/gxc)
-[![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://choosealicense.com/licenses/mit/)
-[![Last-changedate](https://img.shields.io/badge/last%20change-2026--06--23-yellowgreen.svg)](/commits/master)
+[![license](https://img.shields.io/github/license/denabel/gxc)](https://github.com/denabel/gxc/blob/main/LICENSE.md)
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15041278.svg)](https://doi.org/10.5281/zenodo.15041278)
 <!-- 
@@ -40,8 +42,9 @@ coverage](https://codecov.io/gh/denabel/gxc/graph/badge.svg)](https://app.codeco
 > `.study`, `.deviation` → `.result`), DWD data is now supported without
 > an API key, and a new set of arguments (`baseline_fun`, `study_fun`,
 > `stat_wrangling`, `prefix`, `months`) gives fine-grained control over
-> how indicators are summarised and compared. See [NEWS.md](NEWS.md) for
-> the full changelog.
+> how indicators are summarised and compared. Daily ERA5 files cached by
+> earlier versions are not reused and will be downloaded again. See
+> [NEWS.md](NEWS.md) for the full changelog.
 
 For many researchers in the social sciences, **Earth observation (EO)**
 data is a black box. This is mainly caused by a lack of knowledge about
@@ -96,6 +99,13 @@ your API key inside R:
 ``` r
 set_api_key("ecmwfr")
 ```
+
+ERA5 requests are processed through the queue of the Copernicus Climate
+Data Store. Depending on its load, a single request can wait from a few
+minutes up to an hour or more before it is processed, so larger requests
+(e.g. long baselines) can take a while. Use `cache = TRUE` together with a
+fixed `path` to keep downloaded files and avoid downloading them again in
+later calls. Interrupted downloads resume where they stopped.
 
 **DWD (German Weather Service)** — provides 1 km gridded HYRAS data for
 Germany. No API key or registration required. Data is downloaded
@@ -155,14 +165,25 @@ We retrieve the daily mean temperature for the specific post day
 (`time_span = 0`, `time_lag = 0`) in a 10 km area around each location
 (`buffer = 10000`).
 
-```{r point_link_daily, echo=TRUE, message=TRUE}
+```{r point_link_daily_show, eval=FALSE}
 result <- 
   link_daily(
     points_sf, 
     indicator = "2m_temperature", 
     buffer = 10000,
     cache = TRUE,
-    path = "../gxc_test/readme/"
+    path = tempdir()
+  )
+```
+
+```{r point_link_daily, echo=FALSE, message=TRUE}
+result <- 
+  link_daily(
+    points_sf, 
+    indicator = "2m_temperature", 
+    buffer = 10000,
+    cache = TRUE,
+    path = readme_cache
   )
 ```
 
@@ -213,13 +234,25 @@ plot(world[1])
 
 ### Do the linking
 
-```{r poly_link_monthly, echo=TRUE}
+```{r poly_link_monthly_show, eval=FALSE}
 result <- 
   link_monthly(
     world, 
     indicator = "total_precipitation", 
     parallel = TRUE,
-    path = "../gxc_test/readme/"
+    cache = TRUE,
+    path = tempdir()
+  )
+```
+
+```{r poly_link_monthly, echo=FALSE}
+result <- 
+  link_monthly(
+    world, 
+    indicator = "total_precipitation", 
+    parallel = TRUE,
+    cache = TRUE,
+    path = readme_cache
   )
 ```
 
@@ -254,14 +287,14 @@ For analyses focused on Germany, DWD HYRAS data is available at 1 km
 resolution without any registration. The `catalogue` argument selects
 the data source:
 
-```{r dwd_example, echo=TRUE, message=TRUE}
+```{r dwd_example_show, eval=FALSE}
 # Daily air temperature from DWD
 result_dwd <- 
   link_daily(
     points_sf,
     indicator = "air_temperature_mean",
     catalogue = "dwd-hyras-daily",
-    path = "../gxc_test/readme/"
+    path = tempdir()
   )
 
 # Monthly summer drought index deviation from 1980-2010 baseline
@@ -273,7 +306,28 @@ result_drought <-
     months         = c(6, 7, 8),
     baseline       = c("1980", "2010"),
     stat_wrangling = "deviation",
-    path = "../gxc_test/readme/"
+    path = tempdir()
+  )
+```
+
+```{r dwd_example, echo=FALSE, message=TRUE}
+result_dwd <- 
+  link_daily(
+    points_sf,
+    indicator = "air_temperature_mean",
+    catalogue = "dwd-hyras-daily",
+    path = readme_cache
+  )
+
+result_drought <- 
+  link_monthly(
+    points_sf,
+    indicator      = "drought_index",
+    catalogue      = "dwd-monthly",
+    months         = c(6, 7, 8),
+    baseline       = c("1980", "2010"),
+    stat_wrangling = "deviation",
+    path = readme_cache
   )
 ```
 
@@ -321,17 +375,17 @@ Jonas Lieth
 
 To cite `gxc` in publications use:
 
-> Abel D, Jünger S (2025). gxc: Easy Access to Earth Observation Data. R
-> package version 0.1.0, <https://github.com/denabel/gxc>.
+> Abel D, Jünger S, Lieth J (2026). gxc: Easy Access to Earth Observation
+> Data. R package version 1.0.0, <https://github.com/denabel/gxc>.
 
 Or in BibTeX:
 
 ```         
-@manual{abel2025gxc,
-author = {Abel, Daniel and Jünger, Stefan, and Lieth, Jonas},
+@manual{abel2026gxc,
+author = {Abel, Dennis and Jünger, Stefan and Lieth, Jonas},
 title  = {{gxc: Easy Access to Earth Observation Data}},
-year   = {2025},
-note   = {R package version 0.1.0},
+year   = {2026},
+note   = {R package version 1.0.0},
 url    = {https://github.com/denabel/gxc}
 }
 ```

@@ -1,10 +1,8 @@
-# gxc — Changelog
+# gxc 1.0.0
 
-## Development version
+## New features
 
-### New features
-
-#### Baseline statistics (`stat_wrangling`)
+### Baseline statistics (`stat_wrangling`)
 
 `link_daily()` and `link_monthly()` now support a `stat_wrangling` argument that
 controls how the focal period is compared to the baseline. Four options are
@@ -26,7 +24,7 @@ link_daily(
 )
 ```
 
-#### Baseline and study period aggregation functions
+### Baseline and study period aggregation functions
 
 Two new arguments control how values are aggregated before comparison:
 
@@ -55,7 +53,7 @@ link_daily(
 )
 ```
 
-#### Multiple `baseline_fun`/`stat_wrangling` combinations
+### Multiple `baseline_fun`/`stat_wrangling` combinations
 
 `baseline_fun` and `stat_wrangling` can each be given as a **list** to request
 several combinations in a single call, e.g. comparing against both the median
@@ -104,7 +102,7 @@ This is currently only supported for `sf` input, not `SpatRaster` input —
 `SpatRaster` input still accepts only a single `baseline_fun`/`stat_wrangling`
 value each.
 
-#### Explicit month window (`months`)
+### Explicit month window (`months`)
 
 Both `link_daily()` and `link_monthly()` now support a `months` argument for
 specifying an explicit set of months as the study period instead of a rolling
@@ -151,7 +149,7 @@ resulting count is out of the number of *months* in the window (e.g. out of 3
 for `c(3, 4, 5)`), not out of the number of days. `link_daily()` with `months`
 counts at the daily level instead (out of the number of days in the window).
 
-#### Output column naming (`prefix`)
+### Output column naming (`prefix`)
 
 A new `prefix` argument allows naming the output columns when calling
 `link_daily()` or `link_monthly()` multiple times on the same dataset. Without
@@ -166,7 +164,7 @@ pts |>
   link_daily(indicator = "2m_temperature", time_span = 30, prefix = "temp_30d")
 ```
 
-#### DWD catalogue support
+### DWD catalogue support
 
 `link_daily()` and `link_monthly()` now support data from the German Weather
 Service (DWD) in addition to ERA5. Two new catalogues are available:
@@ -207,7 +205,7 @@ The following indicators are currently supported:
 **`dwd-monthly`**: `air_temperature_mean`, `air_temperature_max`,
 `air_temperature_min`, `precipitation`, `drought_index`
 
-#### Spatial downsampling (`downsample_factor`)
+### Spatial downsampling (`downsample_factor`)
 
 `link_daily()` and `link_monthly()` gain two new arguments for trading a small
 amount of spatial precision for a substantial extraction speedup on buffered
@@ -255,7 +253,7 @@ regardless of this setting), so it's always possible to tell from the output
 alone whether a given result used the native or an aggregated resolution —
 important for reproducibility.
 
-#### Opt-in results cache (`cache_results`)
+### Opt-in results cache (`cache_results`)
 
 `link_daily()` and `link_monthly()` gain two new arguments for caching the
 final, already-extracted-and-aggregated per-date result to disk:
@@ -292,7 +290,7 @@ re-checks that the stored geometry matches the requested geometry, aborting
 loudly on a mismatch rather than silently returning a result for the wrong
 observations.
 
-#### Redesigned output columns
+### Redesigned output columns
 
 Output columns are now consistently structured across all calls, regardless of
 whether a baseline is requested. Calls without a baseline still produce all
@@ -332,7 +330,7 @@ For `link_daily.SpatRaster()` and `link_monthly.SpatRaster()`, metadata is
 stored via `terra::metags()` instead of columns, since raster layers cannot hold
 character data.
 
-#### Progress reporting
+### Progress reporting
 
 The split-loop in `link_daily()` and `link_monthly()` uses a live progress bar
 instead of a `cli_rule()` per date, keeping output concise regardless of how
@@ -348,20 +346,27 @@ The header block is printed immediately after input validation — before
 `st_buffer()` and `split()` — so the user sees output right away instead of
 waiting several seconds for spatial preprocessing to complete silently.
 
-#### Batched API requests
+### Batched API requests
 
-Requests are split into individual API calls — one per day for `link_daily()`
-and one per month for `link_monthly()` — which is the approach recommended by
-the Copernicus CDS. These individual requests are submitted as a single batch
-before extraction begins, so the API's parallel download capacity (`workers = 6`)
-is used across all dates simultaneously.
+ERA5 requests are split into one API call per month, for both `link_daily()`
+and `link_monthly()`. For daily data, all requested days of a month go into a
+single request; the CDS forms for the daily statistics datasets accept only
+one year and one month per request, so this is the coarsest split possible.
+Compared to one request per day, this reduces the number of jobs waiting in
+the CDS queue by roughly a factor of 30, which dominates total download time
+(queue waits of up to an hour per job are common, while processing takes
+minutes).
 
-All observation and baseline requests are submitted upfront before the extraction
-loop starts. A global spatial extent is computed once over the full dataset and
-reused across all splits, eliminating redundant downloads and significantly
-reducing total download time for datasets with many unique dates.
+All observation and baseline requests are submitted upfront before the
+extraction loop starts, with at most three jobs active at a time. A global
+spatial extent is computed once over the full dataset and reused across all
+splits, eliminating redundant downloads.
 
-#### Raster caching within a session
+Downloads are robust to interruptions: each completed file is cached
+immediately, and a re-run only requests the months still missing. Transient
+network errors while polling the CDS no longer abort the batch.
+
+### Raster caching within a session
 
 `.safe_rast()` now memoizes its result for the duration of the R session,
 keyed by the exact set of file paths and their modification times. Repeated
@@ -383,9 +388,7 @@ sharing some years, like 1961–1990 and 1981–2010 — reuses whichever
 individual files it has in common instead of re-reading them, even though the
 two file sets as a whole are different cache entries.
 
----
-
-### Bug fixes
+## Bug fixes
 
 - Fixed ERA5 monthly date matching for indicators that store values on the last
   day of the preceding month (e.g. `total_precipitation`, `instantaneous_10m_wind_gust`,
@@ -497,6 +500,28 @@ two file sets as a whole are different cache entries.
   do not match` instead of resampling. The alignment check now always
   runs against every layer being combined, regardless of whether any
   file needed loading this time.
+- Fixed monthly ERA5 downloads being named only by variable, prefix and
+  month. Two requests with a different extent or catalogue wrote to the same
+  file, so the cache entry of the first request silently pointed to the
+  second request's data. File names now include a unique request id.
+- Fixed ERA5 files being returned in download completion order rather than
+  chronological order when several jobs ran in parallel, and resumed
+  downloads skipping the wrong requests after an interruption. Files are now
+  matched to requests by their date suffix.
+- Fixed `link_daily()` with `cache = FALSE` deleting the downloaded files
+  after the first date cluster, so that every further cluster failed with
+  `[app] not a good dataset`. Files are now removed only after all clusters
+  are processed.
+- Fixed a single network error while polling the CDS (e.g. a failed DNS
+  lookup) aborting the whole download batch after potentially hours of
+  waiting. Polling now retries and only gives up after repeated consecutive
+  failures.
+- Fixed the overall download timeout scaling with the number of requests
+  divided by the number of workers, which left a single request only a
+  third of the per-request timeout.
+- Shortened downloaded ERA5 file names (indicator truncated to 20
+  characters plus a short request id) to stay within the 100-byte path
+  limit for portable package tarballs.
 - Fixed a `==` typo in `enrich()`'s `ags` branch (`ags == args$ags`
   instead of `ags = args$ags`), which passed a stray logical comparison
   as a positional argument to `ffm::bkg_admin()` instead of naming the
@@ -511,9 +536,7 @@ two file sets as a whole are different cache entries.
   median`/`sd`, `utils::capture.output`/`download.file`) that `R CMD
   check` flagged as missing.
 
----
-
-### Breaking changes
+## Breaking changes
 
 The output column names have changed. Code that referenced `.linked`,
 `.deviation`, or `.baseline` directly will need to be updated:
@@ -537,16 +560,24 @@ results instead of a single `sf`/`SpatRaster` object, when more than one
 `baseline_fun`/`stat_wrangling` combinations" above). Existing single-value
 calls are unaffected and continue to return a single object as before.
 
----
+Daily ERA5 files cached by earlier versions (one file per day) are not reused,
+since the cache now stores one file per month. The first run after updating
+downloads these data again.
 
-### Internal changes
+## Internal changes
 
 - New internal functions `.build_era5_daily_request()`,
   `.build_era5_monthly_request()`, `.submit_era5_batch()`, and
   `.submit_era5_monthly_batch()` separate request construction from submission,
   enabling the batched upfront download strategy.
 - New `.submit_batch()` consolidates shared batch submission logic for daily
-  and monthly ERA5 requests.
+  and monthly ERA5 requests. It versions the cache key via a `cache_tag`
+  (`.split = "month"` for daily requests), so cache entries from a different
+  split scheme are never restored.
+- New `.split_daily_request_by_month()` and `.request_dates()` replace the
+  former per-day split. New `.target_suffix()` extracts the date key from a
+  target name or file path, and `.target_base()` builds short, unique file
+  names for all ERA5 requests.
 - New `.request_dwd_daily()` and `.request_dwd_monthly()` handle DWD data
   download, decompression, CRS assignment, and per-day/per-month caching.
 - New `.decompress_gz()` decompresses `.gz` files using base R without

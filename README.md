@@ -4,8 +4,7 @@ Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repost
 [![R-CMD-check.yaml](https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/denabel/gxc/actions/workflows/R-CMD-check.yaml)
 [![Codecov test
 coverage](https://codecov.io/gh/denabel/gxc/graph/badge.svg)](https://app.codecov.io/gh/denabel/gxc)
-[![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://choosealicense.com/licenses/mit/)
-[![Last-changedate](https://img.shields.io/badge/last%20change-2026--06--23-yellowgreen.svg)](/commits/master)
+[![license](https://img.shields.io/github/license/denabel/gxc)](https://github.com/denabel/gxc/blob/main/LICENSE.md)
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15041278.svg)](https://doi.org/10.5281/zenodo.15041278)
 <!-- 
@@ -21,8 +20,9 @@ coverage](https://codecov.io/gh/denabel/gxc/graph/badge.svg)](https://app.codeco
 > `.study`, `.deviation` → `.result`), DWD data is now supported without
 > an API key, and a new set of arguments (`baseline_fun`, `study_fun`,
 > `stat_wrangling`, `prefix`, `months`) gives fine-grained control over
-> how indicators are summarised and compared. See [NEWS.md](NEWS.md) for
-> the full changelog.
+> how indicators are summarised and compared. Daily ERA5 files cached by
+> earlier versions are not reused and will be downloaded again. See
+> [NEWS.md](NEWS.md) for the full changelog.
 
 For many researchers in the social sciences, **Earth observation (EO)**
 data is a black box. This is mainly caused by a lack of knowledge about
@@ -77,6 +77,13 @@ your API key inside R:
 ``` r
 set_api_key("ecmwfr")
 ```
+
+ERA5 requests are processed through the queue of the Copernicus Climate
+Data Store. Depending on its load, a single request can wait from a few
+minutes up to an hour or more before it is processed, so larger requests
+(e.g. long baselines) can take a while. Use `cache = TRUE` together with
+a fixed `path` to keep downloaded files and avoid downloading them again
+in later calls. Interrupted downloads resume where they stopped.
 
 **DWD (German Weather Service)** — provides 1 km gridded HYRAS data for
 Germany. No API key or registration required. Data is downloaded
@@ -160,26 +167,29 @@ result <-
     indicator = "2m_temperature", 
     buffer = 10000,
     cache = TRUE,
-    path = "../gxc_test/readme/"
+    path = tempdir()
   )
-#> ── Link with daily indicators ──────────────────────────────────────────────────
-#> Indicator: "2m_temperature"
-#> Catalogue: "derived-era5-land-daily-statistics"
-#> Time span: 0
-#> Time lag: 0
-#> Baseline: "none"
-#> Baseline function: "mean"
-#> Study function: "mean"
-#> Stat wrangling: "deviation"
-#> Prefix: "(none)"
-#> Observations: "1000 clustered across 62 unique dates"
-#> Buffer: "10000 m"
-#> Caching enabled: TRUE
-#> Storage path: '../gxc_test/readme/'
-#> 
-#> Submitting observation requests (62 days)...                                             ✔ Restored 62/62 files from cache.
-#> Submitting observation requests (62 days)...                                             ⠙ Processing dates  [7/62] · 2019-07-07 ■■■■                              11%⠹ Processing dates  [9/62] · 2019-07-09 ■■■■■                             15%⠸ Processing dates  [11/62] · 2019-07-11 ■■■■■■                            18%⠼ Processing dates  [12/62] · 2019-07-12 ■■■■■■■                           19%⠴ Processing dates  [14/62] · 2019-07-14 ■■■■■■■■                          23%⠦ Processing dates  [15/62] · 2019-07-15 ■■■■■■■■                          24%⠧ Processing dates  [16/62] · 2019-07-16 ■■■■■■■■■                         26%⠇ Processing dates  [17/62] · 2019-07-17 ■■■■■■■■■                         27%⠏ Processing dates  [18/62] · 2019-07-18 ■■■■■■■■■■                        29%⠋ Processing dates  [19/62] · 2019-07-19 ■■■■■■■■■■                        31%⠙ Processing dates  [21/62] · 2019-07-21 ■■■■■■■■■■■                       34%⠹ Processing dates  [23/62] · 2019-07-23 ■■■■■■■■■■■■                      37%⠸ Processing dates  [24/62] · 2019-07-24 ■■■■■■■■■■■■■                     39%⠼ Processing dates  [25/62] · 2019-07-25 ■■■■■■■■■■■■■                     40%⠴ Processing dates  [27/62] · 2019-07-27 ■■■■■■■■■■■■■■                    44%⠦ Processing dates  [28/62] · 2019-07-28 ■■■■■■■■■■■■■■■                   45%⠧ Processing dates  [29/62] · 2019-07-29 ■■■■■■■■■■■■■■■                   47%⠇ Processing dates  [30/62] · 2019-07-30 ■■■■■■■■■■■■■■■■                  48%⠏ Processing dates  [31/62] · 2019-07-31 ■■■■■■■■■■■■■■■■                  50%⠋ Processing dates  [32/62] · 2019-08-01 ■■■■■■■■■■■■■■■■                  52%⠙ Processing dates  [33/62] · 2019-08-02 ■■■■■■■■■■■■■■■■■                 53%⠹ Processing dates  [34/62] · 2019-08-03 ■■■■■■■■■■■■■■■■■                 55%⠸ Processing dates  [35/62] · 2019-08-04 ■■■■■■■■■■■■■■■■■■                56%⠼ Processing dates  [36/62] · 2019-08-05 ■■■■■■■■■■■■■■■■■■                58%⠴ Processing dates  [38/62] · 2019-08-07 ■■■■■■■■■■■■■■■■■■■               61%⠦ Processing dates  [39/62] · 2019-08-08 ■■■■■■■■■■■■■■■■■■■■              63%⠧ Processing dates  [40/62] · 2019-08-09 ■■■■■■■■■■■■■■■■■■■■              65%⠇ Processing dates  [41/62] · 2019-08-10 ■■■■■■■■■■■■■■■■■■■■■             66%⠏ Processing dates  [43/62] · 2019-08-12 ■■■■■■■■■■■■■■■■■■■■■■            69%⠋ Processing dates  [44/62] · 2019-08-13 ■■■■■■■■■■■■■■■■■■■■■■            71%⠙ Processing dates  [46/62] · 2019-08-15 ■■■■■■■■■■■■■■■■■■■■■■■           74%⠹ Processing dates  [47/62] · 2019-08-16 ■■■■■■■■■■■■■■■■■■■■■■■■          76%⠸ Processing dates  [48/62] · 2019-08-17 ■■■■■■■■■■■■■■■■■■■■■■■■          77%⠼ Processing dates  [49/62] · 2019-08-18 ■■■■■■■■■■■■■■■■■■■■■■■■■         79%⠴ Processing dates  [51/62] · 2019-08-20 ■■■■■■■■■■■■■■■■■■■■■■■■■■        82%⠦ Processing dates  [52/62] · 2019-08-21 ■■■■■■■■■■■■■■■■■■■■■■■■■■        84%⠧ Processing dates  [53/62] · 2019-08-22 ■■■■■■■■■■■■■■■■■■■■■■■■■■■       85%⠇ Processing dates  [54/62] · 2019-08-23 ■■■■■■■■■■■■■■■■■■■■■■■■■■■       87%⠏ Processing dates  [56/62] · 2019-08-25 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■      90%⠋ Processing dates  [57/62] · 2019-08-26 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■     92%⠙ Processing dates  [58/62] · 2019-08-27 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■     94%⠹ Processing dates  [59/62] · 2019-08-28 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■    95%⠸ Processing dates  [61/62] · 2019-08-30 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■   98%                                                                               ✔ Done. 1000 observations across 62 dates linked in 13.3s.
 ```
+
+    #> ── Link with daily indicators ──────────────────────────────────────────────────
+    #> Indicator: "2m_temperature"
+    #> Catalogue: "derived-era5-land-daily-statistics"
+    #> Time span: 0
+    #> Months: "(none)"
+    #> Time lag: 0
+    #> Baseline: "none"
+    #> Baseline function: "mean"
+    #> Study function: "mean"
+    #> Stat wrangling: "deviation"
+    #> Prefix: "(none)"
+    #> Observations: 1000
+    #> Buffer: "10000 m"
+    #> Caching enabled: TRUE
+    #> Storage path: '../gxc_test/readme/'
+    #> 
+    #> ℹ Observations clustered across 62 unique dates.
+    #> Submitting observation requests (62 days)...ℹ Preparing temperature data from ECMWF (2 requests total, downloading 2)...⠙ Downloading from CDS  1/2 [2m 6.4s] ■■■■■■■■■■■■■■■■                                                                                             ℹ Preparing temperature data from ECMWF (2 requests total, downloading 2)...✔ Successfully prepared temperature data from ECMWF. [5m 11.3s]             
+    #> Submitting observation requests (62 days)...                                             ⠙ Processing dates  [2/62] · 2019-07-02 ■■                                 3%⠹ Processing dates  [3/62] · 2019-07-03 ■■                                 5%⠸ Processing dates  [6/62] · 2019-07-06 ■■■■                              10%⠼ Processing dates  [8/62] · 2019-07-08 ■■■■■                             13%⠴ Processing dates  [11/62] · 2019-07-11 ■■■■■■                            18%⠦ Processing dates  [13/62] · 2019-07-13 ■■■■■■■                           21%⠧ Processing dates  [15/62] · 2019-07-15 ■■■■■■■■                          24%⠇ Processing dates  [18/62] · 2019-07-18 ■■■■■■■■■■                        29%⠏ Processing dates  [20/62] · 2019-07-20 ■■■■■■■■■■■                       32%⠋ Processing dates  [22/62] · 2019-07-22 ■■■■■■■■■■■■                      35%⠙ Processing dates  [25/62] · 2019-07-25 ■■■■■■■■■■■■■                     40%⠹ Processing dates  [27/62] · 2019-07-27 ■■■■■■■■■■■■■■                    44%⠸ Processing dates  [29/62] · 2019-07-29 ■■■■■■■■■■■■■■■                   47%⠼ Processing dates  [32/62] · 2019-08-01 ■■■■■■■■■■■■■■■■                  52%⠴ Processing dates  [34/62] · 2019-08-03 ■■■■■■■■■■■■■■■■■                 55%⠦ Processing dates  [36/62] · 2019-08-05 ■■■■■■■■■■■■■■■■■■                58%⠧ Processing dates  [38/62] · 2019-08-07 ■■■■■■■■■■■■■■■■■■■               61%⠇ Processing dates  [41/62] · 2019-08-10 ■■■■■■■■■■■■■■■■■■■■■             66%⠏ Processing dates  [43/62] · 2019-08-12 ■■■■■■■■■■■■■■■■■■■■■■            69%⠋ Processing dates  [45/62] · 2019-08-14 ■■■■■■■■■■■■■■■■■■■■■■■           73%⠙ Processing dates  [47/62] · 2019-08-16 ■■■■■■■■■■■■■■■■■■■■■■■■          76%⠹ Processing dates  [50/62] · 2019-08-19 ■■■■■■■■■■■■■■■■■■■■■■■■■         81%⠸ Processing dates  [52/62] · 2019-08-21 ■■■■■■■■■■■■■■■■■■■■■■■■■■        84%⠼ Processing dates  [54/62] · 2019-08-23 ■■■■■■■■■■■■■■■■■■■■■■■■■■■       87%⠴ Processing dates  [57/62] · 2019-08-26 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■     92%⠦ Processing dates  [59/62] · 2019-08-28 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■    95%⠧ Processing dates  [61/62] · 2019-08-30 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■   98%                                                                               ✔ Done. 1000 observations across 62 dates linked in 8.2s.
 
 ### Explore the extended dataset
 
@@ -189,28 +199,29 @@ columns.
 
 ``` r
 result
-#> Simple feature collection with 1000 features and 16 fields
+#> Simple feature collection with 1000 features and 17 fields
 #> Geometry type: POINT
 #> Dimension:     XY
 #> Bounding box:  xmin: 6.033292 ymin: 47.41057 xmax: 14.88795 ymax: 54.96192
 #> Geodetic CRS:  WGS 84
-#> # A tibble: 1,000 × 17
+#> # A tibble: 1,000 × 18
 #>    date       .study .baseline .result .indicator   .unit .resolution .time_unit
 #>    <date>      <dbl>     <dbl>   <dbl> <chr>        <chr> <chr>       <chr>     
-#>  1 2019-07-01   292.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
-#>  2 2019-07-01   293.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
-#>  3 2019-07-01   293.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
-#>  4 2019-07-01   293.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
-#>  5 2019-07-01   293.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
-#>  6 2019-07-01   293.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
-#>  7 2019-07-01   291.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
-#>  8 2019-07-01   291.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
-#>  9 2019-07-01   293.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
-#> 10 2019-07-01   292.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
+#>  1 2019-07-23   297.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
+#>  2 2019-08-26   298.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
+#>  3 2019-07-23   297.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
+#>  4 2019-08-27   296.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
+#>  5 2019-07-23   295.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
+#>  6 2019-07-09   288.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
+#>  7 2019-07-20   295.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
+#>  8 2019-08-12   288.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
+#>  9 2019-07-10   288.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
+#> 10 2019-07-03   288.        NA      NA 2m_temperat… K     0.1° x 0.1° days      
 #> # ℹ 990 more rows
-#> # ℹ 9 more variables: .result_unit <chr>, .study_fun <chr>,
+#> # ℹ 10 more variables: .result_unit <chr>, .study_fun <chr>,
 #> #   .baseline_fun <chr>, .baseline_years <chr>, .time_span <dbl>,
-#> #   .time_lag <dbl>, .buffer <dbl>, .source <chr>, geometry <POINT [°]>
+#> #   .time_lag <dbl>, .buffer <dbl>, .downsample_factor <dbl>, .source <chr>,
+#> #   geometry <POINT [°]>
 ```
 
 ``` r
@@ -260,7 +271,8 @@ result <-
     world, 
     indicator = "total_precipitation", 
     parallel = TRUE,
-    path = "../gxc_test/readme/"
+    cache = TRUE,
+    path = tempdir()
   )
 ```
 
@@ -268,29 +280,29 @@ result <-
 
 ``` r
 result
-#> Simple feature collection with 241 features and 19 fields
+#> Simple feature collection with 241 features and 20 fields
 #> Geometry type: MULTIPOLYGON
 #> Dimension:     XY
 #> Bounding box:  xmin: -180 ymin: -58.49229 xmax: 180 ymax: 83.59961
 #> Geodetic CRS:  WGS 84
-#> # A tibble: 241 × 20
+#> # A tibble: 241 × 21
 #>    admin          iso_a3 postal date   .study .baseline .result .indicator .unit
 #>    <chr>          <chr>  <chr>  <chr>   <dbl>     <dbl>   <dbl> <chr>      <chr>
-#>  1 Zimbabwe       ZWE    ZW     2014… 5.76e-5        NA      NA total_pre… m    
-#>  2 Zambia         ZMB    ZM     2014… 1.20e-5        NA      NA total_pre… m    
-#>  3 Yemen          YEM    YE     2014… 8.09e-4        NA      NA total_pre… m    
-#>  4 Vietnam        VNM    VN     2014… 9.12e-3        NA      NA total_pre… m    
-#>  5 Venezuela      VEN    VE     2014… 8.93e-3        NA      NA total_pre… m    
+#>  1 Zimbabwe       ZWE    ZW     2014… 5.77e-5        NA      NA total_pre… m    
+#>  2 Zambia         ZMB    ZM     2014… 1.16e-5        NA      NA total_pre… m    
+#>  3 Yemen          YEM    YE     2014… 8.14e-4        NA      NA total_pre… m    
+#>  4 Vietnam        VNM    VN     2014… 9.16e-3        NA      NA total_pre… m    
+#>  5 Venezuela      VEN    VE     2014… 8.99e-3        NA      NA total_pre… m    
 #>  6 Vatican        VAT    V      2014… 2.70e-4        NA      NA total_pre… m    
-#>  7 Vanuatu        VUT    VU     2014… 1.29e-3        NA      NA total_pre… m    
-#>  8 Uzbekistan     UZB    UZ     2014… 5.66e-5        NA      NA total_pre… m    
+#>  7 Vanuatu        VUT    VU     2014… 1.35e-3        NA      NA total_pre… m    
+#>  8 Uzbekistan     UZB    UZ     2014… 4.42e-5        NA      NA total_pre… m    
 #>  9 Uruguay        URY    UY     2014… 1.62e-3        NA      NA total_pre… m    
 #> 10 Federated Sta… FSM    FSM    2014… 5.48e-3        NA      NA total_pre… m    
 #> # ℹ 231 more rows
-#> # ℹ 11 more variables: .resolution <chr>, .time_unit <chr>, .result_unit <chr>,
+#> # ℹ 12 more variables: .resolution <chr>, .time_unit <chr>, .result_unit <chr>,
 #> #   .study_fun <chr>, .baseline_fun <chr>, .baseline_years <chr>,
-#> #   .time_span <dbl>, .time_lag <dbl>, .buffer <dbl>, .source <chr>,
-#> #   geometry <MULTIPOLYGON [°]>
+#> #   .time_span <dbl>, .time_lag <dbl>, .buffer <dbl>, .downsample_factor <dbl>,
+#> #   .source <chr>, geometry <MULTIPOLYGON [°]>
 ```
 
 ``` r
@@ -327,24 +339,8 @@ result_dwd <-
     points_sf,
     indicator = "air_temperature_mean",
     catalogue = "dwd-hyras-daily",
-    path = "../gxc_test/readme/"
+    path = tempdir()
   )
-#> ── Link with daily indicators ──────────────────────────────────────────────────
-#> Indicator: "air_temperature_mean"
-#> Catalogue: "dwd-hyras-daily"
-#> Time span: 0
-#> Time lag: 0
-#> Baseline: "none"
-#> Baseline function: "mean"
-#> Study function: "mean"
-#> Stat wrangling: "deviation"
-#> Prefix: "(none)"
-#> Observations: "1000 clustered across 62 unique dates"
-#> Buffer: "0 m"
-#> Caching enabled: TRUE
-#> Storage path: '../gxc_test/readme/'
-#> 
-#> Submitting observation requests (62 days)...                                             ⠙ Processing dates  [7/62] · 2019-07-07 ■■■■                              11%⠹ Processing dates  [8/62] · 2019-07-08 ■■■■■                             13%⠸ Processing dates  [9/62] · 2019-07-09 ■■■■■                             15%⠼ Processing dates  [10/62] · 2019-07-10 ■■■■■■                            16%⠴ Processing dates  [11/62] · 2019-07-11 ■■■■■■                            18%⠦ Processing dates  [12/62] · 2019-07-12 ■■■■■■■                           19%⠧ Processing dates  [13/62] · 2019-07-13 ■■■■■■■                           21%⠇ Processing dates  [14/62] · 2019-07-14 ■■■■■■■■                          23%⠏ Processing dates  [15/62] · 2019-07-15 ■■■■■■■■                          24%⠋ Processing dates  [16/62] · 2019-07-16 ■■■■■■■■■                         26%⠙ Processing dates  [17/62] · 2019-07-17 ■■■■■■■■■                         27%⠹ Processing dates  [18/62] · 2019-07-18 ■■■■■■■■■■                        29%⠸ Processing dates  [19/62] · 2019-07-19 ■■■■■■■■■■                        31%⠼ Processing dates  [20/62] · 2019-07-20 ■■■■■■■■■■■                       32%⠴ Processing dates  [21/62] · 2019-07-21 ■■■■■■■■■■■                       34%⠦ Processing dates  [23/62] · 2019-07-23 ■■■■■■■■■■■■                      37%⠧ Processing dates  [24/62] · 2019-07-24 ■■■■■■■■■■■■■                     39%⠇ Processing dates  [26/62] · 2019-07-26 ■■■■■■■■■■■■■■                    42%⠏ Processing dates  [27/62] · 2019-07-27 ■■■■■■■■■■■■■■                    44%⠋ Processing dates  [28/62] · 2019-07-28 ■■■■■■■■■■■■■■■                   45%⠙ Processing dates  [30/62] · 2019-07-30 ■■■■■■■■■■■■■■■■                  48%⠹ Processing dates  [31/62] · 2019-07-31 ■■■■■■■■■■■■■■■■                  50%⠸ Processing dates  [33/62] · 2019-08-02 ■■■■■■■■■■■■■■■■■                 53%⠼ Processing dates  [34/62] · 2019-08-03 ■■■■■■■■■■■■■■■■■                 55%⠴ Processing dates  [35/62] · 2019-08-04 ■■■■■■■■■■■■■■■■■■                56%⠦ Processing dates  [36/62] · 2019-08-05 ■■■■■■■■■■■■■■■■■■                58%⠧ Processing dates  [37/62] · 2019-08-06 ■■■■■■■■■■■■■■■■■■■               60%⠇ Processing dates  [38/62] · 2019-08-07 ■■■■■■■■■■■■■■■■■■■               61%⠏ Processing dates  [39/62] · 2019-08-08 ■■■■■■■■■■■■■■■■■■■■              63%⠋ Processing dates  [40/62] · 2019-08-09 ■■■■■■■■■■■■■■■■■■■■              65%⠙ Processing dates  [41/62] · 2019-08-10 ■■■■■■■■■■■■■■■■■■■■■             66%⠹ Processing dates  [43/62] · 2019-08-12 ■■■■■■■■■■■■■■■■■■■■■■            69%⠸ Processing dates  [44/62] · 2019-08-13 ■■■■■■■■■■■■■■■■■■■■■■            71%⠼ Processing dates  [45/62] · 2019-08-14 ■■■■■■■■■■■■■■■■■■■■■■■           73%⠴ Processing dates  [46/62] · 2019-08-15 ■■■■■■■■■■■■■■■■■■■■■■■           74%⠦ Processing dates  [48/62] · 2019-08-17 ■■■■■■■■■■■■■■■■■■■■■■■■          77%⠧ Processing dates  [49/62] · 2019-08-18 ■■■■■■■■■■■■■■■■■■■■■■■■■         79%⠇ Processing dates  [51/62] · 2019-08-20 ■■■■■■■■■■■■■■■■■■■■■■■■■■        82%⠏ Processing dates  [53/62] · 2019-08-22 ■■■■■■■■■■■■■■■■■■■■■■■■■■■       85%⠋ Processing dates  [55/62] · 2019-08-24 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■      89%⠙ Processing dates  [56/62] · 2019-08-25 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■      90%⠹ Processing dates  [58/62] · 2019-08-27 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■     94%⠸ Processing dates  [60/62] · 2019-08-29 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■    97%                                                                               ✔ Done. 1000 observations across 62 dates linked in 14.1s.
 
 # Monthly summer drought index deviation from 1980-2010 baseline
 result_drought <- 
@@ -355,26 +351,46 @@ result_drought <-
     months         = c(6, 7, 8),
     baseline       = c("1980", "2010"),
     stat_wrangling = "deviation",
-    path = "../gxc_test/readme/"
+    path = tempdir()
   )
-#> ── Link with monthly indicators ────────────────────────────────────────────────
-#> Indicator: "drought_index"
-#> Catalogue: "dwd-monthly"
-#> Time span: "via months"
-#> Months: "6, 7, 8"
-#> Time lag: 0
-#> Baseline: "1980-2010"
-#> Baseline function: "mean"
-#> Study function: "mean"
-#> Stat wrangling: "deviation"
-#> Prefix: "(none)"
-#> Observations: "1000 clustered across 62 unique dates"
-#> Buffer: "0 m"
-#> Caching enabled: TRUE
-#> Storage path: '../gxc_test/readme/'
-#> 
-#> Submitting observation requests (3 months)...                                              Submitting baseline requests (93 months)...                                            ⠙ Processing dates  [2/62] · 2019-07-02 ■■                                 3%⠹ Processing dates  [3/62] · 2019-07-03 ■■                                 5%⠸ Processing dates  [4/62] · 2019-07-04 ■■■                                6%⠼ Processing dates  [5/62] · 2019-07-05 ■■■                                8%⠴ Processing dates  [6/62] · 2019-07-06 ■■■■                              10%⠦ Processing dates  [7/62] · 2019-07-07 ■■■■                              11%⠧ Processing dates  [8/62] · 2019-07-08 ■■■■■                             13%⠇ Processing dates  [9/62] · 2019-07-09 ■■■■■                             15%⠏ Processing dates  [10/62] · 2019-07-10 ■■■■■■                            16%⠋ Processing dates  [11/62] · 2019-07-11 ■■■■■■                            18%⠙ Processing dates  [12/62] · 2019-07-12 ■■■■■■■                           19%⠹ Processing dates  [13/62] · 2019-07-13 ■■■■■■■                           21%⠸ Processing dates  [14/62] · 2019-07-14 ■■■■■■■■                          23%⠼ Processing dates  [15/62] · 2019-07-15 ■■■■■■■■                          24%⠴ Processing dates  [16/62] · 2019-07-16 ■■■■■■■■■                         26%⠦ Processing dates  [17/62] · 2019-07-17 ■■■■■■■■■                         27%⠧ Processing dates  [18/62] · 2019-07-18 ■■■■■■■■■■                        29%⠇ Processing dates  [19/62] · 2019-07-19 ■■■■■■■■■■                        31%⠏ Processing dates  [20/62] · 2019-07-20 ■■■■■■■■■■■                       32%⠋ Processing dates  [21/62] · 2019-07-21 ■■■■■■■■■■■                       34%⠙ Processing dates  [22/62] · 2019-07-22 ■■■■■■■■■■■■                      35%⠹ Processing dates  [23/62] · 2019-07-23 ■■■■■■■■■■■■                      37%⠸ Processing dates  [24/62] · 2019-07-24 ■■■■■■■■■■■■■                     39%⠼ Processing dates  [25/62] · 2019-07-25 ■■■■■■■■■■■■■                     40%⠴ Processing dates  [26/62] · 2019-07-26 ■■■■■■■■■■■■■■                    42%⠦ Processing dates  [27/62] · 2019-07-27 ■■■■■■■■■■■■■■                    44%⠧ Processing dates  [28/62] · 2019-07-28 ■■■■■■■■■■■■■■■                   45%⠇ Processing dates  [29/62] · 2019-07-29 ■■■■■■■■■■■■■■■                   47%⠏ Processing dates  [30/62] · 2019-07-30 ■■■■■■■■■■■■■■■■                  48%⠋ Processing dates  [31/62] · 2019-07-31 ■■■■■■■■■■■■■■■■                  50%⠙ Processing dates  [32/62] · 2019-08-01 ■■■■■■■■■■■■■■■■                  52%⠹ Processing dates  [33/62] · 2019-08-02 ■■■■■■■■■■■■■■■■■                 53%⠸ Processing dates  [34/62] · 2019-08-03 ■■■■■■■■■■■■■■■■■                 55%⠼ Processing dates  [35/62] · 2019-08-04 ■■■■■■■■■■■■■■■■■■                56%⠴ Processing dates  [36/62] · 2019-08-05 ■■■■■■■■■■■■■■■■■■                58%⠦ Processing dates  [37/62] · 2019-08-06 ■■■■■■■■■■■■■■■■■■■               60%⠧ Processing dates  [38/62] · 2019-08-07 ■■■■■■■■■■■■■■■■■■■               61%⠇ Processing dates  [39/62] · 2019-08-08 ■■■■■■■■■■■■■■■■■■■■              63%⠏ Processing dates  [40/62] · 2019-08-09 ■■■■■■■■■■■■■■■■■■■■              65%⠋ Processing dates  [41/62] · 2019-08-10 ■■■■■■■■■■■■■■■■■■■■■             66%⠙ Processing dates  [42/62] · 2019-08-11 ■■■■■■■■■■■■■■■■■■■■■             68%⠹ Processing dates  [43/62] · 2019-08-12 ■■■■■■■■■■■■■■■■■■■■■■            69%⠸ Processing dates  [44/62] · 2019-08-13 ■■■■■■■■■■■■■■■■■■■■■■            71%⠼ Processing dates  [45/62] · 2019-08-14 ■■■■■■■■■■■■■■■■■■■■■■■           73%⠴ Processing dates  [46/62] · 2019-08-15 ■■■■■■■■■■■■■■■■■■■■■■■           74%⠦ Processing dates  [47/62] · 2019-08-16 ■■■■■■■■■■■■■■■■■■■■■■■■          76%⠧ Processing dates  [48/62] · 2019-08-17 ■■■■■■■■■■■■■■■■■■■■■■■■          77%⠇ Processing dates  [49/62] · 2019-08-18 ■■■■■■■■■■■■■■■■■■■■■■■■■         79%⠏ Processing dates  [50/62] · 2019-08-19 ■■■■■■■■■■■■■■■■■■■■■■■■■         81%⠋ Processing dates  [51/62] · 2019-08-20 ■■■■■■■■■■■■■■■■■■■■■■■■■■        82%⠙ Processing dates  [52/62] · 2019-08-21 ■■■■■■■■■■■■■■■■■■■■■■■■■■        84%⠹ Processing dates  [53/62] · 2019-08-22 ■■■■■■■■■■■■■■■■■■■■■■■■■■■       85%⠸ Processing dates  [54/62] · 2019-08-23 ■■■■■■■■■■■■■■■■■■■■■■■■■■■       87%⠼ Processing dates  [55/62] · 2019-08-24 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■      89%⠴ Processing dates  [56/62] · 2019-08-25 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■      90%⠦ Processing dates  [57/62] · 2019-08-26 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■     92%⠧ Processing dates  [58/62] · 2019-08-27 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■     94%⠇ Processing dates  [59/62] · 2019-08-28 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■    95%⠏ Processing dates  [60/62] · 2019-08-29 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■    97%⠋ Processing dates  [61/62] · 2019-08-30 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■   98%                                                                               ✔ Done. 1000 observations across 62 dates linked in 249.7s.
 ```
+
+    #> ── Link with daily indicators ──────────────────────────────────────────────────
+    #> Indicator: "air_temperature_mean"
+    #> Catalogue: "dwd-hyras-daily"
+    #> Time span: 0
+    #> Months: "(none)"
+    #> Time lag: 0
+    #> Baseline: "none"
+    #> Baseline function: "mean"
+    #> Study function: "mean"
+    #> Stat wrangling: "deviation"
+    #> Prefix: "(none)"
+    #> Observations: 1000
+    #> Buffer: "0 m"
+    #> Caching enabled: TRUE
+    #> Storage path: '../gxc_test/readme/'
+    #> 
+    #> ℹ Observations clustered across 62 unique dates.
+    #> Submitting observation requests (62 days)...                                             ⠙ Processing dates  [7/62] · 2019-07-07 ■■■■                              11%⠹ Processing dates  [9/62] · 2019-07-09 ■■■■■                             15%⠸ Processing dates  [11/62] · 2019-07-11 ■■■■■■                            18%⠼ Processing dates  [13/62] · 2019-07-13 ■■■■■■■                           21%⠴ Processing dates  [15/62] · 2019-07-15 ■■■■■■■■                          24%⠦ Processing dates  [17/62] · 2019-07-17 ■■■■■■■■■                         27%⠧ Processing dates  [19/62] · 2019-07-19 ■■■■■■■■■■                        31%⠇ Processing dates  [21/62] · 2019-07-21 ■■■■■■■■■■■                       34%⠏ Processing dates  [23/62] · 2019-07-23 ■■■■■■■■■■■■                      37%⠋ Processing dates  [24/62] · 2019-07-24 ■■■■■■■■■■■■■                     39%⠙ Processing dates  [26/62] · 2019-07-26 ■■■■■■■■■■■■■■                    42%⠹ Processing dates  [28/62] · 2019-07-28 ■■■■■■■■■■■■■■■                   45%⠸ Processing dates  [30/62] · 2019-07-30 ■■■■■■■■■■■■■■■■                  48%⠼ Processing dates  [32/62] · 2019-08-01 ■■■■■■■■■■■■■■■■                  52%⠴ Processing dates  [34/62] · 2019-08-03 ■■■■■■■■■■■■■■■■■                 55%⠦ Processing dates  [36/62] · 2019-08-05 ■■■■■■■■■■■■■■■■■■                58%⠧ Processing dates  [37/62] · 2019-08-06 ■■■■■■■■■■■■■■■■■■■               60%⠇ Processing dates  [39/62] · 2019-08-08 ■■■■■■■■■■■■■■■■■■■■              63%⠏ Processing dates  [41/62] · 2019-08-10 ■■■■■■■■■■■■■■■■■■■■■             66%⠋ Processing dates  [43/62] · 2019-08-12 ■■■■■■■■■■■■■■■■■■■■■■            69%⠙ Processing dates  [45/62] · 2019-08-14 ■■■■■■■■■■■■■■■■■■■■■■■           73%⠹ Processing dates  [47/62] · 2019-08-16 ■■■■■■■■■■■■■■■■■■■■■■■■          76%⠸ Processing dates  [49/62] · 2019-08-18 ■■■■■■■■■■■■■■■■■■■■■■■■■         79%⠼ Processing dates  [51/62] · 2019-08-20 ■■■■■■■■■■■■■■■■■■■■■■■■■■        82%⠴ Processing dates  [52/62] · 2019-08-21 ■■■■■■■■■■■■■■■■■■■■■■■■■■        84%⠦ Processing dates  [54/62] · 2019-08-23 ■■■■■■■■■■■■■■■■■■■■■■■■■■■       87%⠧ Processing dates  [56/62] · 2019-08-25 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■      90%⠇ Processing dates  [58/62] · 2019-08-27 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■     94%⠏ Processing dates  [59/62] · 2019-08-28 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■    95%⠋ Processing dates  [61/62] · 2019-08-30 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■   98%                                                                               ✔ Done. 1000 observations across 62 dates linked in 7.3s.
+    #> ── Link with monthly indicators ────────────────────────────────────────────────
+    #> Indicator: "drought_index"
+    #> Catalogue: "dwd-monthly"
+    #> Time span: "via months"
+    #> Months: "6, 7, 8"
+    #> Time lag: 0
+    #> Baseline: "1980-2010"
+    #> Baseline function: "mean"
+    #> Study function: "mean"
+    #> Stat wrangling: "deviation"
+    #> Prefix: "(none)"
+    #> Observations: 1000
+    #> Buffer: "0 m"
+    #> Caching enabled: TRUE
+    #> Storage path: '../gxc_test/readme/'
+    #> 
+    #> ℹ Observations clustered across 62 unique dates.
+    #> Submitting observation requests (3 months)...                                              Submitting baseline requests (93 months)...                                            ⠙ Processing dates  [3/62] · 2019-07-03 ■■                                 5%⠹ Processing dates  [4/62] · 2019-07-04 ■■■                                6%⠸ Processing dates  [5/62] · 2019-07-05 ■■■                                8%⠼ Processing dates  [6/62] · 2019-07-06 ■■■■                              10%⠴ Processing dates  [7/62] · 2019-07-07 ■■■■                              11%⠦ Processing dates  [8/62] · 2019-07-08 ■■■■■                             13%⠧ Processing dates  [9/62] · 2019-07-09 ■■■■■                             15%⠇ Processing dates  [10/62] · 2019-07-10 ■■■■■■                            16%⠏ Processing dates  [11/62] · 2019-07-11 ■■■■■■                            18%⠋ Processing dates  [12/62] · 2019-07-12 ■■■■■■■                           19%⠙ Processing dates  [13/62] · 2019-07-13 ■■■■■■■                           21%⠹ Processing dates  [14/62] · 2019-07-14 ■■■■■■■■                          23%⠸ Processing dates  [15/62] · 2019-07-15 ■■■■■■■■                          24%⠼ Processing dates  [16/62] · 2019-07-16 ■■■■■■■■■                         26%⠴ Processing dates  [17/62] · 2019-07-17 ■■■■■■■■■                         27%⠦ Processing dates  [18/62] · 2019-07-18 ■■■■■■■■■■                        29%⠧ Processing dates  [19/62] · 2019-07-19 ■■■■■■■■■■                        31%⠇ Processing dates  [20/62] · 2019-07-20 ■■■■■■■■■■■                       32%⠏ Processing dates  [21/62] · 2019-07-21 ■■■■■■■■■■■                       34%⠋ Processing dates  [22/62] · 2019-07-22 ■■■■■■■■■■■■                      35%⠙ Processing dates  [23/62] · 2019-07-23 ■■■■■■■■■■■■                      37%⠹ Processing dates  [24/62] · 2019-07-24 ■■■■■■■■■■■■■                     39%⠸ Processing dates  [25/62] · 2019-07-25 ■■■■■■■■■■■■■                     40%⠼ Processing dates  [26/62] · 2019-07-26 ■■■■■■■■■■■■■■                    42%⠴ Processing dates  [27/62] · 2019-07-27 ■■■■■■■■■■■■■■                    44%⠦ Processing dates  [28/62] · 2019-07-28 ■■■■■■■■■■■■■■■                   45%⠧ Processing dates  [29/62] · 2019-07-29 ■■■■■■■■■■■■■■■                   47%⠇ Processing dates  [30/62] · 2019-07-30 ■■■■■■■■■■■■■■■■                  48%⠏ Processing dates  [31/62] · 2019-07-31 ■■■■■■■■■■■■■■■■                  50%⠋ Processing dates  [32/62] · 2019-08-01 ■■■■■■■■■■■■■■■■                  52%⠙ Processing dates  [33/62] · 2019-08-02 ■■■■■■■■■■■■■■■■■                 53%⠹ Processing dates  [34/62] · 2019-08-03 ■■■■■■■■■■■■■■■■■                 55%⠸ Processing dates  [35/62] · 2019-08-04 ■■■■■■■■■■■■■■■■■■                56%⠼ Processing dates  [36/62] · 2019-08-05 ■■■■■■■■■■■■■■■■■■                58%⠴ Processing dates  [37/62] · 2019-08-06 ■■■■■■■■■■■■■■■■■■■               60%⠦ Processing dates  [38/62] · 2019-08-07 ■■■■■■■■■■■■■■■■■■■               61%⠧ Processing dates  [39/62] · 2019-08-08 ■■■■■■■■■■■■■■■■■■■■              63%⠇ Processing dates  [40/62] · 2019-08-09 ■■■■■■■■■■■■■■■■■■■■              65%⠏ Processing dates  [41/62] · 2019-08-10 ■■■■■■■■■■■■■■■■■■■■■             66%⠋ Processing dates  [42/62] · 2019-08-11 ■■■■■■■■■■■■■■■■■■■■■             68%⠙ Processing dates  [43/62] · 2019-08-12 ■■■■■■■■■■■■■■■■■■■■■■            69%⠹ Processing dates  [44/62] · 2019-08-13 ■■■■■■■■■■■■■■■■■■■■■■            71%⠸ Processing dates  [45/62] · 2019-08-14 ■■■■■■■■■■■■■■■■■■■■■■■           73%⠼ Processing dates  [46/62] · 2019-08-15 ■■■■■■■■■■■■■■■■■■■■■■■           74%⠴ Processing dates  [47/62] · 2019-08-16 ■■■■■■■■■■■■■■■■■■■■■■■■          76%⠦ Processing dates  [48/62] · 2019-08-17 ■■■■■■■■■■■■■■■■■■■■■■■■          77%⠧ Processing dates  [49/62] · 2019-08-18 ■■■■■■■■■■■■■■■■■■■■■■■■■         79%⠇ Processing dates  [50/62] · 2019-08-19 ■■■■■■■■■■■■■■■■■■■■■■■■■         81%⠏ Processing dates  [51/62] · 2019-08-20 ■■■■■■■■■■■■■■■■■■■■■■■■■■        82%⠋ Processing dates  [52/62] · 2019-08-21 ■■■■■■■■■■■■■■■■■■■■■■■■■■        84%⠙ Processing dates  [53/62] · 2019-08-22 ■■■■■■■■■■■■■■■■■■■■■■■■■■■       85%⠹ Processing dates  [54/62] · 2019-08-23 ■■■■■■■■■■■■■■■■■■■■■■■■■■■       87%⠸ Processing dates  [55/62] · 2019-08-24 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■      89%⠼ Processing dates  [56/62] · 2019-08-25 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■      90%⠴ Processing dates  [57/62] · 2019-08-26 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■     92%⠦ Processing dates  [58/62] · 2019-08-27 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■     94%⠧ Processing dates  [59/62] · 2019-08-28 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■    95%⠇ Processing dates  [60/62] · 2019-08-29 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■    97%⠏ Processing dates  [61/62] · 2019-08-30 ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■   98%                                                                               ✔ Done. 1000 observations across 62 dates linked in 29.1s.
 
 ## Parallel processing
 
@@ -418,16 +434,17 @@ Jonas Lieth (<jonas.lieth@wiso.uni-koeln.de>)
 
 To cite `gxc` in publications use:
 
-> Abel D, Jünger S (2025). gxc: Easy Access to Earth Observation Data. R
-> package version 0.1.0, <https://github.com/denabel/gxc>.
+> Abel D, Jünger S, Lieth J (2026). gxc: Easy Access to Earth
+> Observation Data. R package version 1.0.0,
+> <https://github.com/denabel/gxc>.
 
 Or in BibTeX:
 
-    @manual{abel2025gxc,
-    author = {Abel, Daniel and Jünger, Stefan, and Lieth, Jonas},
+    @manual{abel2026gxc,
+    author = {Abel, Dennis and Jünger, Stefan and Lieth, Jonas},
     title  = {{gxc: Easy Access to Earth Observation Data}},
-    year   = {2025},
-    note   = {R package version 0.1.0},
+    year   = {2026},
+    note   = {R package version 1.0.0},
     url    = {https://github.com/denabel/gxc}
     }
 
