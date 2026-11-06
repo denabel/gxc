@@ -24,11 +24,31 @@
 }
 
 
+# Returns the unit of an indicator as delivered by the given catalogue and
+# daily statistic, e.g. "m/h" for an hourly ERA5 accumulation averaged over
+# a day, "m/day" for its daily sum or for monthly means.
+.indicator_unit <- function(indicator, catalogue, statistic = NULL) {
+  unit <- .indicator_units[[indicator]] %||% NA_character_
+  if (is.na(unit)) return(unit)
+
+  if (catalogue == "dwd-hyras-daily" && indicator == "precipitation") {
+    return(paste0(unit, "/day"))
+  }
+  if (catalogue == "dwd-monthly" && indicator == "precipitation") {
+    return(paste0(unit, "/month"))
+  }
+  if (!indicator %in% .accumulated_indicators) return(unit)
+
+  if (catalogue %in% allowed_catalogues_monthly) return(paste0(unit, "/day"))
+  if (identical(statistic, "daily_sum")) paste0(unit, "/day") else paste0(unit, "/h")
+}
+
+
 # Returns the unit of the result column given stat_wrangling and indicator.
 # For deviation the unit matches the indicator unit; for count modes it is
 # always "days".
-.result_unit <- function(stat_wrangling, indicator) {
-  indicator_unit <- .indicator_units[[indicator]] %||% NA_character_
+.result_unit <- function(stat_wrangling, indicator, catalogue, statistic = NULL) {
+  indicator_unit <- .indicator_unit(indicator, catalogue, statistic)
   switch(stat_wrangling,
          deviation    = indicator_unit,
          sd_deviation = "sd",

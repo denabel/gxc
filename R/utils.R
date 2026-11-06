@@ -653,15 +653,16 @@ psum <- function(..., na.rm=FALSE) {
                                time_unit,
                                months                 = NULL,
                                downsample_factor      = NULL,
-                               downsample_min_buffer  = 0) {
+                               downsample_min_buffer  = 0,
+                               statistic              = NULL) {
   .data[[.col("indicator",      prefix)]] <- indicator
   .data[[.col("unit",           prefix)]] <-
-    .indicator_units[[indicator]] %||% NA_character_
+    .indicator_unit(indicator, catalogue, statistic)
   .data[[.col("resolution",     prefix)]] <-
     .catalogue_resolution[[catalogue]] %||% NA_character_
   .data[[.col("time_unit",      prefix)]] <- time_unit
   .data[[.col("result_unit",    prefix)]] <-
-    if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator)
+    if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator, catalogue, statistic)
   .data[[.col("study_fun",      prefix)]] <- study_fun_name
   .data[[.col("baseline_fun",   prefix)]] <-
     if (isFALSE(baseline)) NA_character_ else baseline_fun_name

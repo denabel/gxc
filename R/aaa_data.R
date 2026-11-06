@@ -74,7 +74,7 @@ allowed_indicators_by_catalogue <- list(
 )
 
 allowed_hours     <- sprintf("%02d:00", 0:23)
-allowed_statistic <- c("daily_mean", "daily_maximum", "daily_minimum")
+allowed_statistic <- c("daily_mean", "daily_maximum", "daily_minimum", "daily_sum")
 allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
 # Physical units per indicator
@@ -98,6 +98,15 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   air_temperature_min                    = "degC",
   precipitation                          = "mm",
   drought_index                          = "mm/degC"
+)
+
+# ERA5 indicators stored as hourly accumulations. Daily statistics of these
+# are amounts per hour; daily_sum gives the daily total. Monthly means are
+# mean daily totals.
+.accumulated_indicators <- c(
+  "total_precipitation",
+  "downward_uv_radiation_at_the_surface",
+  "snowfall"
 )
 
 # DWD URL templates
@@ -175,6 +184,16 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   "reanalysis-era5-single-levels-monthly-means" = "0.25\u00b0 x 0.25\u00b0",
   "dwd-hyras-daily"                             = "1 km x 1 km",
   "dwd-monthly"                                 = "1 km x 1 km"
+)
+
+# Spatial coverage per catalogue
+.catalogue_coverage <- list(
+  "derived-era5-land-daily-statistics"          = "global (land only)",
+  "derived-era5-single-levels-daily-statistics" = "global",
+  "reanalysis-era5-land-monthly-means"          = "global (land only)",
+  "reanalysis-era5-single-levels-monthly-means" = "global",
+  "dwd-hyras-daily"                             = "Germany",
+  "dwd-monthly"                                 = "Germany"
 )
 
 # Returns the citation string for a given catalogue and indicator.

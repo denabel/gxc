@@ -58,13 +58,24 @@
 
 #' Check if a given statistic is in the list of allowed statistics
 #' @param statistic A string giving a statistic type.
+#' @param indicator,catalogue Indicator and catalogue; `daily_sum` is only
+#'   valid for accumulated ERA5 indicators.
 #' @returns NULL or an error.
 #' @noRd
-.check_valid_statistic <- function(statistic) {
+.check_valid_statistic <- function(statistic, indicator, catalogue) {
   if (!statistic %in% allowed_statistic) {
     cli::cli_abort(c(
       "Invalid `statistic` argument.",
       "i" = "Please choose one of {.val {allowed_statistic}}."
+    ))
+  }
+
+  if (statistic == "daily_sum" &&
+      .catalogue_source(catalogue) == "era5" &&
+      !indicator %in% .accumulated_indicators) {
+    cli::cli_abort(c(
+      "{.val daily_sum} is not available for {.val {indicator}}.",
+      "i" = "It is only meaningful for accumulated indicators: {.val {(.accumulated_indicators)}}."
     ))
   }
 }

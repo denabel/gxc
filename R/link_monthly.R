@@ -676,10 +676,10 @@ link_monthly.SpatRaster <- function(.data,
 
   terra::metags(.data) <- c(
     indicator         = indicator,
-    unit              = .indicator_units[[indicator]] %||% NA_character_,
+    unit              = .indicator_unit(indicator, catalogue),
     resolution        = .catalogue_resolution[[catalogue]] %||% NA_character_,
     time_unit         = "months",
-    result_unit       = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
+    result_unit       = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator, catalogue),
     study_fun         = study_fun_name,
     baseline_fun      = if (isFALSE(baseline)) NA_character_ else baseline_fun_name,
     baseline_years    = if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2]),

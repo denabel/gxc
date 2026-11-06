@@ -205,7 +205,11 @@ Options are \code{"derived-era5-land-daily-statistics"} (default),
 
 \item{statistic}{Character string specifying the type of daily statistic
 to download. ERA5 only. Options are \code{"daily_mean"} (default),
-\code{"daily_maximum"}, and \code{"daily_minimum"}.}
+\code{"daily_maximum"}, \code{"daily_minimum"}, and \code{"daily_sum"}. Accumulated
+indicators such as \code{"total_precipitation"} are stored as hourly amounts,
+so \code{"daily_mean"} returns the mean amount per hour (unit e.g. \code{"m/h"});
+use \code{"daily_sum"} for daily totals (unit e.g. \code{"m/day"}). \code{"daily_sum"}
+is only available for accumulated indicators.}
 
 \item{time_zone}{Character string specifying the time zone to use for
 daily aggregation. ERA5 only. Default is \code{"utc+00:00"}.}

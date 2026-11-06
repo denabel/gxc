@@ -104,7 +104,11 @@
 #'   `"derived-era5-single-levels-daily-statistics"`, or `"dwd-hyras-daily"`.
 #' @param statistic Character string specifying the type of daily statistic
 #'   to download. ERA5 only. Options are `"daily_mean"` (default),
-#'   `"daily_maximum"`, and `"daily_minimum"`.
+#'   `"daily_maximum"`, `"daily_minimum"`, and `"daily_sum"`. Accumulated
+#'   indicators such as `"total_precipitation"` are stored as hourly amounts,
+#'   so `"daily_mean"` returns the mean amount per hour (unit e.g. `"m/h"`);
+#'   use `"daily_sum"` for daily totals (unit e.g. `"m/day"`). `"daily_sum"`
+#'   is only available for accumulated indicators.
 #' @param time_zone Character string specifying the time zone to use for
 #'   daily aggregation. ERA5 only. Default is `"utc+00:00"`.
 #' @param method Character string specifying the resampling method to use
@@ -302,7 +306,7 @@ link_daily.sf <- function(.data,
                           verbose        = TRUE) {
   .check_valid_catalogue(catalogue, temp_res = "daily")
   .check_valid_indicator(indicator, catalogue)
-  .check_valid_statistic(statistic)
+  .check_valid_statistic(statistic, indicator, catalogue)
   .check_valid_time_zone(time_zone)
   .check_baseline(baseline)
   .check_parallel(parallel)
@@ -667,7 +671,8 @@ link_daily.sf <- function(.data,
             time_unit              = "days",
             months                 = months,
             downsample_factor      = downsample_factor,
-            downsample_min_buffer  = downsample_min_buffer
+            downsample_min_buffer  = downsample_min_buffer,
+            statistic              = statistic
           )
         })
         names(combo_list) <- combo_labels
@@ -747,7 +752,7 @@ link_daily.SpatRaster <- function(.data,
   # baseline_fun/stat_wrangling value each, exactly as before.
   .check_valid_catalogue(catalogue, temp_res = "daily")
   .check_valid_indicator(indicator, catalogue)
-  .check_valid_statistic(statistic)
+  .check_valid_statistic(statistic, indicator, catalogue)
   .check_valid_time_zone(time_zone)
   .check_baseline(baseline)
   .check_parallel(parallel)
@@ -920,10 +925,10 @@ link_daily.SpatRaster <- function(.data,
 
   terra::metags(.data) <- c(
     indicator         = indicator,
-    unit              = .indicator_units[[indicator]] %||% NA_character_,
+    unit              = .indicator_unit(indicator, catalogue, statistic),
     resolution        = .catalogue_resolution[[catalogue]] %||% NA_character_,
     time_unit         = "days",
-    result_unit       = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator),
+    result_unit       = if (isFALSE(baseline)) NA_character_ else .result_unit(stat_wrangling, indicator, catalogue, statistic),
     study_fun         = study_fun_name,
     baseline_fun      = if (isFALSE(baseline)) NA_character_ else baseline_fun_name,
     baseline_years    = if (isFALSE(baseline)) NA_character_ else paste0(baseline[1], "-", baseline[2]),
