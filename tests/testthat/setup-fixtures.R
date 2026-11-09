@@ -251,6 +251,34 @@ if (FALSE) {
   reset_test_index(cache_path, service = "dwd")
 
   # -----------------------------------------------------------------------
+  # ARCO fixtures (experimental) -- one .tif per day under arco/daily/,
+  # found by file name, so no index is needed
+  # -----------------------------------------------------------------------
+
+  # Simple -- compared against the CDS fixture of the same day
+  link_daily(pts, indicator = "2m_temperature",
+             catalogue = "arco-era5-land-hourly",
+             cache = TRUE, path = cache_path)
+
+  # Deviation baseline
+  link_daily(pts, indicator = "2m_temperature",
+             catalogue = "arco-era5-land-hourly",
+             baseline = c(1980, 1981), baseline_fun = "mean",
+             stat_wrangling = "deviation",
+             cache = TRUE, path = cache_path)
+
+  # Precipitation as daily sum
+  link_daily(pts, indicator = "total_precipitation",
+             catalogue = "arco-era5-land-hourly",
+             statistic = "daily_sum",
+             cache = TRUE, path = cache_path)
+
+  # Precipitation, default statistic -- used by test-catalogue.R
+  link_daily(pts, indicator = "total_precipitation",
+             catalogue = "arco-era5-land-hourly",
+             cache = TRUE, path = cache_path)
+
+  # -----------------------------------------------------------------------
   # Catalogue coverage fixtures — one request per indicator per catalogue,
   # as small as possible (single point, single date)
   # -----------------------------------------------------------------------
@@ -258,7 +286,7 @@ if (FALSE) {
   failed <- character(0)
 
   for (cat in names(allowed_indicators_by_catalogue)) {
-    fn      <- if (grepl("daily", cat)) "link_daily"   else "link_monthly"
+    fn      <- if (cat %in% allowed_catalogues_daily) "link_daily" else "link_monthly"
     service <- if (grepl("dwd",   cat)) "dwd"          else "ecmwfr"
 
     for (ind in allowed_indicators_by_catalogue[[cat]]) {
