@@ -46,6 +46,35 @@ coverage](https://codecov.io/gh/denabel/gxc/graph/badge.svg)](https://app.codeco
 > earlier versions are not reused and will be downloaded again. See
 > [NEWS.md](NEWS.md) for the full changelog.
 
+> **⚡ Faster ERA5-Land downloads (experimental).** Requests to the
+> Copernicus Climate Data Store (CDS) pass through a shared queue, where a
+> single request can wait up to an hour or more before it is processed.
+> Long baselines can therefore take hours. For daily ERA5-Land data, the
+> new experimental catalogue `"arco-era5-land-hourly"` reads directly from
+> ECMWF's Analysis Ready Cloud Optimised (ARCO) store and computes the
+> daily statistics locally, **without any queue**. In our tests, linking
+> 100 points with a 30-day window and a two-year baseline took 1.6 minutes
+> instead of almost an hour, with values identical to the CDS catalogue.
+> If you work with ERA5-Land daily data, we recommend giving it a try:
+>
+> ``` r
+> install.packages(c("curl", "blosc", "jsonlite"))
+>
+> link_daily(
+>   points_sf,
+>   indicator = "2m_temperature",
+>   catalogue = "arco-era5-land-hourly",
+>   time_span = 30,
+>   baseline  = c("1991", "2020")
+> )
+> ```
+>
+> Currently available: `2m_temperature` and `total_precipitation` (use
+> `statistic = "daily_sum"` for daily totals). The catalogue uses your
+> regular CDS API key. As an experimental feature, its interface and
+> caching may still change, and the most recent few days are not yet
+> available. See [Example 4](#example-4-faster-era5-land-via-arco-experimental).
+
 For many researchers in the social sciences, **Earth observation (EO)**
 data is a black box. This is mainly caused by a lack of knowledge about
 techniques or data sources and unfamiliarity with complex data formats
@@ -63,6 +92,8 @@ buffer
 - Flexible baseline comparisons: deviation, z-score, count-above/below
 thresholds
 - DWD HYRAS data (1 km, Germany) accessible without any API key
+- Experimental fast access to ERA5-Land via ECMWF's cloud-optimised
+store, without waiting in the CDS queue
 - Easily integrate complex spatio-temporal data formats into social
 science workflows
 - Curated EO indicators: weather, climate, with more coming soon (e.g.,
@@ -105,7 +136,10 @@ Data Store. Depending on its load, a single request can wait from a few
 minutes up to an hour or more before it is processed, so larger requests
 (e.g. long baselines) can take a while. Use `cache = TRUE` together with a
 fixed `path` to keep downloaded files and avoid downloading them again in
-later calls. Interrupted downloads resume where they stopped.
+later calls. Interrupted downloads resume where they stopped. For
+ERA5-Land daily data, the experimental `"arco-era5-land-hourly"`
+catalogue avoids the queue entirely (see the note at the top and
+Example 4).
 
 **DWD (German Weather Service)** — provides 1 km gridded HYRAS data for
 Germany. No API key or registration required. Data is downloaded
@@ -330,6 +364,60 @@ result_drought <-
     path = readme_cache
   )
 ```
+
+### Example 4: Faster ERA5-Land via ARCO (experimental)
+
+The catalogue `"arco-era5-land-hourly"` reads hourly ERA5-Land data
+directly from ECMWF's Analysis Ready Cloud Optimised (ARCO) store and
+computes daily statistics locally. It needs your CDS API key and the
+packages `curl`, `blosc` and `jsonlite`, but no request queue. Here we
+link the posts from Example 1 to the mean temperature of the 30 days
+before each post and compare it with the 1991–2020 baseline of the same
+calendar days:
+
+```{r arco_example_show, eval=FALSE}
+result_arco <- 
+  link_daily(
+    points_sf,
+    indicator = "2m_temperature",
+    catalogue = "arco-era5-land-hourly",
+    time_span = 30,
+    baseline  = c("1991", "2020"),
+    cache     = TRUE,
+    path      = tempdir()
+  )
+```
+
+```{r arco_example, echo=FALSE, message=TRUE}
+result_arco <- 
+  link_daily(
+    points_sf,
+    indicator = "2m_temperature",
+    catalogue = "arco-era5-land-hourly",
+    time_span = 30,
+    baseline  = c("1991", "2020"),
+    cache     = TRUE,
+    path      = readme_cache
+  )
+```
+
+`.result` holds the deviation (in K) of the 30-day mean from the
+baseline:
+
+```{r visualize_arco, echo=TRUE}
+ggplot(result_arco) +
+  geom_sf(aes(color = .result)) +
+  scale_color_gradient2(low = "steelblue", mid = "grey90", high = "firebrick") +
+  theme_void() +
+  labs(
+    title    = "Temperature anomaly before each post (July/August 2019)",
+    subtitle = "30-day mean vs. 1991-2020 baseline, ERA5-Land via ARCO",
+    color    = "Deviation (K)"
+  )
+```
+
+For precipitation, use `indicator = "total_precipitation"` with
+`statistic = "daily_sum"` to get daily totals.
 
 ## Parallel processing
 
