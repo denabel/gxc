@@ -678,7 +678,7 @@
 }
 
 
-# Dispatches a daily climate data request to either ERA5 or DWD depending
+# Dispatches a daily climate data request to ERA5, ARCO or DWD depending
 # on the catalogue source.
 .request_climate_daily <- function(indicator,
                                    catalogue,
@@ -705,6 +705,19 @@
       time_zone = time_zone
     )
     .submit_era5_batch(request, path = path, cache = cache, verbose = verbose)
+  } else if (.catalogue_source(catalogue) == "arco") {
+    .request_arco_daily(
+      indicator = indicator,
+      extent    = extent,
+      years     = years,
+      months    = months,
+      days      = days,
+      statistic = statistic,
+      time_zone = time_zone,
+      cache     = cache,
+      path      = file.path(path, "arco"),
+      verbose   = verbose
+    )
   } else {
     .request_dwd_daily(
       indicator = indicator,

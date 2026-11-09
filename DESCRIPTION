@@ -29,6 +29,7 @@ Imports:
     geonames,
     giscoR,
     glue,
+    jsonlite,
     keyring,
     lubridate,
     purrr,
@@ -43,7 +44,9 @@ Suggests:
     stars,
     ncdf4,
     future.apply,
-    ffm
+    ffm,
+    curl,
+    blosc
 Remotes:
     jslth/ffm
 VignetteBuilder: knitr
