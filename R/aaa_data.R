@@ -10,7 +10,8 @@ allowed_catalogues_monthly <- c(
 allowed_catalogues_daily <- c(
   "derived-era5-land-daily-statistics",
   "derived-era5-single-levels-daily-statistics",
-  "dwd-hyras-daily"
+  "dwd-hyras-daily",
+  "arco-era5-land-hourly"
 )
 
 allowed_indicators_by_catalogue <- list(
@@ -57,6 +58,10 @@ allowed_indicators_by_catalogue <- list(
     "leaf_area_index_high_vegetation",
     "leaf_area_index_low_vegetation",
     "snowfall"
+  ),
+  `arco-era5-land-hourly` = c(
+    "2m_temperature",
+    "total_precipitation"
   ),
   `dwd-hyras-daily` = c(
     "air_temperature_mean",
@@ -164,8 +169,22 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 
 # Derive data source from catalogue name
 .catalogue_source <- function(catalogue) {
-  if (grepl("^dwd", catalogue)) "dwd" else "era5"
+  if (grepl("^dwd", catalogue)) "dwd" else if (grepl("^arco", catalogue)) "arco" else "era5"
 }
+
+# ERA5-Land ARCO Zarr stores (geo- and time-chunked) and array names per indicator
+.arco_stores <- list(
+  `2m_temperature` = list(
+    geo   = "https://arco.datastores.ecmwf.int/cadl-arco-geo-007/arco/reanalysis_era5_land/sfc-2m-temperature/geoChunked.zarr",
+    time  = "https://arco.datastores.ecmwf.int/cadl-arco-time-007/arco/reanalysis_era5_land/sfc-2m-temperature/timeChunked.zarr",
+    array = "t2m"
+  ),
+  total_precipitation = list(
+    geo   = "https://arco.datastores.ecmwf.int/cadl-arco-geo-009/arco/reanalysis_era5_land/sfc-pressure-precipitation/geoChunked.zarr",
+    time  = "https://arco.datastores.ecmwf.int/cadl-arco-time-009/arco/reanalysis_era5_land/sfc-pressure-precipitation/timeChunked.zarr",
+    array = "tp"
+  )
+)
 
 # Month folder name for DWD URLs (e.g. "01_Jan")
 .dwd_month_folder <- function(month) {
@@ -183,7 +202,8 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   "reanalysis-era5-land-monthly-means"          = "0.1\u00b0 x 0.1\u00b0",
   "reanalysis-era5-single-levels-monthly-means" = "0.25\u00b0 x 0.25\u00b0",
   "dwd-hyras-daily"                             = "1 km x 1 km",
-  "dwd-monthly"                                 = "1 km x 1 km"
+  "dwd-monthly"                                 = "1 km x 1 km",
+  "arco-era5-land-hourly"                       = "0.1\u00b0 x 0.1\u00b0"
 )
 
 # Spatial coverage per catalogue
@@ -193,7 +213,8 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   "reanalysis-era5-land-monthly-means"          = "global (land only)",
   "reanalysis-era5-single-levels-monthly-means" = "global",
   "dwd-hyras-daily"                             = "Germany",
-  "dwd-monthly"                                 = "Germany"
+  "dwd-monthly"                                 = "Germany",
+  "arco-era5-land-hourly"                       = "global (land only)"
 )
 
 # Returns the citation string for a given catalogue and indicator.
@@ -207,6 +228,13 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
     "derived-era5-land-daily-statistics" = paste0(
       "Copernicus Climate Change Service (C3S) (", year, "): ",
       "ERA5-Land post-processed daily statistics from 1950 to present. ",
+      "Copernicus Climate Change Service Climate Data Store (CDS). ",
+      "Accessed ", date, ". doi:10.24381/cds.e9c9c792"
+    ),
+    "arco-era5-land-hourly" = paste0(
+      "Copernicus Climate Change Service (C3S) (", year, "): ",
+      "ERA5-Land hourly data from 1950 to present, ",
+      "Analysis Ready Cloud Optimised (ARCO) version. ",
       "Copernicus Climate Change Service Climate Data Store (CDS). ",
       "Accessed ", date, ". doi:10.24381/cds.e2161bac"
     ),
@@ -254,7 +282,7 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
       "DWD Climate Data Center (CDC): Grids of monthly drought index (de Martonne) over Germany, version v1.0"
   )
 
-  if (.catalogue_source(catalogue) == "era5") {
+  if (.catalogue_source(catalogue) %in% c("era5", "arco")) {
     era5[[catalogue]] %||% NA_character_
   } else if (catalogue == "dwd-hyras-daily") {
     dwd_daily[[indicator]] %||% NA_character_
