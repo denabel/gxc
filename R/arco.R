@@ -38,7 +38,10 @@
   dates <- as.Date(paste(years, months, days, sep = "-"))
 
   # Extent, statistic and time zone change the content, so they key the cache
-  key   <- substr(rlang::hash(list(extent, statistic, time_zone)), 1, 8)
+  # The name prefix is truncated, so the full indicator goes into the key
+  # along with everything else that changes the content
+  key   <-
+    substr(rlang::hash(list(indicator, extent, statistic, time_zone)), 1, 8)
   files <- file.path(
     path, "daily",
     paste0(substr(indicator, 1, 20), "_", key, "_", format(dates, "%Y%m%d"), ".tif")
@@ -213,19 +216,24 @@
 
 
 # Downloads chunks in parallel and passes each to on_chunk(index, content)
-# as it arrives; content is NULL for chunks that do not exist (404).
-# Failed downloads are retried up to three times.
-.arco_fetch <- function(urls, on_chunk) {
+# as it arrives; content is NULL for chunks that do not exist (404). Only
+# max_con downloads are queued at a time, so none of them times out while
+# waiting for a free connection. Failed downloads are retried.
+.arco_fetch <- function(urls, on_chunk, attempts = 5) {
   auth <- paste("Bearer", .ecmwfr_get_key())
   todo <- seq_along(urls)
 
-  for (attempt in 1:3) {
-    failed <- integer(0)
-    pool   <- curl::new_pool(total_con = .arco_max_con, host_con = .arco_max_con)
+  for (attempt in seq_len(attempts)) {
+    failed  <- integer(0)
+    reasons <- character(0)
+    pool    <- curl::new_pool(total_con = .arco_max_con, host_con = .arco_max_con)
+    queue   <- todo
 
-    for (i in todo) local({
-      ii <- i
-      h  <- curl::new_handle(url = urls[ii])
+    add_next <- function() {
+      if (length(queue) == 0) return(invisible())
+      ii    <- queue[1]
+      queue <<- queue[-1]
+      h <- curl::new_handle(url = urls[ii], timeout = 300, connecttimeout = 30)
       curl::handle_setheaders(h, Authorization = auth)
       curl::multi_add(
         h, pool = pool,
@@ -235,12 +243,20 @@
           } else if (r$status_code == 404) {
             on_chunk(ii, NULL)
           } else {
-            failed <<- c(failed, ii)
+            failed  <<- c(failed, ii)
+            reasons <<- c(reasons, paste("HTTP", r$status_code))
           }
+          add_next()
         },
-        fail = function(msg) failed <<- c(failed, ii)
+        fail = function(msg) {
+          failed  <<- c(failed, ii)
+          reasons <<- c(reasons, msg)
+          add_next()
+        }
       )
-    })
+    }
+
+    for (k in seq_len(min(.arco_max_con, length(queue)))) add_next()
     curl::multi_run(pool = pool)
 
     if (length(failed) == 0) return(invisible())
@@ -248,10 +264,12 @@
     Sys.sleep(2^attempt)
   }
 
-  cli::cli_abort(
-    "Failed to download {length(todo)} ERA5-Land ARCO chunk{?s} after 3 attempts.",
-    call = NULL
-  )
+  top <- names(sort(table(reasons), decreasing = TRUE))
+  top <- top[seq_len(min(3, length(top)))]
+  cli::cli_abort(c(
+    "Failed to download {length(todo)} ERA5-Land ARCO chunk{?s} after {attempts} attempts.",
+    "x" = "Most frequent reason{?s}: {top}."
+  ), call = NULL)
 }
 
 
