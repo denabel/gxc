@@ -142,3 +142,9 @@ test_that("ARCO precipitation daily sums are labelled per day", {
   expect_true(all(result$.study >= 0))
   expect_equal(unique(result$.unit), "m/day")
 })
+
+test_that("every ARCO indicator has a store and a unit", {
+  inds <- allowed_indicators_by_catalogue[["arco-era5-land-hourly"]]
+  expect_setequal(names(.arco_stores), inds)
+  expect_true(all(inds %in% names(.indicator_units)))
+})

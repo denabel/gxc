@@ -278,6 +278,12 @@ if (FALSE) {
              catalogue = "arco-era5-land-hourly",
              cache = TRUE, path = cache_path)
 
+  for (ind in allowed_indicators_by_catalogue[["arco-era5-land-hourly"]]) {
+    message(ind)
+    link_daily(pts, indicator = ind, catalogue = "arco-era5-land-hourly",
+               cache = TRUE, path = "tests/testthat/fixtures", verbose = FALSE)
+  }
+
   # -----------------------------------------------------------------------
   # Catalogue coverage fixtures — one request per indicator per catalogue,
   # as small as possible (single point, single date)

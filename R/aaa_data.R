@@ -61,7 +61,25 @@ allowed_indicators_by_catalogue <- list(
   ),
   `arco-era5-land-hourly` = c(
     "2m_temperature",
-    "total_precipitation"
+    "2m_dewpoint_temperature",
+    "total_precipitation",
+    "surface_pressure",
+    "10m_u_component_of_wind",
+    "10m_v_component_of_wind",
+    "surface_solar_radiation_downwards",
+    "surface_thermal_radiation_downwards",
+    "skin_temperature",
+    "soil_temperature_level_1",
+    "soil_temperature_level_2",
+    "soil_temperature_level_3",
+    "soil_temperature_level_4",
+    "volumetric_soil_water_layer_1",
+    "volumetric_soil_water_layer_2",
+    "volumetric_soil_water_layer_3",
+    "volumetric_soil_water_layer_4",
+    "snow_cover",
+    "snow_depth",
+    "snowfall"
   ),
   `dwd-hyras-daily` = c(
     "air_temperature_mean",
@@ -97,6 +115,21 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   `leaf_area_index_low_vegetation`       = "m2/m2",
   `snow_cover`                           = "%",
   `snowfall`                             = "m",
+  # ERA5-Land (ARCO)
+  `2m_dewpoint_temperature`              = "K",
+  `surface_pressure`                     = "Pa",
+  `surface_solar_radiation_downwards`    = "J/m2",
+  `surface_thermal_radiation_downwards`  = "J/m2",
+  `skin_temperature`                     = "K",
+  `soil_temperature_level_1`             = "K",
+  `soil_temperature_level_2`             = "K",
+  `soil_temperature_level_3`             = "K",
+  `soil_temperature_level_4`             = "K",
+  `volumetric_soil_water_layer_1`        = "m3/m3",
+  `volumetric_soil_water_layer_2`        = "m3/m3",
+  `volumetric_soil_water_layer_3`        = "m3/m3",
+  `volumetric_soil_water_layer_4`        = "m3/m3",
+  `snow_depth`                           = "m",
   # DWD
   air_temperature_mean                   = "degC",
   air_temperature_max                    = "degC",
@@ -111,7 +144,9 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
 .accumulated_indicators <- c(
   "total_precipitation",
   "downward_uv_radiation_at_the_surface",
-  "snowfall"
+  "snowfall",
+  "surface_solar_radiation_downwards",
+  "surface_thermal_radiation_downwards"
 )
 
 # DWD URL templates
@@ -172,18 +207,44 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   if (grepl("^dwd", catalogue)) "dwd" else if (grepl("^arco", catalogue)) "arco" else "era5"
 }
 
-# ERA5-Land ARCO Zarr stores (geo- and time-chunked) and array names per indicator
-.arco_stores <- list(
-  `2m_temperature` = list(
-    geo   = "https://arco.datastores.ecmwf.int/cadl-arco-geo-007/arco/reanalysis_era5_land/sfc-2m-temperature/geoChunked.zarr",
-    time  = "https://arco.datastores.ecmwf.int/cadl-arco-time-007/arco/reanalysis_era5_land/sfc-2m-temperature/timeChunked.zarr",
-    array = "t2m"
-  ),
-  total_precipitation = list(
-    geo   = "https://arco.datastores.ecmwf.int/cadl-arco-geo-009/arco/reanalysis_era5_land/sfc-pressure-precipitation/geoChunked.zarr",
-    time  = "https://arco.datastores.ecmwf.int/cadl-arco-time-009/arco/reanalysis_era5_land/sfc-pressure-precipitation/timeChunked.zarr",
-    array = "tp"
+# ERA5-Land ARCO Zarr stores (geo- and time-chunked) and array names per
+# indicator. Several indicators share a store.
+.arco_url <- function(id, group, layout) {
+  sprintf(
+    "https://arco.datastores.ecmwf.int/cadl-arco-%s-%s/arco/reanalysis_era5_land/%s/%sChunked.zarr",
+    layout, id, group, layout
   )
+}
+
+.arco_store <- function(id, group, array) {
+  list(
+    geo   = .arco_url(id, group, "geo"),
+    time  = .arco_url(id, group, "time"),
+    array = array
+  )
+}
+
+.arco_stores <- list(
+  `2m_temperature`                      = .arco_store("007", "sfc-2m-temperature", "t2m"),
+  `2m_dewpoint_temperature`             = .arco_store("007", "sfc-2m-temperature", "d2m"),
+  total_precipitation                   = .arco_store("009", "sfc-pressure-precipitation", "tp"),
+  surface_pressure                      = .arco_store("009", "sfc-pressure-precipitation", "sp"),
+  `10m_u_component_of_wind`             = .arco_store("008", "sfc-wind", "u10"),
+  `10m_v_component_of_wind`             = .arco_store("008", "sfc-wind", "v10"),
+  surface_solar_radiation_downwards     = .arco_store("010", "sfc-radiation-heat", "ssrd"),
+  surface_thermal_radiation_downwards   = .arco_store("010", "sfc-radiation-heat", "strd"),
+  skin_temperature                      = .arco_store("043", "sfc-skin-temperature", "skt"),
+  soil_temperature_level_1              = .arco_store("006", "sfc-soil-temperature", "stl1"),
+  soil_temperature_level_2              = .arco_store("006", "sfc-soil-temperature", "stl2"),
+  soil_temperature_level_3              = .arco_store("006", "sfc-soil-temperature", "stl3"),
+  soil_temperature_level_4              = .arco_store("006", "sfc-soil-temperature", "stl4"),
+  volumetric_soil_water_layer_1         = .arco_store("005", "sfc-soil-water", "swvl1"),
+  volumetric_soil_water_layer_2         = .arco_store("005", "sfc-soil-water", "swvl2"),
+  volumetric_soil_water_layer_3         = .arco_store("005", "sfc-soil-water", "swvl3"),
+  volumetric_soil_water_layer_4         = .arco_store("005", "sfc-soil-water", "swvl4"),
+  snow_cover                            = .arco_store("030", "sfc-snow", "snowc"),
+  snow_depth                            = .arco_store("030", "sfc-snow", "sde"),
+  snowfall                              = .arco_store("030", "sfc-snow", "sf")
 )
 
 # Month folder name for DWD URLs (e.g. "01_Jan")
