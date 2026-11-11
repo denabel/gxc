@@ -50,7 +50,7 @@ coverage](https://codecov.io/gh/denabel/gxc/graph/badge.svg)](https://app.codeco
 > Copernicus Climate Data Store (CDS) pass through a shared queue, where a
 > single request can wait up to an hour or more before it is processed.
 > Long baselines can therefore take hours. For daily ERA5-Land data, the
-> new experimental catalogue `"arco-era5-land-hourly"` reads directly from
+> new experimental catalogue `"arco-era5-land-daily"` reads directly from
 > ECMWF's Analysis Ready Cloud Optimised (ARCO) store and computes the
 > daily statistics locally, **without any queue**. In our tests, linking
 > 100 points with a 30-day window and a two-year baseline took 1.6 minutes
@@ -63,7 +63,7 @@ coverage](https://codecov.io/gh/denabel/gxc/graph/badge.svg)](https://app.codeco
 > link_daily(
 >   points_sf,
 >   indicator = "2m_temperature",
->   catalogue = "arco-era5-land-hourly",
+>   catalogue = "arco-era5-land-daily",
 >   time_span = 30,
 >   baseline  = c("1991", "2020")
 > )
@@ -137,7 +137,7 @@ minutes up to an hour or more before it is processed, so larger requests
 (e.g. long baselines) can take a while. Use `cache = TRUE` together with a
 fixed `path` to keep downloaded files and avoid downloading them again in
 later calls. Interrupted downloads resume where they stopped. For
-ERA5-Land daily data, the experimental `"arco-era5-land-hourly"`
+ERA5-Land daily data, the experimental `"arco-era5-land-daily"`
 catalogue avoids the queue entirely (see the note at the top and
 Example 4).
 
@@ -367,7 +367,7 @@ result_drought <-
 
 ### Example 4: Faster ERA5-Land via ARCO (experimental)
 
-The catalogue `"arco-era5-land-hourly"` reads hourly ERA5-Land data
+The catalogue `"arco-era5-land-daily"` reads hourly ERA5-Land data
 directly from ECMWF's Analysis Ready Cloud Optimised (ARCO) store and
 computes daily statistics locally. It needs your CDS API key and the
 packages `curl`, `blosc` and `jsonlite`, but no request queue. Here we
@@ -380,7 +380,7 @@ result_arco <-
   link_daily(
     points_sf,
     indicator = "2m_temperature",
-    catalogue = "arco-era5-land-hourly",
+    catalogue = "arco-era5-land-daily",
     time_span = 30,
     baseline  = c("1991", "2020"),
     cache     = TRUE,
@@ -393,7 +393,7 @@ result_arco <-
   link_daily(
     points_sf,
     indicator = "2m_temperature",
-    catalogue = "arco-era5-land-hourly",
+    catalogue = "arco-era5-land-daily",
     time_span = 30,
     baseline  = c("1991", "2020"),
     cache     = TRUE,

@@ -11,7 +11,7 @@ allowed_catalogues_daily <- c(
   "derived-era5-land-daily-statistics",
   "derived-era5-single-levels-daily-statistics",
   "dwd-hyras-daily",
-  "arco-era5-land-hourly"
+  "arco-era5-land-daily"
 )
 
 allowed_indicators_by_catalogue <- list(
@@ -59,7 +59,7 @@ allowed_indicators_by_catalogue <- list(
     "leaf_area_index_low_vegetation",
     "snowfall"
   ),
-  `arco-era5-land-hourly` = c(
+  `arco-era5-land-daily` = c(
     "2m_temperature",
     "2m_dewpoint_temperature",
     "total_precipitation",
@@ -264,7 +264,7 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   "reanalysis-era5-single-levels-monthly-means" = "0.25\u00b0 x 0.25\u00b0",
   "dwd-hyras-daily"                             = "1 km x 1 km",
   "dwd-monthly"                                 = "1 km x 1 km",
-  "arco-era5-land-hourly"                       = "0.1\u00b0 x 0.1\u00b0"
+  "arco-era5-land-daily"                       = "0.1\u00b0 x 0.1\u00b0"
 )
 
 # Spatial coverage per catalogue
@@ -275,7 +275,7 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
   "reanalysis-era5-single-levels-monthly-means" = "global",
   "dwd-hyras-daily"                             = "Germany",
   "dwd-monthly"                                 = "Germany",
-  "arco-era5-land-hourly"                       = "global (land only)"
+  "arco-era5-land-daily"                       = "global (land only)"
 )
 
 # Returns the citation string for a given catalogue and indicator.
@@ -292,7 +292,7 @@ allowed_time_zone <- sprintf("utc%+03d:00", -12:14)
       "Copernicus Climate Change Service Climate Data Store (CDS). ",
       "Accessed ", date, ". doi:10.24381/cds.e9c9c792"
     ),
-    "arco-era5-land-hourly" = paste0(
+    "arco-era5-land-daily" = paste0(
       "Copernicus Climate Change Service (C3S) (", year, "): ",
       "ERA5-Land hourly data from 1950 to present, ",
       "Analysis Ready Cloud Optimised (ARCO) version. ",

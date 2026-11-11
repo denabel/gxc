@@ -102,7 +102,7 @@
 #' @param catalogue Character string specifying which catalogue to use.
 #'   Options are `"derived-era5-land-daily-statistics"` (default),
 #'   `"derived-era5-single-levels-daily-statistics"`, `"dwd-hyras-daily"`, or
-#'   `"arco-era5-land-hourly"`. The latter is experimental: it reads hourly ERA5-Land data from ECMWF's Analysis Ready Cloud
+#'   `"arco-era5-land-daily"`. The latter is experimental: it reads hourly ERA5-Land data from ECMWF's Analysis Ready Cloud
 #'   Optimised (ARCO) store and computes daily statistics locally, bypassing
 #'   the CDS request queue. Requires a CDS API key and the packages `curl`,
 #'   `blosc` and `jsonlite`.

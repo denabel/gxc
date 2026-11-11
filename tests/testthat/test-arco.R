@@ -103,7 +103,7 @@ test_that("ARCO matches the CDS daily statistics catalogue", {
   local_test_index(cache)
 
   arco <- link_daily(pts, indicator = "2m_temperature",
-                     catalogue = "arco-era5-land-hourly",
+                     catalogue = "arco-era5-land-daily",
                      cache = TRUE, path = cache)
   cds  <- link_daily(pts, indicator = "2m_temperature",
                      cache = TRUE, path = cache)
@@ -119,7 +119,7 @@ test_that("ARCO baseline deviation is computed from cached files", {
   cache <- test_cache()
 
   result <- link_daily(pts, indicator = "2m_temperature",
-                       catalogue = "arco-era5-land-hourly",
+                       catalogue = "arco-era5-land-daily",
                        baseline = c(1980, 1981), baseline_fun = "mean",
                        stat_wrangling = "deviation",
                        cache = TRUE, path = cache)
@@ -135,7 +135,7 @@ test_that("ARCO precipitation daily sums are labelled per day", {
   cache <- test_cache()
 
   result <- link_daily(pts, indicator = "total_precipitation",
-                       catalogue = "arco-era5-land-hourly",
+                       catalogue = "arco-era5-land-daily",
                        statistic = "daily_sum",
                        cache = TRUE, path = cache)
 
@@ -144,7 +144,7 @@ test_that("ARCO precipitation daily sums are labelled per day", {
 })
 
 test_that("every ARCO indicator has a store and a unit", {
-  inds <- allowed_indicators_by_catalogue[["arco-era5-land-hourly"]]
+  inds <- allowed_indicators_by_catalogue[["arco-era5-land-daily"]]
   expect_setequal(names(.arco_stores), inds)
   expect_true(all(inds %in% names(.indicator_units)))
 })

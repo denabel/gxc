@@ -40,7 +40,7 @@ test_that("daily_sum is only allowed for accumulated ERA5 indicators", {
 })
 
 test_that("ARCO units follow the statistic", {
-  expect_equal(.indicator_unit("total_precipitation", "arco-era5-land-hourly", "daily_mean"), "m/h")
-  expect_equal(.indicator_unit("total_precipitation", "arco-era5-land-hourly", "daily_sum"), "m/day")
-  expect_equal(.indicator_unit("2m_temperature", "arco-era5-land-hourly", "daily_mean"), "K")
+  expect_equal(.indicator_unit("total_precipitation", "arco-era5-land-daily", "daily_mean"), "m/h")
+  expect_equal(.indicator_unit("total_precipitation", "arco-era5-land-daily", "daily_sum"), "m/day")
+  expect_equal(.indicator_unit("2m_temperature", "arco-era5-land-daily", "daily_mean"), "K")
 })

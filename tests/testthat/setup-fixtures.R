@@ -257,30 +257,30 @@ if (FALSE) {
 
   # Simple -- compared against the CDS fixture of the same day
   link_daily(pts, indicator = "2m_temperature",
-             catalogue = "arco-era5-land-hourly",
+             catalogue = "arco-era5-land-daily",
              cache = TRUE, path = cache_path)
 
   # Deviation baseline
   link_daily(pts, indicator = "2m_temperature",
-             catalogue = "arco-era5-land-hourly",
+             catalogue = "arco-era5-land-daily",
              baseline = c(1980, 1981), baseline_fun = "mean",
              stat_wrangling = "deviation",
              cache = TRUE, path = cache_path)
 
   # Precipitation as daily sum
   link_daily(pts, indicator = "total_precipitation",
-             catalogue = "arco-era5-land-hourly",
+             catalogue = "arco-era5-land-daily",
              statistic = "daily_sum",
              cache = TRUE, path = cache_path)
 
   # Precipitation, default statistic -- used by test-catalogue.R
   link_daily(pts, indicator = "total_precipitation",
-             catalogue = "arco-era5-land-hourly",
+             catalogue = "arco-era5-land-daily",
              cache = TRUE, path = cache_path)
 
-  for (ind in allowed_indicators_by_catalogue[["arco-era5-land-hourly"]]) {
+  for (ind in allowed_indicators_by_catalogue[["arco-era5-land-daily"]]) {
     message(ind)
-    link_daily(pts, indicator = ind, catalogue = "arco-era5-land-hourly",
+    link_daily(pts, indicator = ind, catalogue = "arco-era5-land-daily",
                cache = TRUE, path = "tests/testthat/fixtures", verbose = FALSE)
   }
 

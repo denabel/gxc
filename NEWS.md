@@ -2,13 +2,13 @@
 
 ## New features
 
-### Experimental ARCO catalogue for ERA5-Land (`"arco-era5-land-hourly"`)
+### Experimental ARCO catalogue for ERA5-Land (`"arco-era5-land-daily"`)
 
 Requests to the Copernicus CDS are processed through a shared queue. A
 single request can wait up to an hour or more, so long baselines can take
 hours even though the data volume is small.
 
-The new experimental catalogue `"arco-era5-land-hourly"` for `link_daily()`
+The new experimental catalogue `"arco-era5-land-daily"` for `link_daily()`
 bypasses the queue: it downloads hourly ERA5-Land data directly from
 ECMWF's Analysis Ready Cloud Optimised (ARCO) Zarr store, in parallel, and
 computes daily statistics (`daily_mean`, `daily_maximum`, `daily_minimum`,
@@ -21,7 +21,7 @@ run took 1.6 minutes instead of almost an hour.
 link_daily(
   pts,
   indicator = "total_precipitation",
-  catalogue = "arco-era5-land-hourly",
+  catalogue = "arco-era5-land-daily",
   statistic = "daily_sum",
   baseline  = c("1991", "2020")
 )

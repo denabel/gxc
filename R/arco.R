@@ -385,7 +385,7 @@
   if (isTRUE(.arco_state$notified)) return(invisible())
   .arco_state$notified <- TRUE
   cli::cli_inform(c(
-    "!" = "The {.val arco-era5-land-hourly} catalogue is experimental.",
+    "!" = "The {.val arco-era5-land-daily} catalogue is experimental.",
     "i" = "Data are read from ECMWF's ARCO store and aggregated locally; \\
            interface and caching may change."
   ))

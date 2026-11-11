@@ -202,7 +202,7 @@ dataset. Default is \code{NULL} (no prefix).}
 \item{catalogue}{Character string specifying which catalogue to use.
 Options are \code{"derived-era5-land-daily-statistics"} (default),
 \code{"derived-era5-single-levels-daily-statistics"}, \code{"dwd-hyras-daily"}, or
-\code{"arco-era5-land-hourly"}. The latter is experimental: it reads hourly ERA5-Land data from ECMWF's Analysis Ready Cloud
+\code{"arco-era5-land-daily"}. The latter is experimental: it reads hourly ERA5-Land data from ECMWF's Analysis Ready Cloud
 Optimised (ARCO) store and computes daily statistics locally, bypassing
 the CDS request queue. Requires a CDS API key and the packages \code{curl},
 \code{blosc} and \code{jsonlite}.}
