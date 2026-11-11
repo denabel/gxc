@@ -186,13 +186,9 @@ link_monthly.sf <- function(.data,
     parallel <- FALSE
   }
 
-  if (isFALSE(by_hour)) {
-    product_type <- "monthly_averaged_reanalysis"
-    request_time <- "00:00"
-  } else {
-    product_type <- "monthly_averaged_reanalysis_by_hour_of_day"
-    request_time <- by_hour
-  }
+  product      <- .monthly_product(by_hour, indicator, catalogue, verbose)
+  product_type <- product$product_type
+  request_time <- product$request_time
 
   if (verbose) {
     cli::cli_rule(left = "Link with monthly indicators")
@@ -518,13 +514,9 @@ link_monthly.SpatRaster <- function(.data,
   study_fun_name <- study_resolved$name
   study_fun      <- study_resolved$fun
 
-  if (isFALSE(by_hour)) {
-    product_type <- "monthly_averaged_reanalysis"
-    request_time <- "00:00"
-  } else {
-    product_type <- "monthly_averaged_reanalysis_by_hour_of_day"
-    request_time <- by_hour
-  }
+  product      <- .monthly_product(by_hour, indicator, catalogue, verbose)
+  product_type <- product$product_type
+  request_time <- product$request_time
 
   # Store original CRS and project to WGS84
   crs_data <- terra::crs(.data)
@@ -717,4 +709,35 @@ link_monthly.SpatVector <- function(.data, indicator, ...) {
 link_monthly.Spatial <- function(.data, indicator, ...) {
   .data <- sf::st_as_sf(.data)
   sf::as_Spatial(link_monthly(.data, indicator, ...))
+}
+
+
+# Chooses the CDS monthly product. Monthly means of accumulated ERA5-Land
+# variables are wrong from September 2022 to February 2024 and will not be
+# replaced; ECMWF recommends the by-hour-of-day product at 00:00, which holds
+# the same (correct) values. It is used for all months, so that requests
+# spanning the affected period are not split and results stay consistent.
+.monthly_product <- function(by_hour, indicator, catalogue, verbose = TRUE) {
+  if (!isFALSE(by_hour)) {
+    return(list(
+      product_type = "monthly_averaged_reanalysis_by_hour_of_day",
+      request_time = by_hour
+    ))
+  }
+
+  if (catalogue == "reanalysis-era5-land-monthly-means" &&
+      indicator %in% .accumulated_indicators) {
+    if (verbose) {
+      cli::cli_inform(c(
+        "i" = "Using monthly means by hour of day (00:00) for accumulated \\
+               ERA5-Land indicators, as recommended by ECMWF."
+      ))
+    }
+    return(list(
+      product_type = "monthly_averaged_reanalysis_by_hour_of_day",
+      request_time = "00:00"
+    ))
+  }
+
+  list(product_type = "monthly_averaged_reanalysis", request_time = "00:00")
 }
