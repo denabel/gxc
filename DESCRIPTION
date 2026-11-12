@@ -10,47 +10,25 @@ Authors@R: c(
     person("Jonas", "Lieth", , "jonas.lieth@gesis.org", role = c("aut"),
            comment = c(ORCID = "0000-0002-3451-3176"))
   )
-Description: This package is part of the project "GESIS meets Copernicus". It
-    supports users of Earth observation data by offering easy access and
-    processing of data from Copernicus services and other Earth observation
-    sources.
-URL: https://github.com/denabel/gxc, https://denabel.github.io/gxc_pages/
+Description: Links social science data, such as geocoded survey responses,
+    to Earth observation indicators. Retrieves weather and climate data from
+    the 'Copernicus' Climate Data Store ('ERA5', Hersbach et al. (2020)
+    <doi:10.1002/qj.3803>; 'ERA5-Land', Munoz-Sabater et al. (2021)
+    <doi:10.5194/essd-13-4349-2021>) and the German Weather Service ('DWD'),
+    and extracts them for each observation's location, date and spatial
+    buffer, optionally relative to a historical baseline.
+URL: https://github.com/denabel/gxc,
+        https://denabel.github.io/gxc_pages/
 BugReports: https://github.com/denabel/gxc/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Roxygen: list(markdown = TRUE)
 Depends: R (>= 3.5.0)
-Imports:
-    cli,
-    countrycode,
-    ecmwfr,
-    exactextractr,
-    geodata,
-    geonames,
-    giscoR,
-    glue,
-    jsonlite,
-    keyring,
-    lubridate,
-    purrr,
-    rlang,
-    sf,
-    terra
-Suggests:
-    knitr,
-    rmarkdown,
-    testthat (>= 3.0.0),
-    tibble,
-    stars,
-    ncdf4,
-    future.apply,
-    ffm,
-    curl,
-    blosc,
-    withr
-Remotes:
-    jslth/ffm
+Imports: cli, ecmwfr, exactextractr, glue, jsonlite, keyring, lubridate,
+        purrr, rlang, sf, terra
+Suggests: knitr, rmarkdown, testthat (>= 3.0.0), tibble, stars, ncdf4,
+        future.apply, curl, blosc, withr
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0
+NeedsCompilation: no

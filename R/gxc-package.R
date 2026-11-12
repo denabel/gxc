@@ -1,40 +1,24 @@
 #' gxc: Easy Access to Earth Observation Data
 #'
-#' This package is part of the project "GESIS meets Copernicus".
-#' It supports users of Earth observation data by offering easy
-#' access and processing of data from Copernicus services and other
-#' Earth observation sources.
+#' Links social science data, such as geocoded survey responses, to Earth
+#' observation indicators. Weather and climate indicators are retrieved from
+#' the Copernicus Climate Data Store (ERA5, ERA5-Land) and the German Weather
+#' Service (DWD) and extracted for each observation's location, date and
+#' optional spatial buffer, optionally compared against a historical baseline.
 #'
-#' Version: 0.1.0
+#' @section Main functions:
+#' - [link_daily()]: link observations to daily indicators.
+#' - [link_monthly()]: link observations to monthly indicators.
+#' - [lookup()]: show which catalogues provide an indicator, with units and
+#'   resolution.
+#' - [gxc_indicators()]: list all available indicators.
+#' - [set_api_key()]: store the API key for the Copernicus Climate Data
+#'   Store.
 #'
-#' @name gxc
-#' @aliases gxc
-#' @author
-#'   Dennis Abel \email{dennis.abel@@gesis.org} and
-#'   Stefan Jünger \email{stefan.juenger@@gesis.org}
-#'
-#' @details
-#' This package provides six core functions to link your input data
-#' with EO indicators. Depending on your data input format
-#' (points, polygons, or raster) and the desired temporal resolution
-#' of the required indicators (daily or monthly), you can choose from the
-#' list of functions below:
-#'
-#' For Spatial Points (`point_link_`)
-#'
-#' - `point_link_daily`
-#' - `point_link_monthly`
-#'
-#' For Polygons (`poly_link_`)
-#'
-#' - `poly_link_daily`
-#' - `poly_link_monthly`
-#'
-#' For Gridded Data (`grid_link_`)
-#'
-#' - `grid_link_daily`
-#' - `grid_link_monthly`
+#' Both linking functions accept `sf` objects (points or polygons) and
+#' `SpatRaster` objects.
 #'
 #' @importFrom stats median sd
 #' @importFrom utils capture.output download.file
+#' @keywords internal
 "_PACKAGE"
