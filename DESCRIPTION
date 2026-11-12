@@ -46,7 +46,8 @@ Suggests:
     future.apply,
     ffm,
     curl,
-    blosc
+    blosc,
+    withr
 Remotes:
     jslth/ffm
 VignetteBuilder: knitr
