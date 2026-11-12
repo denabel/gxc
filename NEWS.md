@@ -156,9 +156,9 @@ value each.
 
 Both `link_daily()` and `link_monthly()` now support a `months` argument for
 specifying an explicit set of months as the study period instead of a rolling
-`time_span`. For example, `months = c(3, 4, 5)` selects March–May. If the
-input date falls within one of the specified months, the window is
-automatically shifted one year back to avoid using incomplete data. Months
+`time_span`. For example, `months = c(3, 4, 5)` selects March–May. The
+most recent complete period before the observation is used, i.e. the
+selected months end before the month of the observation starts. Months
 given out of calendar order (e.g. `c(12, 1, 2)` for a winter window) correctly
 span a year boundary — no special tagging is needed, the year rollover is
 detected automatically from a decrease in month number within the sequence.
@@ -462,6 +462,15 @@ two file sets as a whole are different cache entries.
 
 ## Bug fixes
 
+- `months` now always selects the most recent complete period before the
+  observation: the selected months must end before the month of the
+  observation starts. Previously, months later in the same year could be
+  selected (e.g. June to August for an interview in February), so the
+  linked weather lay after the observation.
+- Fixed `stat_wrangling = "count_above"`/`"count_below"` for `SpatRaster`
+  input counting baseline days above or below the study value instead of
+  study days above or below the baseline reference value. Both input types
+  now count study days.
 - Fixed wrong monthly values for accumulated ERA5-Land indicators (e.g.
   `total_precipitation`, `snowfall`, radiation) from September 2022 to
   February 2024. ECMWF's `"monthly_averaged_reanalysis"` product contains

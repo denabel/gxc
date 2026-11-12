@@ -25,10 +25,11 @@
 #'   full hour (e.g. `"03:00"`), only values from that hour of the day are
 #'   included. Not applicable for DWD catalogues.
 #' @param months Optional integer vector specifying explicit months to use as
-#'   the study period (e.g. `c(3, 4, 5)` for spring). If the input date falls
-#'   within one of the specified months, the window is automatically shifted
-#'   one year back to avoid using incomplete data. Cannot be combined with
-#'   `time_span`.
+#'   the study period (e.g. `c(3, 4, 5)` for spring). The most recent complete
+#'   period before the observation is used, i.e. the selected months must
+#'   end before the month of the observation starts. Months given out of
+#'   calendar order (e.g. `c(12, 1, 2)` for winter) span a year boundary.
+#'   Cannot be combined with `time_span`.
 #' @inherit link_daily
 #'
 #' @details
@@ -654,6 +655,7 @@ link_monthly.SpatRaster <- function(.data,
       stat_wrangling_list    = list(stat_wrangling),
       indicator              = indicator,
       prefix                 = prefix,
+      focal_values           = extracted,
       obs_raster             = obs_raster,
       baseline_raster        = baseline_raster,
       cache                  = cache,

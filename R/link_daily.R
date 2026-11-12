@@ -25,8 +25,8 @@
 #'   in `.data`. Defaults to `"date"`.
 #' @param time_span Integer specifying the time span in days for averaging the
 #'   climate indicator values prior to linking with the spatial data. A value
-#'   of `0` (default) uses only the exact date; values greater than `0`
-#'   aggregate over a rolling window of that many days before the date.
+#'   of `0` (default) uses only the exact date; a value `n > 0` aggregates
+#'   over the date and the `n` days before it (`n + 1` days in total).
 #' @param time_lag Integer specifying the time lag to shift the `date_var`
 #'   backward before extraction. Default is `0`. For `link_daily()`, this
 #'   is in **days**. For `link_monthly()`, this is in **calendar months**
@@ -39,11 +39,11 @@
 #'   as the study period (e.g. `c(3, 4, 5)` for spring), mirroring
 #'   `link_monthly()`'s `months` argument but expanded to the full daily
 #'   sequence spanning those months (needed since `link_daily()` matches
-#'   individual days, not months). If the input date falls within one of
-#'   the specified months, the window is automatically shifted one year
-#'   back to avoid using incomplete data -- months given out of calendar
-#'   order (e.g. `c(12, 1, 2)` for winter) correctly span a year boundary,
-#'   with no special tagging needed. Cannot be combined with `time_span`.
+#'   individual days, not months). The most recent complete period before
+#'   the observation is used, i.e. the selected months must end before the
+#'   month of the observation starts. Months given out of calendar order
+#'   (e.g. `c(12, 1, 2)` for winter) span a year boundary. Cannot be
+#'   combined with `time_span`.
 #' @param buffer Numeric value specifying the buffer radius in metres to
 #'   be applied around each geometry. The default is `0`, corresponding to a
 #'   direct cell match; values greater than 0 generate a spatial buffer
@@ -915,6 +915,7 @@ link_daily.SpatRaster <- function(.data,
       stat_wrangling_list = list(stat_wrangling),
       indicator           = indicator,
       prefix              = prefix,
+      focal_values        = extracted,
       obs_raster          = obs_raster,
       baseline_raster     = baseline_raster,
       cache               = cache,

@@ -72,7 +72,8 @@
     baseline_values,
     focal_value,
     stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
-    baseline_fun   = function(x) mean(x, na.rm = TRUE)
+    baseline_fun   = function(x) mean(x, na.rm = TRUE),
+    ...
 ) {
   UseMethod(".compute_stat_wrangling")
 }
@@ -83,7 +84,8 @@
     baseline_values,
     focal_value,
     stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
-    baseline_fun   = function(x) mean(x, na.rm = TRUE)
+    baseline_fun   = function(x) mean(x, na.rm = TRUE),
+    ...
 ) {
   stat_wrangling <- match.arg(stat_wrangling)
   reference_stat <- baseline_fun(baseline_values)
@@ -104,7 +106,9 @@
     baseline_values,
     focal_value,
     stat_wrangling = c("deviation", "sd_deviation", "count_above", "count_below"),
-    baseline_fun   = function(x) mean(x, na.rm = TRUE)
+    baseline_fun   = function(x) mean(x, na.rm = TRUE),
+    focal_days     = NULL,
+    ...
 ) {
   stat_wrangling <- match.arg(stat_wrangling)
 
@@ -118,8 +122,9 @@
   result <- switch(stat_wrangling,
                    deviation    = focal_value - reference_stat,
                    sd_deviation = (focal_value - reference_stat) / terra::stdev(baseline_values, na.rm = TRUE),
-                   count_above  = sum(terra::ifel(baseline_values > focal_value, 1, 0), na.rm = TRUE),
-                   count_below  = sum(terra::ifel(baseline_values < focal_value, 1, 0), na.rm = TRUE)
+                   # Count the study days (one layer each), as for sf input
+                   count_above  = sum((focal_days %||% focal_value) > reference_stat, na.rm = TRUE),
+                   count_below  = sum((focal_days %||% focal_value) < reference_stat, na.rm = TRUE)
   )
 
   list(reference_stat = reference_stat, result = result)
@@ -315,7 +320,8 @@
       baseline_values = baseline_raster,
       focal_value     = focal_layer,
       stat_wrangling  = stat_wrangling_list[[1]],
-      baseline_fun    = baseline_fun_list[[1]]
+      baseline_fun    = baseline_fun_list[[1]],
+      focal_days      = focal_values
     )
 
     baseline_layer        <- baseline_result$reference_stat

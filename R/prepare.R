@@ -37,25 +37,17 @@
 #' @returns A Date vector (first day of each resolved month)
 #' @noRd
 .resolve_months <- function(date, months) {
-  current_month <- lubridate::month(date)
-  current_year  <- lubridate::year(date)
+  # The most recent complete season before the observation: it must end
+  # before the month of the observation starts
+  obs_month <- lubridate::floor_date(as_date(date), "month")
 
-  # If any requested month overlaps with current month, shift window one year back
-  ref_year <- if (any(months %in% current_month)) {
-    current_year - 1L
-  } else {
-    current_year
-  }
+  # Year offset per month; a decrease in month number crosses a year boundary
+  offsets <- cumsum(c(0L, as.integer(diff(months) < 0)))
+  season  <- function(y) as.Date(paste(y + offsets, months, "01", sep = "-"))
 
-  # Assign years sequentially, detecting year boundary crossings
-  years <- integer(length(months))
-  y     <- ref_year
-  for (i in seq_along(months)) {
-    if (i > 1L && months[i] < months[i - 1L]) y <- y + 1L
-    years[i] <- y
-  }
-
-  as.Date(paste(years, months, "01", sep = "-"))
+  y <- lubridate::year(date)
+  while (max(season(y)) >= obs_month) y <- y - 1L
+  season(y)
 }
 
 
