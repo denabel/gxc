@@ -8,7 +8,7 @@ local_key(service = "dwd")
 # -------------------------------------------------------------------------
 
 test_that("link_daily.sf study values match direct terra::extract (ERA5)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -33,7 +33,7 @@ test_that("link_daily.sf study values match direct terra::extract (ERA5)", {
 
 
 test_that("link_daily.sf baseline matches direct terra::extract (ERA5)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -73,7 +73,7 @@ test_that("link_daily.sf baseline matches direct terra::extract (ERA5)", {
 
 
 test_that("link_daily.sf with time_span matches aggregated terra::extract (ERA5)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts_lag <- test_pts(seq = FALSE)
   pts_lag$date <- pts_lag$date + days(1)
@@ -121,7 +121,7 @@ test_that("link_daily.sf with time_span matches aggregated terra::extract (ERA5)
 # -------------------------------------------------------------------------
 
 test_that("link_monthly.sf study values match direct terra::extract (ERA5)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -146,7 +146,7 @@ test_that("link_monthly.sf study values match direct terra::extract (ERA5)", {
 
 
 test_that("link_monthly.sf baseline matches direct terra::extract (ERA5)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -189,7 +189,7 @@ test_that("link_monthly.sf baseline matches direct terra::extract (ERA5)", {
 # -------------------------------------------------------------------------
 
 test_that("link_daily.sf study values match direct terra::extract (DWD)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts_dwd(seq = FALSE)
   cache <- test_cache()
@@ -217,7 +217,7 @@ test_that("link_daily.sf study values match direct terra::extract (DWD)", {
 
 
 test_that("link_daily.sf baseline matches direct terra::extract (DWD)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts_dwd(seq = FALSE)
   cache <- test_cache()
@@ -261,7 +261,7 @@ test_that("link_daily.sf baseline matches direct terra::extract (DWD)", {
 # -------------------------------------------------------------------------
 
 test_that("link_monthly.sf study values match direct terra::extract (DWD)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts_dwd(seq = FALSE)
   cache <- test_cache()
@@ -284,7 +284,7 @@ test_that("link_monthly.sf study values match direct terra::extract (DWD)", {
 
 
 test_that("link_monthly.sf baseline matches direct terra::extract (DWD)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts_dwd(seq = FALSE)
   cache <- test_cache()

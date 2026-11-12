@@ -1,5 +1,5 @@
 test_that("link_daily with months produces the correct full daily window", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -24,7 +24,7 @@ test_that("link_daily with months produces the correct full daily window", {
 })
 
 test_that("link_daily months matches a manually constructed equivalent time_span/date_var", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -103,7 +103,7 @@ test_that("months spanning a year boundary (winter) resolves correctly (no downl
 })
 
 test_that("link_daily errors when months and time_span are both specified", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts <- test_pts(seq = FALSE)
 

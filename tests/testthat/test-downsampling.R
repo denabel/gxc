@@ -1,5 +1,5 @@
 test_that("link_daily with downsample_factor produces a small, non-zero difference vs full resolution (buffer)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -30,7 +30,7 @@ test_that("link_daily with downsample_factor produces a small, non-zero differen
 })
 
 test_that("link_daily downsampling is NOT applied to point extraction (buffer = 0)", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -56,7 +56,7 @@ test_that("link_daily downsampling is NOT applied to point extraction (buffer = 
 })
 
 test_that(".sub_layers() correctly re-subsets the coarse attribute", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   cache <- test_cache()
 

@@ -9,3 +9,5 @@
 ^\.claude$
 ^CONTRIBUTING\.md$
 .vscode
+^tests/testthat/fixtures$
+^tests/testthat/setup-fixtures\.R$

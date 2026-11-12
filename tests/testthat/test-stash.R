@@ -1,3 +1,5 @@
+skip_if_no_fixtures()
+
 local_key(service = "ecmwfr")
 
 # Builds a daily ERA5 request keyed as .submit_batch() stores it

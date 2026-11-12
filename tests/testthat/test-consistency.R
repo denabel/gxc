@@ -1,7 +1,7 @@
 local_key(service = "ecmwfr")
 
 test_that("rbind works on two link_daily results with different specs", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -31,7 +31,7 @@ test_that("rbind works on two link_daily results with different specs", {
 
 
 test_that("two prefix calls do not overwrite each other", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -55,7 +55,7 @@ test_that("two prefix calls do not overwrite each other", {
 
 
 test_that("link_daily and link_monthly produce consistent column structure", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -82,7 +82,7 @@ test_that("link_daily and link_monthly produce consistent column structure", {
 
 
 test_that("result with baseline is always study minus baseline for deviation", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -106,7 +106,7 @@ test_that("result with baseline is always study minus baseline for deviation", {
 
 
 test_that("prefix produces same values as no prefix", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -143,7 +143,7 @@ test_that("prefix produces same values as no prefix", {
 # -------------------------------------------------------------------------
 
 test_that("link_daily.sf keeps geometries aligned with input order when dates are unsorted", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts_seq <- test_pts(seq = TRUE)          # row 1: 2014-08-01, row 2: 2014-08-02
   pts     <- pts_seq[rev(seq_len(nrow(pts_seq))), ]   # reversed -> dates unsorted
@@ -168,7 +168,7 @@ test_that("link_daily.sf keeps geometries aligned with input order when dates ar
 
 
 test_that("link_monthly.sf keeps geometries aligned with input order when dates are unsorted", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts_seq_monthly <- test_pts(seq = TRUE)
   pts_seq_monthly$date <- as_date(c("2014-08-01", "2014-09-01"))

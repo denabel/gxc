@@ -18,7 +18,7 @@ for (cat in names(allowed_indicators_by_catalogue)) {
   for (ind in indicators) {
     test_that(sprintf("'%s' / '%s' returns data", cat, ind), {
       fail_on_request()
-      skip_on_cran()
+      skip_if_no_fixtures()
       cache <- test_cache()
       local_test_index(cache, service = service)
 
@@ -34,7 +34,7 @@ for (cat in names(allowed_indicators_by_catalogue)) {
 
   if (length(indicators) > 1) {
     test_that(sprintf("'%s' returns distinct values across indicators", cat), {
-      skip_on_cran()
+      skip_if_no_fixtures()
       options(".__gxc_fail_on_request__." = TRUE)
       on.exit(options(".__gxc_fail_on_request__." = NULL), add = TRUE)
 

@@ -201,20 +201,19 @@ temp_file <- function(...) {
   normalizePath(file)
 }
 
-local_key <- function(service = "ecmwfr", user = NULL, key = "test",
-                      .envir = parent.frame()) {
-  user <- user %||% service
-  keys <- keyring::key_list(service = service)
-  if (user %in% keys$username) return(NULL)
-  keyring::key_set_with_value(service, user = user, password = key)
-  do.call(
-    on.exit,
-    list(bquote(
-      keyring::key_delete(
-        service = .(service),
-        user    = .(user)
-      )
-    )),
-    envir = .envir
-  )
+# Provides a dummy CDS API key for the calling test file via the
+# ecmwfr_PAT environment variable. Never touches the system keyring, so it
+# is safe on CRAN. Keeps a key that is already set in the environment.
+local_key <- function(service = "ecmwfr", key = "test", .envir = parent.frame()) {
+  if (service != "ecmwfr" || nzchar(Sys.getenv("ecmwfr_PAT"))) {
+    return(invisible())
+  }
+  withr::local_envvar(ecmwfr_PAT = key, .local_envir = .envir)
+}
+
+# Skips tests that need the download fixtures. These are excluded from the
+# package build, so the tests only run from the source repository.
+skip_if_no_fixtures <- function() {
+  skip_on_cran()
+  skip_if_not(dir.exists(test_path("fixtures")), "Download fixtures not available")
 }

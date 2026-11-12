@@ -96,7 +96,7 @@ test_that("days not yet in the store abort with a clear message", {
 })
 
 test_that("ARCO matches the CDS daily statistics catalogue", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -113,7 +113,7 @@ test_that("ARCO matches the CDS daily statistics catalogue", {
 })
 
 test_that("ARCO baseline deviation is computed from cached files", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -129,7 +129,7 @@ test_that("ARCO baseline deviation is computed from cached files", {
 })
 
 test_that("ARCO precipitation daily sums are labelled per day", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()

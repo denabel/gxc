@@ -1,5 +1,5 @@
 test_that("link_daily with baseline_fun list matches independent single calls", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -34,7 +34,7 @@ test_that("link_daily with baseline_fun list matches independent single calls", 
 })
 
 test_that("link_daily with baseline_fun list of length 1 recycled against longer stat_wrangling", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()
@@ -63,7 +63,7 @@ test_that("link_daily with baseline_fun list of length 1 recycled against longer
 })
 
 test_that("link_daily errors on mismatched baseline_fun/stat_wrangling list lengths", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts <- test_pts(seq = FALSE)
 
@@ -79,7 +79,7 @@ test_that("link_daily errors on mismatched baseline_fun/stat_wrangling list leng
 })
 
 test_that("link_daily with baseline_fun list, both count_above and count_below", {
-  skip_on_cran()
+  skip_if_no_fixtures()
   fail_on_request()
   pts   <- test_pts(seq = FALSE)
   cache <- test_cache()

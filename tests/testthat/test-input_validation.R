@@ -1,3 +1,5 @@
+local_key(service = "ecmwfr")
+
 test_that("link_daily errors on invalid catalogue", {
   pts <- test_pts()
   expect_error(
@@ -118,4 +120,3 @@ test_that("link_daily errors on invalid DWD indicator", {
     "Invalid"
   )
 })
-
