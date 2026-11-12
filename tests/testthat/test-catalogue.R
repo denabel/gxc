@@ -11,7 +11,7 @@ local_key(service = "dwd")
 pt <- test_pts(seq = FALSE)
 
 for (cat in names(allowed_indicators_by_catalogue)) {
-  fn         <- if (grepl("daily", cat)) "link_daily"   else "link_monthly"
+  fn         <- if (cat %in% allowed_catalogues_daily) "link_daily" else "link_monthly"
   service    <- if (grepl("dwd",   cat)) "dwd"          else "ecmwfr"
   indicators <- allowed_indicators_by_catalogue[[cat]]
 

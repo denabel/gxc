@@ -2,6 +2,56 @@
 
 ## New features
 
+### Experimental ARCO catalogue for ERA5-Land (`"arco-era5-land-daily"`)
+
+Requests to the Copernicus CDS are processed through a shared queue. A
+single request can wait up to an hour or more, so long baselines can take
+hours even though the data volume is small.
+
+The new experimental catalogue `"arco-era5-land-daily"` for `link_daily()`
+bypasses the queue: it downloads hourly ERA5-Land data directly from
+ECMWF's Analysis Ready Cloud Optimised (ARCO) Zarr store, in parallel, and
+computes daily statistics (`daily_mean`, `daily_maximum`, `daily_minimum`,
+`daily_sum`) locally, including the `time_zone` shift. Values are identical
+to `"derived-era5-land-daily-statistics"` up to floating-point precision.
+In a test with 100 points, a 30-day window and a two-year baseline, the
+run took 1.6 minutes instead of almost an hour.
+
+```r
+link_daily(
+  pts,
+  indicator = "total_precipitation",
+  catalogue = "arco-era5-land-daily",
+  statistic = "daily_sum",
+  baseline  = c("1991", "2020")
+)
+```
+
+- Available indicators (20): `2m_temperature`, `2m_dewpoint_temperature`,
+  `skin_temperature`, `soil_temperature_level_1` to `_4`,
+  `volumetric_soil_water_layer_1` to `_4`, `total_precipitation`,
+  `snowfall`, `snow_cover`, `snow_depth`, `surface_pressure`,
+  `10m_u_component_of_wind`, `10m_v_component_of_wind`,
+  `surface_solar_radiation_downwards` and
+  `surface_thermal_radiation_downwards`. Unlike the CDS daily statistics
+  catalogue for ERA5-Land, ARCO also provides accumulated variables such as
+  precipitation, snowfall and radiation; use `statistic = "daily_sum"` for
+  their daily totals.
+- Validated against the CDS: daily values match
+  `"derived-era5-land-daily-statistics"` to floating-point precision for
+  all statistics, time zones, time windows, buffers and baselines tested;
+  monthly averages of daily values match
+  `"reanalysis-era5-land-monthly-means"`.
+- Requires a CDS API key and the suggested packages `curl`, `blosc` and
+  `jsonlite`. Reading already cached days needs none of these.
+- ARCO offers each variable in a geo-chunked layout (long periods, small
+  areas) and a time-chunked layout (short periods, large areas). The layout
+  with the smaller estimated transfer is chosen automatically.
+- Downloaded days are cached as one `.tif` per day under `path/arco/`.
+- The most recent few days are not yet in the store; requests for them
+  abort with a hint to use the CDS catalogue instead.
+- Experimental: interface and caching may change in future versions.
+
 ### Baseline statistics (`stat_wrangling`)
 
 `link_daily()` and `link_monthly()` now support a `stat_wrangling` argument that
@@ -412,6 +462,18 @@ two file sets as a whole are different cache entries.
 
 ## Bug fixes
 
+- Fixed wrong monthly values for accumulated ERA5-Land indicators (e.g.
+  `total_precipitation`, `snowfall`, radiation) from September 2022 to
+  February 2024. ECMWF's `"monthly_averaged_reanalysis"` product contains
+  incorrect data for this period, which will not be replaced; precipitation
+  came out at roughly half its true value. `link_monthly()` now requests
+  `"monthly_averaged_reanalysis_by_hour_of_day"` at 00:00 for accumulated
+  indicators of `"reanalysis-era5-land-monthly-means"`, as recommended by
+  ECMWF, for all months. Cached monthly files of these indicators are
+  downloaded again.
+- Fixed the citation of `"derived-era5-land-daily-statistics"`, which used
+  the DOI of the hourly ERA5-Land dataset (`10.24381/cds.e2161bac`) instead
+  of the daily statistics dataset (`10.24381/cds.e9c9c792`).
 - Fixed ERA5 monthly date matching for indicators that store values on the last
   day of the preceding month (e.g. `total_precipitation`, `instantaneous_10m_wind_gust`,
   `snowfall`). A nearest-neighbour fallback within 31 days is now used when no
@@ -592,6 +654,12 @@ downloads these data again.
 
 ## Internal changes
 
+- New `arco.R` with `.request_arco_daily()` and helpers: reading Zarr
+  metadata and coordinates (`.arco_store_meta()`), choosing the layout
+  (`.arco_plan()`), parallel chunk download with retries (`.arco_fetch()`),
+  Blosc decoding (`.arco_decode()`) and streaming daily aggregation
+  (`.arco_read_daily()`). `.catalogue_source()` returns `"arco"` for the
+  new catalogue, and `.request_climate_daily()` dispatches to it.
 - New internal functions `.build_era5_daily_request()`,
   `.build_era5_monthly_request()`, `.submit_era5_batch()`, and
   `.submit_era5_monthly_batch()` separate request construction from submission,

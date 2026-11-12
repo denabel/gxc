@@ -201,10 +201,14 @@ dataset. Default is \code{NULL} (no prefix).}
 
 \item{catalogue}{Character string specifying which catalogue to use.
 Options are \code{"derived-era5-land-daily-statistics"} (default),
-\code{"derived-era5-single-levels-daily-statistics"}, or \code{"dwd-hyras-daily"}.}
+\code{"derived-era5-single-levels-daily-statistics"}, \code{"dwd-hyras-daily"}, or
+\code{"arco-era5-land-daily"}. The latter is experimental: it reads hourly ERA5-Land data from ECMWF's Analysis Ready Cloud
+Optimised (ARCO) store and computes daily statistics locally, bypassing
+the CDS request queue. Requires a CDS API key and the packages \code{curl},
+\code{blosc} and \code{jsonlite}.}
 
 \item{statistic}{Character string specifying the type of daily statistic
-to download. ERA5 only. Options are \code{"daily_mean"} (default),
+to download. ERA5 and ARCO only. Options are \code{"daily_mean"} (default),
 \code{"daily_maximum"}, \code{"daily_minimum"}, and \code{"daily_sum"}. Accumulated
 indicators such as \code{"total_precipitation"} are stored as hourly amounts,
 so \code{"daily_mean"} returns the mean amount per hour (unit e.g. \code{"m/h"});
@@ -212,7 +216,7 @@ use \code{"daily_sum"} for daily totals (unit e.g. \code{"m/day"}). \code{"daily
 is only available for accumulated indicators.}
 
 \item{time_zone}{Character string specifying the time zone to use for
-daily aggregation. ERA5 only. Default is \code{"utc+00:00"}.}
+daily aggregation. ERA5 and ARCO only. Default is \code{"utc+00:00"}.}
 
 \item{cache_results}{Logical, default \code{FALSE}. If \code{TRUE}, caches the
 final per-date result (after extraction and aggregation) to disk, so a

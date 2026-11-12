@@ -38,3 +38,9 @@ test_that("daily_sum is only allowed for accumulated ERA5 indicators", {
   expect_no_error(.check_valid_statistic("daily_mean", "2m_temperature", cat_daily))
   expect_error(.check_valid_statistic("daily_median", "2m_temperature", cat_daily), "Invalid")
 })
+
+test_that("ARCO units follow the statistic", {
+  expect_equal(.indicator_unit("total_precipitation", "arco-era5-land-daily", "daily_mean"), "m/h")
+  expect_equal(.indicator_unit("total_precipitation", "arco-era5-land-daily", "daily_sum"), "m/day")
+  expect_equal(.indicator_unit("2m_temperature", "arco-era5-land-daily", "daily_mean"), "K")
+})

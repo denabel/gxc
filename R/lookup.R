@@ -72,7 +72,7 @@ lookup <- function(indicator) {
 # One row of catalogue-specific metadata for an indicator.
 .catalogue_details <- function(catalogue, indicator) {
   daily_era5 <- catalogue %in% allowed_catalogues_daily &&
-    .catalogue_source(catalogue) == "era5"
+    .catalogue_source(catalogue) %in% c("era5", "arco")
   accum      <- indicator %in% .accumulated_indicators
 
   statistics <- if (daily_era5) {

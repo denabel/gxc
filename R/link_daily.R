@@ -101,16 +101,20 @@
 #'   dataset. Default is `NULL` (no prefix).
 #' @param catalogue Character string specifying which catalogue to use.
 #'   Options are `"derived-era5-land-daily-statistics"` (default),
-#'   `"derived-era5-single-levels-daily-statistics"`, or `"dwd-hyras-daily"`.
+#'   `"derived-era5-single-levels-daily-statistics"`, `"dwd-hyras-daily"`, or
+#'   `"arco-era5-land-daily"`. The latter is experimental: it reads hourly ERA5-Land data from ECMWF's Analysis Ready Cloud
+#'   Optimised (ARCO) store and computes daily statistics locally, bypassing
+#'   the CDS request queue. Requires a CDS API key and the packages `curl`,
+#'   `blosc` and `jsonlite`.
 #' @param statistic Character string specifying the type of daily statistic
-#'   to download. ERA5 only. Options are `"daily_mean"` (default),
+#'   to download. ERA5 and ARCO only. Options are `"daily_mean"` (default),
 #'   `"daily_maximum"`, `"daily_minimum"`, and `"daily_sum"`. Accumulated
 #'   indicators such as `"total_precipitation"` are stored as hourly amounts,
 #'   so `"daily_mean"` returns the mean amount per hour (unit e.g. `"m/h"`);
 #'   use `"daily_sum"` for daily totals (unit e.g. `"m/day"`). `"daily_sum"`
 #'   is only available for accumulated indicators.
 #' @param time_zone Character string specifying the time zone to use for
-#'   daily aggregation. ERA5 only. Default is `"utc+00:00"`.
+#'   daily aggregation. ERA5 and ARCO only. Default is `"utc+00:00"`.
 #' @param method Character string specifying the resampling method to use
 #'   when aligning the downloaded raster with the input grid. SpatRaster
 #'   input only. Options include `"bilinear"` (default), `"near"`, `"cubic"`,
