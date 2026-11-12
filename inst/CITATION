@@ -1,11 +1,13 @@
-citHeader("To cite gxc in publications use:")
-
 bibentry(
-  key = "gxc",
-  bibtype  = "Manual",
-  title    = "gxc: Easy Access to Earth Observation Data",
-  author = c(person("Dennis", "Abel"), person("Stefan", "Juenger")),
-  note  = "R package version 0.1.0",
-  year     = "2025",
-  url      = "https://github.com/denabel/gxc"
+  bibtype = "Manual",
+  header  = "To cite gxc in publications use:",
+  title   = "gxc: Easy Access to Earth Observation Data",
+  author  = c(
+    person("Dennis", "Abel"),
+    person("Stefan", "J\u00fcnger"),
+    person("Jonas", "Lieth")
+  ),
+  year    = "2026",
+  note    = sprintf("R package version %s", meta$Version),
+  url     = "https://github.com/denabel/gxc"
 )
