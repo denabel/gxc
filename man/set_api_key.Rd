@@ -4,15 +4,12 @@
 \alias{set_api_key}
 \title{Set API keys}
 \usage{
-set_api_key(service = "ecmwfr", user = NULL)
+set_api_key(service = "ecmwfr")
 }
 \arguments{
 \item{service}{Service for which an API key should be stored. Currently,
 only \code{ecmwfr} is supported, which is used in \code{\link{link_daily}} and
 \code{\link{link_monthly}}.}
-
-\item{user}{Optionally, a user name if multiple keys are set for a single
-service. Not necessary most of the time.}
 }
 \value{
 \code{NULL}, invisibly.

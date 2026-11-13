@@ -113,8 +113,8 @@ in \code{.data}. Defaults to \code{"date"}.}
 
 \item{time_span}{Integer specifying the time span in days for averaging the
 climate indicator values prior to linking with the spatial data. A value
-of \code{0} (default) uses only the exact date; values greater than \code{0}
-aggregate over a rolling window of that many days before the date.}
+of \code{0} (default) uses only the exact date; a value \code{n > 0} aggregates
+over the date and the \code{n} days before it (\code{n + 1} days in total).}
 
 \item{time_lag}{Integer specifying the time lag to shift the \code{date_var}
 backward before extraction. Default is \code{0}. For \code{link_daily()}, this
@@ -126,10 +126,11 @@ normalized to its containing month before matching against
 monthly-resolution rasters anyway.}
 
 \item{months}{Optional integer vector specifying explicit months to use as
-the study period (e.g. \code{c(3, 4, 5)} for spring). If the input date falls
-within one of the specified months, the window is automatically shifted
-one year back to avoid using incomplete data. Cannot be combined with
-\code{time_span}.}
+the study period (e.g. \code{c(3, 4, 5)} for spring). The most recent complete
+period before the observation is used, i.e. the selected months must
+end before the month of the observation starts. Months given out of
+calendar order (e.g. \code{c(12, 1, 2)} for winter) span a year boundary.
+Cannot be combined with \code{time_span}.}
 
 \item{buffer}{Numeric value specifying the buffer radius in metres to
 be applied around each geometry. The default is \code{0}, corresponding to a

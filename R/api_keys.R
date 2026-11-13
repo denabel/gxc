@@ -6,8 +6,6 @@
 #' @param service Service for which an API key should be stored. Currently,
 #' only `ecmwfr` is supported, which is used in \code{\link{link_daily}} and
 #' \code{\link{link_monthly}}.
-#' @param user Optionally, a user name if multiple keys are set for a single
-#' service. Not necessary most of the time.
 #'
 #' @returns \code{NULL}, invisibly.
 #'
@@ -17,7 +15,7 @@
 #' \dontrun{
 #' set_api_key("ecmwfr")
 #' }
-set_api_key <- function(service = "ecmwfr", user = NULL) {
+set_api_key <- function(service = "ecmwfr") {
   if (!interactive()) {
     cli::cli_abort(c(
       "Cannot open a key prompt in a non-interactive session.",
@@ -27,7 +25,7 @@ set_api_key <- function(service = "ecmwfr", user = NULL) {
 
   keyring::key_set(
     service,
-    username = user,
+    username = service,
     prompt = sprintf("Enter your API key for service %s", service)
   )
 
