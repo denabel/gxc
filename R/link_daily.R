@@ -454,7 +454,7 @@ link_daily.sf <- function(.data,
   # Phase 1: Submit all requests upfront as a single batch
   # -------------------------------------------------------------------------
 
-  global_extent <- .get_extent(prepared)
+  global_extent <- .get_extent(prepared, .catalogue_grid(catalogue))
 
   all_spans <- lapply(splits, function(splitted) {
     p <- .transform_time(
@@ -786,7 +786,7 @@ link_daily.SpatRaster <- function(.data,
   prepared <- terra::project(.data, "EPSG:4326")
 
   temporals    <- .transform_time(prepared, time_span = time_span, time_lag = time_lag)
-  global_extent <- .get_extent(prepared)
+  global_extent <- .get_extent(prepared, .catalogue_grid(catalogue))
   all_obs_span  <- sort(unique(do.call(c, lapply(temporals$time_span_seq, as_date))))
 
   if (verbose) {

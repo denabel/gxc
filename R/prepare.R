@@ -2,6 +2,14 @@
 #' @param x sf dataframe
 #' @returns A vector of length 4
 #' @noRd
+# Grid spacing of a catalogue in degrees. The request extent must be snapped
+# to this grid, otherwise grid cells covering observations at the edge of
+# the extent are cut off.
+.catalogue_grid <- function(catalogue) {
+  if (grepl("single-levels", catalogue)) 0.25 else 0.1
+}
+
+
 .get_extent <- function(.data, grid_resolution = 0.1) {
   .snap_to_grid <- function(x, resolution, direction = c("floor", "ceiling")) {
     direction <- match.arg(direction)

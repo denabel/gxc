@@ -462,6 +462,11 @@ two file sets as a whole are different cache entries.
 
 ## Bug fixes
 
+- Fixed observations at the edge of the data being dropped (`NA`) for the
+  ERA5 single-levels catalogues. The request extent was snapped to the
+  0.1° grid of ERA5-Land, so grid cells of the 0.25° ERA5 grid covering
+  edge observations could be cut off. The extent is now snapped to the grid
+  of the requested catalogue.
 - `months` now always selects the most recent complete period before the
   observation: the selected months must end before the month of the
   observation starts. Previously, months later in the same year could be

@@ -234,7 +234,8 @@
     request_args <- list(
       indicator = indicator,
       catalogue = list(...)$catalogue,
-      extent    = list(...)$extent %||% .get_extent(.data),
+      extent    = list(...)$extent %||%
+        .get_extent(.data, .catalogue_grid(list(...)$catalogue %||% "")),
       years     = format(baseline_span, "%Y"),
       months    = format(baseline_span, "%m"),
       days      = format(baseline_span, "%d"),
