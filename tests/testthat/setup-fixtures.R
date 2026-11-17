@@ -1,13 +1,18 @@
 # tests/testthat/setup-fixtures.R
+#
+# Creates the download fixtures used by the tests. Never run automatically
+# (wrapped in `if (FALSE)`); excluded from the package build together with
+# the fixtures. To (re)create fixtures, run the relevant blocks manually
+# from the package root.
 if (FALSE) {
 
-  library(gxc)
+  devtools::load_all()
+  testthat::source_test_helpers("tests/testthat", env = globalenv())
 
   go_on_request()
 
   cache_path <- file.path("tests", "testthat", "fixtures")
   dir.create(cache_path, showWarnings = FALSE, recursive = TRUE)
-  dir.create(cache_path,  showWarnings = FALSE, recursive = TRUE)
 
   pts     <- test_pts(seq = FALSE)
   pts_seq <- test_pts(seq = TRUE)
@@ -97,8 +102,8 @@ if (FALSE) {
 
   # months — needs a FULL month of daily files (31 days), unlike the
   # time_span-based fixtures above (0 or 1 day). pts$date is 2014-08-01;
-  # months = c(8) includes the observation's own month, so the window is
-  # shifted back one year to 2013-08-01 through 2013-08-31.
+  # months always resolve to the most recent complete period before the
+  # observation, so months = c(8) gives 2013-08-01 through 2013-08-31.
   link_daily(pts, indicator = "2m_temperature",
              months = c(8),
              cache = TRUE, path = cache_path)
@@ -174,7 +179,7 @@ if (FALSE) {
                stat_wrangling = "deviation",
                cache = TRUE, path = cache_path)
 
-  reset_test_index(cache_path, service = "ecmwfr")
+  reset_test_index(file.path(cache_path, "era5"), service = "ecmwfr")
 
   # -----------------------------------------------------------------------
   # DWD fixtures
@@ -248,7 +253,7 @@ if (FALSE) {
                catalogue = "dwd-monthly",
                cache = TRUE, path = cache_path)
 
-  reset_test_index(cache_path, service = "dwd")
+  reset_test_index(file.path(cache_path, "dwd"), service = "dwd")
 
   # -----------------------------------------------------------------------
   # ARCO fixtures (experimental) -- one .tif per day under arco/daily/,
@@ -273,27 +278,20 @@ if (FALSE) {
              statistic = "daily_sum",
              cache = TRUE, path = cache_path)
 
-  # Precipitation, default statistic -- used by test-catalogue.R
-  link_daily(pts, indicator = "total_precipitation",
-             catalogue = "arco-era5-land-daily",
-             cache = TRUE, path = cache_path)
-
-  for (ind in allowed_indicators_by_catalogue[["arco-era5-land-daily"]]) {
-    message(ind)
-    link_daily(pts, indicator = ind, catalogue = "arco-era5-land-daily",
-               cache = TRUE, path = "tests/testthat/fixtures", verbose = FALSE)
-  }
+  # All other ARCO indicators (default statistic) are created by the
+  # catalogue coverage loop below.
 
   # -----------------------------------------------------------------------
   # Catalogue coverage fixtures — one request per indicator per catalogue,
-  # as small as possible (single point, single date)
+  # as small as possible (two points, single date). Used by
+  # test-catalogue.R. Also covers the ERA5 single-levels catalogues, whose
+  # extent is snapped to their 0.25 degree grid.
   # -----------------------------------------------------------------------
-  #
+
   failed <- character(0)
 
   for (cat in names(allowed_indicators_by_catalogue)) {
-    fn      <- if (cat %in% allowed_catalogues_daily) "link_daily" else "link_monthly"
-    service <- if (grepl("dwd",   cat)) "dwd"          else "ecmwfr"
+    fn <- if (cat %in% allowed_catalogues_daily) "link_daily" else "link_monthly"
 
     for (ind in allowed_indicators_by_catalogue[[cat]]) {
       message(paste0(cat, ": ", ind, "\n"))
@@ -308,13 +306,13 @@ if (FALSE) {
     }
   }
 
-  reset_test_index(cache_path, service = "ecmwfr")
-  reset_test_index(cache_path, service = "dwd")
+  reset_test_index(file.path(cache_path, "era5"), service = "ecmwfr")
+  reset_test_index(file.path(cache_path, "dwd"), service = "dwd")
 
   if (length(failed) > 0) {
     message("The following catalogue/indicator combinations failed:\n",
             paste0("  - ", failed, collapse = "\n"))
   }
 
-  message("All fixtures generated successfully.")
+  message("Fixture generation finished.")
 }
